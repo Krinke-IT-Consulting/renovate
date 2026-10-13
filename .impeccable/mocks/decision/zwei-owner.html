@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Zwei Owner</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1A2744;--blue:#2B4C9B;--wood:#8B5E3C;--olive:#6B8E23;--olive-d:#55711C;--surface:#F8F9FA;--paper:#fff;--muted:#525866;--red:#B4342D;--amber:#B7791F}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--paper);font:15px/1.5 Inter,sans-serif;color:var(--ink)}
+header{height:64px;display:flex;align-items:center;padding:0 40px;gap:40px;border-bottom:1px solid rgb(43 76 155/.12)}
+.logo{font:700 17px Montserrat;color:var(--blue)}
+nav{display:flex;gap:28px;font-weight:500;font-size:14px}
+nav a.on{color:var(--blue);border-bottom:2px solid var(--olive);padding:21px 0}
+.sync{margin-left:auto;font-size:13px;color:var(--muted)}
+.status{padding:28px 40px;background:var(--surface);display:flex;align-items:baseline;gap:24px}
+.status h1{font:700 30px Montserrat}
+.status h1 em{font-style:normal;color:var(--red)}
+.status p{color:var(--muted)}
+.lanes{display:grid;grid-template-columns:1fr 120px 1fr;padding:28px 40px 0;gap:0}
+.lane h2{font:700 20px Montserrat;color:var(--blue);display:flex;justify-content:space-between;align-items:baseline}
+.lane h2 small{font:500 13px Inter;color:var(--wood)}
+.health{display:flex;height:10px;border-radius:99px;overflow:hidden;margin:14px 0 20px}
+.health i{display:block}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:14px 0;border-top:1px solid rgb(43 76 155/.1)}
+.tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px}
+.sec{background:#FBEAE8;color:var(--red)}.maj{background:#EEF2FA;color:var(--blue)}.onb{background:#F4ECE5;color:var(--wood)}.stale{background:#FFF5E6;color:var(--amber)}
+.row small{display:block;color:var(--muted);font-size:13px}
+.btn{background:var(--olive-d);color:#fff;font-size:14px;font-weight:500;padding:8px 14px;border-radius:6px}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid rgb(43 76 155/.25)}
+.bus{position:relative;display:flex;flex-direction:column;align-items:center;gap:56px;padding-top:40px}
+.bus:before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:rgb(43 76 155/.3)}
+.node{position:relative;z-index:1;background:var(--blue);color:#fff;border-radius:50%;width:64px;height:64px;display:grid;place-items:center;text-align:center;font:700 20px/1 Montserrat}
+.node span{font:500 10px Inter;display:block;margin-top:2px}
+.node.r{background:var(--red)}.node.o{background:var(--paper);color:var(--blue);border:2px solid var(--blue)}
+</style></head><body>
+<header><div class="logo">Krinke-IT · Update Zentrale</div><nav><a class="on">Übersicht</a><a>Repos</a><a>Pull Requests</a><a>Jobs</a><a>Probleme</a></nav><div class="sync">Abgeglichen vor 2 Min. · Beispieldaten</div></header>
+<div class="status"><h1><em>6 Dinge</em> brauchen Sie</h1><p>23 von 25 Repos aktuell · nächster Lauf 03:00</p></div>
+<div class="lanes">
+<section class="lane"><h2>Hiwamashi <small>14 Repos</small></h2>
+<div class="health"><i style="flex:11;background:rgb(107 142 35/.55)"></i><i style="flex:2;background:var(--red)"></i><i style="flex:1;background:var(--amber)"></i></div>
+<div class="row"><span class="tag sec">Sicherheit</span><div><b>jinja2 3.1.4 → 3.1.6</b> · lector<small>GHSA-q2x7 · PR #58 seit 3 Tagen</small></div><span class="btn">Mergen</span></div>
+<div class="row"><span class="tag sec">Build rot</span><div><b>expo 53 → 54</b> · growly-babytracker<small>pod install fehlgeschlagen</small></div><span class="btn ghost">Log</span></div>
+<div class="row"><span class="tag stale">Hängt</span><div><b>react-native 0.79 → 0.81</b> · growly-babytracker-webapp<small>seit 19 Tagen offen</small></div><span class="btn ghost">Ansehen</span></div>
+</section>
+<div class="bus"><div class="node r">2<span>Sicherheit</span></div><div class="node">14<span>PRs</span></div><div class="node o">23/25<span>onboarded</span></div></div>
+<section class="lane"><h2>Krinke-IT-Consulting <small>11 Repos</small></h2>
+<div class="health"><i style="flex:8;background:rgb(107 142 35/.55)"></i><i style="flex:1;background:var(--red)"></i><i style="flex:1;background:var(--amber)"></i><i style="flex:1;background:rgb(139 94 60/.4)"></i></div>
+<div class="row"><span class="tag sec">Sicherheit</span><div><b>next 15.3.1 → 15.3.4</b> · seatmagic<small>CVE-2026-31412 · PR #214 seit 1 Tag</small></div><span class="btn">Mergen</span></div>
+<div class="row"><span class="tag maj">Major</span><div><b>postgres 17 → 18</b> · app-remarkable-vaultsync<small>Freigabe im Dependency Dashboard</small></div><span class="btn ghost">Freigeben</span></div>
+<div class="row"><span class="tag onb">Onboarding</span><div><b>aws-paperclip</b><small>noch keine renovate.json</small></div><span class="btn ghost">Onboarding-PR</span></div>
+</section></div></body></html>

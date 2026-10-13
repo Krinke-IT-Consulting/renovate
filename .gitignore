@@ -1,0 +1,10 @@
+# Geheimnisse und Konfigurationswerte: alle .env-Dateien außer der Vorlage
+.env*
+!.env.example
+
+# Lokale Claude-Code-Einstellungen (z. B. persönliche Keys)
+.claude/settings.local.json
+
+# Impeccable: Laufzeitzustand der Entscheidungsseite und maschinenlokale Einstellungen
+.impeccable/questions/
+.impeccable/config.local.json

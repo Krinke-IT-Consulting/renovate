@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Lagebericht</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1A2744;--blue:#2B4C9B;--wood:#8B5E3C;--olive:#6B8E23;--olive-d:#55711C;--surface:#F8F9FA;--paper:#fff;--muted:#525866;--red:#B4342D;--amber:#B7791F}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--surface);font:15px/1.5 Inter,sans-serif;color:var(--ink)}
+header{height:64px;background:var(--paper);display:flex;align-items:center;padding:0 40px;gap:40px;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+.logo{font:700 17px Montserrat;color:var(--blue);display:flex;align-items:center;gap:10px}
+.logo i{width:28px;height:28px;border:2px solid var(--blue);border-radius:6px;display:inline-block;position:relative}
+.logo i:after{content:"";position:absolute;right:-5px;top:9px;width:7px;height:7px;border-radius:50%;background:var(--olive)}
+nav{display:flex;gap:28px;font-weight:500;font-size:14px}
+nav a{color:var(--ink);text-decoration:none;padding:21px 0}
+nav a.on{border-bottom:2px solid var(--olive);color:var(--blue)}
+.sync{margin-left:auto;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.sync b{width:8px;height:8px;border-radius:50%;background:var(--olive);display:inline-block}
+main{display:grid;grid-template-columns:1fr 380px;gap:48px;padding:40px 40px 0}
+.eyebrow{font:600 12px Montserrat;letter-spacing:.2em;text-transform:uppercase;color:var(--wood);margin-bottom:12px}
+.report{font:600 28px/1.35 Montserrat;color:var(--ink);max-width:880px}
+.report a{color:var(--blue);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
+.report .crit{color:var(--red)}
+.course{margin-top:36px;position:relative;padding-left:44px}
+.course:before{content:"";position:absolute;left:13px;top:12px;bottom:40px;width:2px;background:rgb(43 76 155/.25)}
+.leg{position:relative;background:var(--paper);border-radius:8px;padding:16px 20px;margin-bottom:12px;display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+.leg:before{content:attr(data-n);position:absolute;left:-44px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;font:700 13px Montserrat;display:grid;place-items:center}
+.leg.done{background:transparent;box-shadow:none;opacity:.55}
+.leg.done:before{background:var(--paper);color:var(--blue);border:2px solid var(--blue)}
+.tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;white-space:nowrap}
+.sec{background:#FBEAE8;color:var(--red)}.red{background:#FBEAE8;color:var(--red)}.maj{background:#EEF2FA;color:var(--blue)}.onb{background:#F4ECE5;color:var(--wood)}
+.what b{font-weight:600}.what small{display:block;color:var(--muted);font-size:13px}
+.btn{background:var(--olive-d);color:#fff;font-weight:500;font-size:14px;padding:9px 16px;border-radius:6px;white-space:nowrap}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid rgb(43 76 155/.25)}
+aside{display:flex;flex-direction:column;gap:20px}
+.card{background:var(--paper);border-radius:8px;padding:22px;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.kpi strong{font:700 34px/1 Montserrat;font-feature-settings:"tnum";color:var(--blue);display:block}
+.kpi span{font-size:13px;color:var(--muted)}
+.kpi.alert strong{color:var(--red)}
+h3{font:600 15px Montserrat;margin-bottom:14px;display:flex;justify-content:space-between}
+h3 small{font:400 12px Inter;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+.grid i{aspect-ratio:1;border-radius:4px;background:rgb(107 142 35/.35)}
+.grid i.r{background:var(--red)}.grid i.a{background:var(--amber)}.grid i.n{background:#fff;border:1.5px dashed rgb(139 94 60/.6)}
+.legend{display:flex;gap:14px;margin-top:12px;font-size:12px;color:var(--muted)}
+.foot{font-size:12px;color:var(--muted)}
+</style></head><body>
+<header><div class="logo"><i></i>Krinke-IT · Update Zentrale</div>
+<nav><a class="on">Übersicht</a><a>Repos</a><a>Pull Requests</a><a>Jobs</a><a>Probleme</a></nav>
+<div class="sync"><b></b>Abgeglichen vor 2 Min. · Beispieldaten</div></header>
+<main><section>
+<div class="eyebrow">Lage am Dienstag, 13. Oktober</div>
+<p class="report">Sechs Dinge brauchen Sie: <a class="crit">2 Sicherheitsupdates</a> in seatmagic und lector, <a class="crit">1 roter Build</a> in growly-babytracker, <a>2 Major-Updates</a> zur Freigabe und <a>1 neues Repo</a> ohne Onboarding. 23 von 25 Repos sind aktuell.</p>
+<div class="course">
+<div class="leg" data-n="1"><span class="tag sec">Sicherheit</span><div class="what"><b>next 15.3.1 → 15.3.4</b> in seatmagic<small>CVE-2026-31412 · Hoch · PR #214 seit 1 Tag offen, Build grün</small></div><span class="btn">Mergen auf GitHub</span></div>
+<div class="leg" data-n="2"><span class="tag sec">Sicherheit</span><div class="what"><b>jinja2 3.1.4 → 3.1.6</b> in lector<small>GHSA-q2x7 · Mittel · PR #58 seit 3 Tagen offen</small></div><span class="btn">Mergen auf GitHub</span></div>
+<div class="leg" data-n="3"><span class="tag red">Build rot</span><div class="what"><b>expo 53 → 54</b> in growly-babytracker<small>build-check fehlgeschlagen: pod install · Job vor 4 Std.</small></div><span class="btn ghost">Log ansehen</span></div>
+<div class="leg" data-n="4"><span class="tag maj">Major</span><div class="what"><b>postgres 17 → 18</b> in app-remarkable-vaultsync<small>Compose-Image · Freigabe im Dependency Dashboard</small></div><span class="btn ghost">Freigeben</span></div>
+<div class="leg done" data-n="5"><span class="tag onb">Onboarding</span><div class="what"><b>elektro-heimanns-cms</b> erledigt<small>Onboarding-PR #3 gemergt vor 1 Std.</small></div><span></span></div>
+</div></section>
+<aside>
+<div class="card kpis"><div class="kpi alert"><strong>2</strong><span>Sicherheitsupdates</span></div><div class="kpi"><strong>14</strong><span>offene Renovate-PRs</span></div><div class="kpi"><strong>23/25</strong><span>Repos onboarded</span></div><div class="kpi"><strong>03:00</strong><span>nächster Lauf</span></div></div>
+<div class="card"><h3>Alle Repos <small>Hiwamashi · Krinke-IT-Consulting</small></h3>
+<div class="grid"><i></i><i class="r"></i><i></i><i></i><i class="a"></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="r"></i><i></i><i></i><i></i><i class="n"></i><i></i><i></i><i></i><i></i><i class="a"></i><i></i><i></i><i></i><i class="n"></i></div>
+<div class="legend"><span>■ aktuell</span><span style="color:var(--red)">■ Sicherheit/rot</span><span style="color:var(--amber)">■ Freigabe</span><span style="color:var(--wood)">▢ nicht onboarded</span></div></div>
+<div class="foot">Letzter Lauf 03:00–03:41 · 25 Repos · 0 Fehler</div>
+</aside></main></body></html>

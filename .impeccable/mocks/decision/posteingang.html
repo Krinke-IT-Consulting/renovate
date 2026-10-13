@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Posteingang</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1A2744;--blue:#2B4C9B;--wood:#8B5E3C;--olive:#6B8E23;--olive-d:#55711C;--surface:#F8F9FA;--paper:#fff;--muted:#525866;--red:#B4342D;--amber:#B7791F}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--surface);font:15px/1.5 Inter,sans-serif;color:var(--ink);display:grid;grid-template-columns:220px 1fr}
+.rail{background:var(--ink);color:#fff;padding:24px 20px;display:flex;flex-direction:column;gap:6px}
+.rail .logo{font:700 15px/1.3 Montserrat;margin-bottom:28px}
+.rail a{padding:10px 12px;border-radius:6px;font-size:14px;color:rgb(255 255 255/.75)}
+.rail a.on{background:rgb(255 255 255/.1);color:#fff;box-shadow:inset 2px 0 0 var(--olive)}
+.rail .sync{margin-top:auto;font-size:12px;color:rgb(255 255 255/.6)}
+.wrap{display:flex;flex-direction:column}
+.kpis{display:flex;gap:40px;padding:20px 32px;background:var(--paper);border-bottom:1px solid rgb(43 76 155/.1);align-items:baseline}
+.kpis div{font-size:13px;color:var(--muted)}
+.kpis strong{font:700 24px Montserrat;font-feature-settings:"tnum";color:var(--blue);margin-right:6px}
+.kpis .al strong{color:var(--red)}
+.panes{display:grid;grid-template-columns:42% 58%;flex:1;min-height:0}
+.list{background:var(--paper);border-right:1px solid rgb(43 76 155/.1);overflow:hidden}
+.group{font:600 12px Montserrat;letter-spacing:.14em;text-transform:uppercase;color:var(--wood);padding:18px 24px 8px}
+.item{padding:14px 24px;border-top:1px solid rgb(43 76 155/.08);display:grid;grid-template-columns:10px 1fr auto;gap:12px;align-items:center}
+.item i{width:10px;height:10px;border-radius:50%}
+.item small{display:block;color:var(--muted);font-size:13px}
+.item time{font-size:12px;color:var(--muted)}
+.item.sel{background:#EEF2FA;box-shadow:inset 3px 0 0 var(--blue)}
+.detail{padding:32px 40px;position:relative}
+.detail:before{content:"";position:absolute;left:0;top:78px;width:28px;height:2px;background:var(--blue)}
+.detail:after{content:"";position:absolute;left:24px;top:73px;width:12px;height:12px;border-radius:50%;background:var(--blue)}
+.tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:#FBEAE8;color:var(--red)}
+h1{font:700 30px Montserrat;margin:14px 0 4px}
+.sub{color:var(--muted)}
+.ver{display:flex;gap:16px;align-items:center;margin:28px 0;font:600 22px Montserrat}
+.ver span{background:var(--paper);border-radius:8px;padding:12px 18px;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+.ver b{color:var(--olive-d)}
+.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.facts div{background:var(--paper);border-radius:8px;padding:16px;border-top:2px solid var(--wood)}
+.facts small{display:block;font-size:12px;color:var(--muted)}
+.log{background:var(--paper);border-radius:8px;padding:18px 20px;font-size:14px;color:var(--muted);margin-bottom:24px}
+.actions{display:flex;gap:12px}
+.btn{background:var(--olive-d);color:#fff;font-weight:500;padding:12px 22px;border-radius:6px}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid rgb(43 76 155/.25)}
+</style></head><body>
+<aside class="rail"><div class="logo">Krinke-IT ·<br>Update Zentrale</div><a class="on">Übersicht</a><a>Repos</a><a>Pull Requests</a><a>Jobs</a><a>Probleme</a><div class="sync">Abgeglichen vor 2 Min.<br>Beispieldaten</div></aside>
+<div class="wrap">
+<div class="kpis"><div class="al"><strong>2</strong>Sicherheitsupdates</div><div><strong>1</strong>roter Build</div><div><strong>14</strong>offene PRs</div><div><strong>23/25</strong>onboarded</div><div><strong>03:00</strong>nächster Lauf</div></div>
+<div class="panes"><section class="list">
+<div class="group">Sicherheit</div>
+<div class="item sel"><i style="background:var(--red)"></i><div><b>next 15.3.1 → 15.3.4</b><small>seatmagic · PR #214</small></div><time>1 Tag</time></div>
+<div class="item"><i style="background:var(--red)"></i><div><b>jinja2 3.1.4 → 3.1.6</b><small>lector · PR #58</small></div><time>3 Tage</time></div>
+<div class="group">Build rot</div>
+<div class="item"><i style="background:var(--red)"></i><div><b>expo 53 → 54</b><small>growly-babytracker · pod install</small></div><time>4 Std.</time></div>
+<div class="group">Freigabe</div>
+<div class="item"><i style="background:var(--amber)"></i><div><b>postgres 17 → 18</b><small>app-remarkable-vaultsync</small></div><time>2 Tage</time></div>
+<div class="group">Onboarding</div>
+<div class="item"><i style="background:var(--wood)"></i><div><b>aws-paperclip</b><small>keine renovate.json</small></div><time>neu</time></div>
+</section>
+<section class="detail"><span class="tag">Sicherheit · Hoch</span>
+<h1>next in seatmagic</h1><p class="sub">CVE-2026-31412 · Krinke-IT-Consulting/seatmagic · apps/web</p>
+<div class="ver"><span>15.3.1</span>→<span><b>15.3.4</b></span></div>
+<div class="facts"><div><small>Build-Check</small>grün · 6 Min.</div><div><small>Automerge</small>aus (Security-Regel)</div><div><small>Offen seit</small>12.10., 03:12</div></div>
+<div class="log">Changelog 15.3.4: Behebt eine Umgehung der Middleware-Autorisierung bei manipulierten Headern …</div>
+<div class="actions"><span class="btn">PR auf GitHub mergen</span><span class="btn ghost">Lauf für seatmagic starten</span></div>
+</section></div></div></body></html>
