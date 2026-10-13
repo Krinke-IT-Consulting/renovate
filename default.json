@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "ignorePresets": [":semanticPrefixFixDepsChoreOthers"],
+  "dependencyDashboard": true,
+  "timezone": "Europe/Berlin",
+  "schedule": ["* * * * 0,6"],
+  "labels": ["dependencies", "renovate"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "platformAutomerge": false,
+  "automergeType": "pr",
+  "packageRules": [
+    {
+      "description": "Minor-Gruppe: alle Minor-Updates, kein Automerge",
+      "matchUpdateTypes": ["minor"],
+      "groupName": "Minor-Updates",
+      "groupSlug": "minor-updates",
+      "automerge": false
+    },
+    {
+      "description": "Patch-Gruppe: Patch, Digest, Pin; Automerge nur bei grünem Build",
+      "matchUpdateTypes": ["patch", "digest", "pin", "pinDigest"],
+      "groupName": "Patch- und Wartungsupdates",
+      "groupSlug": "patch-und-wartungsupdates",
+      "automerge": true
+    },
+    {
+      "description": "Minor-Updates von devDependencies gehören zur Patch-Gruppe (steht nach der Minor-Regel, damit sie gewinnt)",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "Patch- und Wartungsupdates",
+      "groupSlug": "patch-und-wartungsupdates",
+      "automerge": true
+    },
+    {
+      "description": "Major-Updates: je Monorepo/Paketfamilie (group:monorepos, group:recommended) ein PR, erst nach Freigabe im Dependency Dashboard, nie automatisch",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    { "matchUpdateTypes": ["major"], "addLabels": ["update:major"] },
+    { "matchUpdateTypes": ["minor"], "addLabels": ["update:minor"] },
+    { "matchUpdateTypes": ["patch"], "addLabels": ["update:patch"] },
+    { "matchUpdateTypes": ["digest", "pin", "pinDigest"], "addLabels": ["update:digest"] },
+    { "matchUpdateTypes": ["replacement"], "addLabels": ["update:replacement"] }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["dependencies", "renovate", "security"],
+    "schedule": ["at any time"],
+    "dependencyDashboardApproval": false,
+    "automerge": false,
+    "groupName": null
+  },
+  "osvVulnerabilityAlerts": true
+}
