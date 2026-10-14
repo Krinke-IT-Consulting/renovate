@@ -80,7 +80,7 @@
 - [ ] 5.2 Coolify-Ressource vom Typ Docker Compose im neuen Projekt „Renovate" auf
   `gentle-goose` anlegen. Dazu gehören:
   - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`
-  - Domain nur für `renovate-authelia` laut Entscheidung 3
+  - keine Coolify-Domains (Routing nur über Labels, Entscheidung 3)
   - Variablen aus `.env.production`, leere optionale Werte weggelassen
 
   Erst nach Freigabe; Coolify zeigt alle Namen aus `.env.example` außer den leeren optionalen

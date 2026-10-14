@@ -68,7 +68,7 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
 - Das Skript läuft per SSH auf dem Server. Es wird vom Betreiber ausgeführt, nicht vom Agenten.
 - **Verworfen:** die Nutzerdatei im Image. Der Hash stünde dann im öffentlichen Repo.
 
-### 3. Routing über eigene Labels, nur Authelia mit Coolify-Domain
+### 3. Routing ausschließlich über eigene Labels, keine Coolify-Domains
 - **Domains in Coolify:**
   - `renovate-ce` erhält **keine** Coolify-Domain. Eine Domain mit Pfad würde Coolify mit
     „Strip Prefixes" versehen: Der Webhook käme als `/` an, und `/webhook/api/...` erreichte die
@@ -77,7 +77,9 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
   - `renovate-placeholder` erhält **keine** Coolify-Domain. Er wird nur über eigene Labels geroutet
     (Router `renovate-dashboard` mit Middleware `renovate-authelia@docker`). Eine Coolify-Domain
     würde einen zweiten Router ohne Middleware für denselben Host erzeugen.
-  - `renovate-authelia` erhält `https://renovate-auth.krinke-it.cloud:9091`.
+  - `renovate-authelia` erhält ebenfalls **keine** Coolify-Domain: Die Coolify-API verwirft den Port
+    aus `https://renovate-auth.krinke-it.cloud:9091` (beim Anlegen beobachtet). Eigene Router
+    `renovate-auth` (https, Port 9091) und `renovate-auth-http` (Weiterleitung).
 - **Vorrang:** Der Webhook-Router hat Priorität 100, die Router des Platzhalters Priorität 1.
   Nur der exakte Pfad `/webhook` geht ohne Login an CE; `/webhook/...` und alles andere landen am
   geschützten Platzhalter.

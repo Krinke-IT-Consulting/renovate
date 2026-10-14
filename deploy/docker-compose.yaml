@@ -3,12 +3,14 @@
 # Build-Kontexte sind relativ zu dieser Datei (./postgres, ./authelia, ./placeholder,
 # ../renovate-ce).
 #
-# Domain in Coolify: NUR der Dienst renovate-authelia bekommt eine,
-#   renovate-authelia -> https://renovate-auth.krinke-it.cloud:9091
-# renovate-ce und renovate-placeholder bekommen KEINE Coolify-Domain; sie werden ueber die
-# eigenen Traefik-Labels unten geroutet. Sonst wuerde Coolify zusaetzliche Router erzeugen,
-# bei renovate-ce mit Strip-Prefix-Risiko (/webhook/api koennte die CE-API oeffnen) und beim
-# Platzhalter mit einem ungeschuetzten Router fuer "/".
+# In Coolify bekommt KEIN Dienst eine Domain. Alle drei oeffentlichen Ziele werden ueber die
+# eigenen Traefik-Labels unten geroutet:
+#   renovate.krinke-it.cloud/webhook (exakt) -> renovate-ce:8080, ohne Login
+#   renovate.krinke-it.cloud (alles andere)  -> renovate-placeholder:80, hinter Authelia
+#   renovate-auth.krinke-it.cloud            -> renovate-authelia:9091
+# Coolify-Domains wuerden zusaetzliche Router erzeugen: bei renovate-ce mit Strip-Prefix-Risiko
+# (/webhook/api koennte die CE-API oeffnen), beim Platzhalter einen ungeschuetzten Router fuer
+# "/", und bei Authelia verwirft die Coolify-API den Port 9091 aus der Domain.
 # Kein Dienst veroeffentlicht Ports. Die Job-API von CE bleibt im Stack-Netz.
 #
 # Geheimnisse nur als Variablen-Platzhalter; Pflichtwerte brechen mit ihrem Namen ab, wenn sie
@@ -128,6 +130,17 @@ services:
       - traefik.http.middlewares.renovate-authelia.forwardauth.address=http://renovate-authelia:9091/api/authz/forward-auth
       - traefik.http.middlewares.renovate-authelia.forwardauth.trustForwardHeader=true
       - traefik.http.middlewares.renovate-authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Email,Remote-Name
+      # Anmeldeportal renovate-auth.krinke-it.cloud (eigene Router, fester Port 9091).
+      - traefik.http.services.renovate-auth.loadbalancer.server.port=9091
+      - traefik.http.routers.renovate-auth.rule=Host(`renovate-auth.krinke-it.cloud`)
+      - traefik.http.routers.renovate-auth.entryPoints=https
+      - traefik.http.routers.renovate-auth.tls=true
+      - traefik.http.routers.renovate-auth.tls.certresolver=letsencrypt
+      - traefik.http.routers.renovate-auth.service=renovate-auth
+      - traefik.http.routers.renovate-auth-http.rule=Host(`renovate-auth.krinke-it.cloud`)
+      - traefik.http.routers.renovate-auth-http.entryPoints=http
+      - traefik.http.routers.renovate-auth-http.middlewares=renovate-redirect-https@docker
+      - traefik.http.routers.renovate-auth-http.service=noop@internal
 
   # Dienstname eindeutig, weil er als Alias im geteilten Proxy-Netz "coolify" erscheint.
   renovate-placeholder:

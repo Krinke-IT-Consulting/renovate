@@ -70,7 +70,7 @@ Labels) und in `deploy/authelia/configuration.yml`.
 |---|---|---|---|
 | `https://renovate.krinke-it.cloud/webhook` (exakt, Port 8080) | `renovate-ce` | nein (Signatur mit Webhook-Secret) | Eigene Labels: Router `renovate-webhook`, Regel `Host && Path(/webhook)`, Priorität 100. **Keine Coolify-Domain** – Coolify würde bei einer Domain mit Pfad den Pfad abschneiden und `/webhook/api/...` an CE durchreichen. |
 | `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-placeholder` | ja (Passwort und TOTP) | Eigene Labels in `deploy/docker-compose.yaml`: Router `renovate-dashboard` (https, Middleware `renovate-authelia@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. |
-| `https://renovate-auth.krinke-it.cloud:9091` | `renovate-authelia` | nein (ist das Anmeldeportal) | Coolify-Domain der Ressource `renovate-authelia`. |
+| `https://renovate-auth.krinke-it.cloud` (Port 9091 intern) | `renovate-authelia` | nein (ist das Anmeldeportal) | Eigene Labels: Router `renovate-auth` (https) und `renovate-auth-http` (Redirect). **Keine Coolify-Domain** – die Coolify-API verwirft den Port aus der Domain. |
 | Job-API von `renovate-ce` | `renovate-ce` | – | Kein Router. Nur im Stack-Netz erreichbar. |
 | Postgres (Port 5432) | `postgres` | – | Kein Router, kein veröffentlichter Port. Nur im Stack-Netz erreichbar. |
 
@@ -145,8 +145,7 @@ vor, führt aber kein Deploy ohne Freigabe aus (Spec `platform-deployment`, „K
 3. **Coolify-Ressource anlegen.**
    - Typ: Docker Compose, neues Projekt „Renovate", Server `gentle-goose`.
    - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`.
-   - Domain **nur** für `renovate-authelia`: `https://renovate-auth.krinke-it.cloud:9091`. **Keine** Domain für
-     `renovate-ce`, `renovate-placeholder` und `postgres` – deren Routing steckt in den Labels.
+   - **Keine Domains** in Coolify setzen. Alle Router stehen als Labels in `deploy/docker-compose.yaml`.
    - Variablen aus `.env.production` übertragen (Namen aus `.env.example`). Leere optionale Werte weglassen,
      also `SCW_REGISTRY_SECRET_KEY`, wenn er leer ist.
    - `MEND_RNV_GITHUB_APP_KEY` ist ein PEM-Schlüssel und wird als mehrzeiliger Wert eingetragen.
