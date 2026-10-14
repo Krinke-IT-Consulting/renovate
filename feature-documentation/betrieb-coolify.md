@@ -13,8 +13,10 @@ stehen in keinem Dokument dieses Repos; sie leben in `.env.production` und in Co
 
 Der Stack besteht aus vier Diensten in einer Datei, `deploy/docker-compose.yaml`. Coolify liest diese Datei
 (Compose-Ressource, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`). Dienste mit `build:` baut
-Coolify beim Deploy aus den Kontexten unter `deploy/` und `renovate-ce/`. Pflicht-Secrets stehen als
-`${VAR:?VAR fehlt}` in der Datei: Fehlt einer, bricht das Deploy mit dem Namen ab.
+Coolify beim Deploy aus den Kontexten unter `deploy/` und `renovate-ce/`. Pflicht-Secrets prüft der
+Containerstart (bei `renovate-ce` das Skript `renovate-ce/check-env.sh`), nicht die Compose-Datei:
+Coolify führt den Build nur mit Build-Variablen aus, und die Secrets sind bewusst nur zur Laufzeit
+gesetzt. Fehlt einer, startet der Dienst nicht, und das Log nennt nur den Namen.
 
 | Dienst | Image / Basis | Volume | Netze | Healthcheck |
 |---|---|---|---|---|

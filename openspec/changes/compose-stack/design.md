@@ -105,9 +105,16 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
   https), beide mit Priorität 1; der Webhook-Router (Priorität 100) gewinnt damit immer.
 - `renovate-authelia` trägt `traefik.enable=true` explizit; ohne die Middleware verwirft Traefik den
   Router des Platzhalters (fail-closed, 404).
-- Pflicht-Secrets stehen in der Compose-Datei als `${VAR:?VAR fehlt}`. Ohne Wert bricht das Deploy
-  mit dem Namen ab; sonst nutzte CE für ein fehlendes Webhook-Secret still den öffentlichen
-  Standardwert `renovate`.
+- Pflicht-Secrets prüft der Containerstart, nicht die Compose-Datei: Coolify führt `compose build`
+  nur mit Build-Variablen aus, `${VAR:?}` brach deshalb schon den Build ab (erstes Deploy am
+  2026-10-14). Die Secrets für den Build freizugeben hieße, sie als Build-Argumente in die Images
+  zu reichen. Stattdessen:
+  - `renovate-ce`: eigener Entrypoint `renovate-ce/check-env.sh` prüft die Pflichtwerte nach Namen
+    und startet dann den Original-Entrypoint; sonst nutzte CE für ein fehlendes Webhook-Secret
+    still den öffentlichen Standardwert `renovate`.
+  - Postgres: Init-Skript mit `${VAR:?}`, das offizielle Image verweigert ein leeres
+    `POSTGRES_PASSWORD`.
+  - Authelia startet ohne seine Secrets nicht.
 - Coolify: Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`; die Build-Kontexte sind relativ
   zu `deploy/` und stimmen damit unabhängig davon, wie Coolify das Projektverzeichnis setzt.
 - Kein Dienst veröffentlicht `ports:`.

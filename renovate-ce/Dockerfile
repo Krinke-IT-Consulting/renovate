@@ -4,3 +4,7 @@
 FROM ghcr.io/mend/renovate-ce:15.7.0
 
 COPY config.js /usr/src/app/config.js
+# Pflichtwert-Prüfung vor dem Original-Entrypoint; CMD des Basis-Images bleibt unverändert.
+COPY --chmod=755 check-env.sh /usr/local/bin/check-env.sh
+ENTRYPOINT ["/usr/local/bin/check-env.sh"]
+CMD ["/usr/src/mend/node_opts_exec.sh", "node_default", "/usr/src/mend/src/community.js"]
