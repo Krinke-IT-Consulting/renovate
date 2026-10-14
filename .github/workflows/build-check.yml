@@ -47,6 +47,10 @@ on:
         description: Befehl, der im Projektverzeichnis vor den Tests läuft (z. B. Prisma-Migrationen)
         type: string
         default: ""
+      docker-context:
+        description: "Build-Kontext der Dockerfiles: auto (aus den COPY/ADD-Quellen), dockerfile (eigenes Verzeichnis) oder repository (Repo-Wurzel)"
+        type: string
+        default: auto
 
 permissions:
   contents: read
@@ -729,18 +733,112 @@ jobs:
       - name: Setup Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      - name: Build-Kontext bestimmen
+        id: context
+        shell: bash
+        env:
+          DIR: ${{ matrix.dir }}
+          DOCKER_CONTEXT: ${{ inputs.docker-context }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # Quellen aller COPY/ADD-Anweisungen aus dem Kontext (ohne --from, Variablen, URLs, Heredocs).
+          # Kommentarzeilen fallen wie bei Docker weg, Zeilenfortsetzungen werden zusammengeführt.
+          sources=()
+          while IFS= read -r line; do
+            line="${line#"${line%%[![:space:]]*}"}"
+            instr="${line%%[[:space:]]*}"
+            case "${instr^^}" in COPY | ADD) ;; *) continue ;; esac
+            rest="${line#"$instr"}"
+            case "$rest" in *"<<"*) continue ;; esac
+            rest="${rest#"${rest%%[![:space:]]*}"}"
+            case "$rest" in \[*) rest="${rest//[\[\]\",]/ }" ;; esac
+            read -r -a words <<<"$rest"
+            args=()
+            from=0
+            for w in "${words[@]}"; do
+              case "$w" in
+                --from=*) from=1 ;;
+                --*) ;;
+                *) args+=("$w") ;;
+              esac
+            done
+            if [ "$from" -ne 0 ] || [ "${#args[@]}" -lt 2 ]; then
+              continue
+            fi
+            for s in "${args[@]:0:${#args[@]}-1}"; do
+              case "$s" in *'$'* | *://*) continue ;; esac
+              s="${s#/}"
+              s="${s#./}"
+              [ -n "$s" ] && sources+=("$s")
+            done
+          done < <(awk '/^[[:space:]]*#/ { next } { if (sub(/\\[[:space:]]*$/, "")) { buf = buf $0 " "; next } print buf $0; buf = "" } END { if (buf != "") print buf }' "$DIR/Dockerfile")
+
+          # Wildcard-Quellen (etwa package-lock.json*) dürfen leer bleiben und zählen nicht.
+          all_present() {
+            local s
+            for s in "${sources[@]}"; do
+              case "$s" in *'*'* | *'?'*) continue ;; esac
+              [ -e "$1/$s" ] || return 1
+            done
+          }
+
+          case "${DOCKER_CONTEXT:-auto}" in
+            dockerfile)
+              ctx="$DIR"
+              reason="Eingabe docker-context"
+              ;;
+            repository)
+              ctx="."
+              reason="Eingabe docker-context"
+              ;;
+            auto)
+              ctx="$DIR"
+              if [ "${#sources[@]}" -eq 0 ]; then
+                reason="keine COPY/ADD-Quellen, eigenes Verzeichnis"
+              else
+                # Vom Verzeichnis des Dockerfiles aufwärts bis zur Repo-Wurzel: das erste Verzeichnis,
+                # in dem alle Quellen existieren, ist der Kontext.
+                reason="Quellen nirgends vollständig gefunden, eigenes Verzeichnis"
+                c="$DIR"
+                while :; do
+                  if all_present "$c"; then
+                    ctx="$c"
+                    reason="COPY/ADD-Quellen dort gefunden"
+                    break
+                  fi
+                  [ "$c" != "." ] || break
+                  c="$(dirname "$c")"
+                done
+              fi
+              ;;
+            *)
+              echo "::error::Unbekannter Wert für docker-context (erlaubt: auto, dockerfile, repository)."
+              exit 1
+              ;;
+          esac
+
+          echo "Kontext für $DIR/Dockerfile: $ctx ($reason)"
+          {
+            echo "ctx=$ctx"
+            echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Dockerfile bauen (ohne Push)
         shell: bash
         env:
           DIR: ${{ matrix.dir }}
+          CTX: ${{ steps.context.outputs.ctx }}
+          REASON: ${{ steps.context.outputs.reason }}
         run: |
-          docker buildx build --output type=cacheonly -f "$DIR/Dockerfile" "$DIR"
+          docker buildx build --output type=cacheonly -f "$DIR/Dockerfile" "$CTX"
           {
             echo "### docker · $DIR"
             echo
             echo "| Schritt | Ergebnis |"
             echo "|---|---|"
-            echo "| docker buildx build | ausgeführt (Kontext $DIR, nur Cache, kein Push) |"
+            echo "| docker buildx build | ausgeführt (Kontext $CTX: $REASON; nur Cache, kein Push) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   compose:

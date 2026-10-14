@@ -19,7 +19,9 @@ reine PR-Quelle.
     - Dockerfiles
     - Compose-Dateien
   - führt je Fund Install, Build, Typecheck, Lint und Tests aus, sofern das Projekt sie hat
-  - baut Dockerfiles ohne Push, prüft Compose-Dateien mit `docker compose config` (Antwort 2a)
+  - baut Dockerfiles ohne Push, prüft Compose-Dateien mit `docker compose config` (Antwort 2a).
+    Den Build-Kontext erkennt er aus den `COPY`-Quellen, damit Monorepos mit der Repo-Wurzel als
+    Kontext funktionieren (Ergebnis des Pilots).
   - startet auf Wunsch eine Wegwerf-Postgres und einen Befehl vor den Tests, etwa für
     Prisma-Migrationen (Antwort 1a)
   - Tests lassen sich abschalten. Expo- und React-Native-Repos werden nur unter Linux geprüft, mit

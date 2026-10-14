@@ -46,6 +46,10 @@
   `actionlint` ohne Befund.
 - [ ] 3.5 Zusammenfassung des Laufs (`$GITHUB_STEP_SUMMARY`) mit der Liste der erkannten Teile und
   übersprungener Schritte. Fertig, wenn sie im Selbsttest-Lauf aus 4.2 sichtbar ist.
+- [x] 3.6 Nach dem Pilot: Kontext-Erkennung für Dockerfiles und Eingabe `docker-context` laut
+  Entscheidung 5, Beispiel `docker-root` in der Selbsttest-Matrix. Prüfen: `actionlint` ohne Befund;
+  das Skript wählt lokal für smoking-tracker die Wurzel und für dieses Repo und `docker` das eigene
+  Verzeichnis.
 
 ## 4. Selbsttest
 
@@ -65,13 +69,17 @@
 
 - [x] 5.1 `templates/build-check-caller.yml` laut Entscheidung 8 anlegen. `actionlint` ohne
   Befund. Renovate-Validator für die Repo-Konfiguration weiterhin grün.
-- [ ] 5.2 Nach dem Merge und der Freigabe des Betreibers die Tags `v1.0.0` und `v1` setzen und
+- [x] 5.2 Nach dem Merge und der Freigabe des Betreibers die Tags `v1.0.0` und `v1` setzen und
   pushen. `git ls-remote --tags` zeigt beide auf demselben Commit.
 - [ ] 5.3 Pilot nach Freigabe: Branch und PR in `Hiwamashi/smoking-tracker` mit der Aufruf-Datei,
   angepasst um `postgres: true`, `postgres-port: 5433` und
   `pre-test-command: npx prisma migrate deploy` (oder was das Repo braucht). Fertig, wenn der
   Build-Check im PR grün ist. Abweichungen (Zugangsdaten, weitere Variablen) gehen in die
   Feature-Doku. Den PR merged der Betreiber.
+
+- [ ] 5.4 Kontext-Erkennung per PR in `main`, Merge durch den Betreiber. Danach Tag `v1.1.0` setzen
+  und `v1` auf denselben Commit verschieben. `git ls-remote --tags` zeigt `v1` und `v1.1.0` auf
+  demselben Commit.
 
 ## 6. Dokumentation
 

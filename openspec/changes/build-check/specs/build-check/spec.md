@@ -25,6 +25,7 @@ Eingaben sind:
 | `postgres-version` | Version der Postgres |
 | `postgres-port` | Port der Postgres |
 | `pre-test-command` | Befehl vor den Tests |
+| `docker-context` | Build-Kontext der Dockerfiles: `auto`, `dockerfile` oder `repository` |
 
 #### Scenario: Aufruf ohne Eingaben
 - **WHEN** ein Repo die Aufruf-Vorlage unverändert übernimmt
@@ -119,14 +120,33 @@ Python- und Go-Projekte prüft der Build-Check so:
 - **THEN** läuft `go test ./...`, und ein fehlschlagender Test lässt den Check fehlschlagen
 
 ### Requirement: Docker- und Compose-Dateien
-Jedes gefundene `Dockerfile` MUST mit seinem Verzeichnis als Kontext gebaut werden, ohne das Image
-zu veröffentlichen. Jede Compose-Datei MUST mit `docker compose config` geprüft werden, ohne
-Variablen aufzulösen, damit fehlende Secrets kein Fehler sind.
+Jedes gefundene `Dockerfile` MUST gebaut werden, ohne das Image zu veröffentlichen. Den
+Build-Kontext bestimmt `docker-context`:
+
+| Wert | Kontext |
+|---|---|
+| `auto` (Vorgabe) | das erste Verzeichnis vom Dockerfile aufwärts bis zur Repo-Wurzel, in dem alle Quellen der `COPY`- und `ADD`-Anweisungen existieren; ohne solche Quellen oder ohne Treffer das eigene Verzeichnis |
+| `dockerfile` | das Verzeichnis des Dockerfiles |
+| `repository` | die Repo-Wurzel |
+
+Quellen aus anderen Build-Stufen (`--from`), mit Variablen, URLs und Wildcards zählen bei `auto`
+nicht. Der gewählte Kontext MUST in der Zusammenfassung des Laufs stehen. Jede Compose-Datei MUST
+mit `docker compose config` geprüft werden, ohne Variablen aufzulösen, damit fehlende Secrets kein
+Fehler sind.
 
 #### Scenario: Basis-Image-Update bricht den Build
 - **WHEN** ein Renovate-PR das Basis-Image eines Dockerfiles auf eine Version hebt, mit der der
   Build fehlschlägt
 - **THEN** schlägt der Check fehl, und der PR wird nicht automatisch gemergt
+
+#### Scenario: Dockerfile im Monorepo mit der Repo-Wurzel als Kontext
+- **WHEN** `apps/api/Dockerfile` die Pfade `apps/api` und `packages/shared` kopiert, die nur von der
+  Repo-Wurzel aus existieren
+- **THEN** baut der Check mit der Repo-Wurzel als Kontext und nennt ihn in der Zusammenfassung
+
+#### Scenario: Dockerfile mit eigenem Verzeichnis als Kontext
+- **WHEN** `renovate-ce/Dockerfile` die Datei `config.js` aus seinem eigenen Verzeichnis kopiert
+- **THEN** baut der Check mit `renovate-ce` als Kontext
 
 #### Scenario: Compose-Datei mit Secret-Platzhaltern
 - **WHEN** eine Compose-Datei `${SECRET}` ohne gesetzten Wert enthält
