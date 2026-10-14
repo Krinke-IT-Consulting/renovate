@@ -399,7 +399,7 @@ jobs:
         with:
           node-version: ${{ steps.prep.outputs.node-version }}
           node-version-file: ${{ steps.prep.outputs.node-version-file }}
-          cache: ${{ matrix.pm == 'bun' && '' || matrix.pm }}
+          cache: ${{ matrix.pm != 'bun' && matrix.pm || '' }}
           cache-dependency-path: ${{ matrix.dir }}/${{ matrix.pm == 'pnpm' && 'pnpm-lock.yaml' || matrix.pm == 'yarn' && 'yarn.lock' || 'package-lock.json' }}
 
       - name: Postgres-Umgebung setzen
