@@ -1,6 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["local>Krinke-IT-Consulting/renovate", "customManagers:githubActionsVersions"],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    "tests/build-check/**"
+  ],
   "packageRules": [
     {
       "description": "Postgres-Major im eigenen Stack nie automatisch anbieten: braucht Dump und Wiederherstellung, daher bewusst als eigener Change",

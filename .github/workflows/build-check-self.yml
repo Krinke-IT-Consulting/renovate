@@ -1,0 +1,23 @@
+name: Build-Check (dieses Repo)
+
+# Prüft die Dockerfiles und die Compose-Datei dieses Repos bei jedem PR, auch bei Renovate-PRs zu Basis-Images.
+# Die Beispielprojekte des Selbsttests sind ausgeschlossen, sie laufen in test-build-check.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-check-self-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-check:
+    uses: ./.github/workflows/build-check.yml
+    with:
+      exclude-paths: tests/build-check
