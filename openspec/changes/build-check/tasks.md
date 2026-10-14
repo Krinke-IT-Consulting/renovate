@@ -52,12 +52,12 @@
 - [x] 4.1 `.github/workflows/test-build-check.yml` (Matrix über die Beispiele) und
   `.github/workflows/build-check-self.yml` (dieses Repo, Beispiele ausgeschlossen) anlegen.
   `actionlint` ohne Befund.
-- [ ] 4.2 Auf einem Branch pushen und einen PR öffnen. Fertig, wenn:
+- [x] 4.2 Auf einem Branch pushen und einen PR öffnen. Fertig, wenn:
   - alle Matrix-Teile des Selbsttests grün sind
   - `build-check-self` die vier Dockerfiles und die Compose-Datei dieses Repos geprüft hat
 
   Der PR dient zugleich als Review-Ort.
-- [ ] 4.3 Die Negativbeispiele aus 2.2 auf einem eigenen Branch laufen lassen. Jeder schlägt am
+- [x] 4.3 Die Negativbeispiele aus 2.2 auf einem eigenen Branch laufen lassen. Jeder schlägt am
   erwarteten Schritt mit verständlicher Meldung fehl. Ergebnis in der Feature-Doku; Branch danach
   löschen.
 
