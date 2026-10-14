@@ -77,7 +77,7 @@
 
 - [x] 5.1 Betreiber setzt DNS-A-Einträge für `renovate.krinke-it.cloud` und
   `renovate-auth.krinke-it.cloud` auf 2.28.133.29 — `dig +short` liefert für beide diese IP
-- [ ] 5.2 Coolify-Ressource vom Typ Docker Compose im neuen Projekt „Renovate" auf
+- [x] 5.2 Coolify-Ressource vom Typ Docker Compose im neuen Projekt „Renovate" auf
   `gentle-goose` anlegen. Dazu gehören:
   - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`
   - keine Coolify-Domains (Routing nur über Labels, Entscheidung 3)
@@ -103,7 +103,8 @@
   TOTP mit dem Code aus `/data/notification.txt`. Prüfen:
   - Der Platzhalter zeigt den Header `Remote-User`.
   - Ein selbst mitgeschickter `Remote-User` wird überschrieben.
-- [ ] 5.5 Betreiber legt die GitHub App laut Feature-Doku an, mit Webhook-URL und Webhook-Secret,
+- [ ] 5.5 (App angelegt und App-ID/Key übertragen am 2026-10-14 vor dem Deploy, weil beide Pflichtwerte sind;
+  offen: Installation für das Test-Repo erst nach bestandener Prüfung 5.3) Betreiber legt die GitHub App laut Feature-Doku an, mit Webhook-URL und Webhook-Secret,
   und installiert sie für ein Test-Repo. App-ID und Key trägt er in `.env.production` und
   Coolify ein, danach Redeploy nach Freigabe. Prüfen:
   - Die Webhook-Zustellung „ping" zeigt in GitHub den Status 2xx.

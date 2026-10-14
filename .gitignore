@@ -8,3 +8,6 @@
 # Impeccable: Laufzeitzustand der Entscheidungsseite und maschinenlokale Einstellungen
 .impeccable/questions/
 .impeccable/config.local.json
+
+# Lokale Schlüsseldateien (z. B. GitHub-App-PEM), nie ins Repo
+.secrets/
