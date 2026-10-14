@@ -44,7 +44,7 @@
 - [x] 3.3 Jobs `python` und `go` laut Entscheidungen 3 und 4 ergänzen. `actionlint` ohne Befund.
 - [x] 3.4 Jobs `docker` und `compose` laut Entscheidung 5 ergänzen (kein Login, kein Push).
   `actionlint` ohne Befund.
-- [ ] 3.5 Zusammenfassung des Laufs (`$GITHUB_STEP_SUMMARY`) mit der Liste der erkannten Teile und
+- [x] 3.5 Zusammenfassung des Laufs (`$GITHUB_STEP_SUMMARY`) mit der Liste der erkannten Teile und
   übersprungener Schritte. Fertig, wenn sie im Selbsttest-Lauf aus 4.2 sichtbar ist.
 - [x] 3.6 Nach dem Pilot: Kontext-Erkennung für Dockerfiles und Eingabe `docker-context` laut
   Entscheidung 5, Beispiel `docker-root` in der Selbsttest-Matrix. Prüfen: `actionlint` ohne Befund;
