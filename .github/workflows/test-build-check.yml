@@ -39,6 +39,7 @@ jobs:
           - python-req
           - go
           - docker
+          - docker-root
           - compose
           - node-postgres
         include:

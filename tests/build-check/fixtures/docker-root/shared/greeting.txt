@@ -1,0 +1,1 @@
+build-check fixture: Kontext ist die Wurzel dieses Beispiels

@@ -95,11 +95,23 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
 
 ### 5. Docker und Compose
 - **Docker:** `docker/setup-buildx-action`, danach `docker buildx build --output type=cacheonly`
-  je `Dockerfile`, mit dessen Verzeichnis als Kontext. Es gibt kein Login und kein Push.
-- **Abdeckung:** Das trifft alle bekannten Repos, auch dieses: `renovate-ce/` und
-  `deploy/<dienst>/` sind jeweils ihr eigener Kontext.
-- **Kontext außerhalb des eigenen Verzeichnisses:** Dockerfiles mit einem solchen Kontext prüft der
-  Build-Check nicht gesondert.
+  je `Dockerfile`. Es gibt kein Login und kein Push.
+- **Build-Kontext** (geändert nach dem Pilot): Ursprünglich war das Verzeichnis des Dockerfiles
+  immer der Kontext. Im Pilot zeigte sich, dass Monorepos wie smoking-tracker mit der Repo-Wurzel
+  als Kontext bauen (`COPY apps/api …`, `COPY packages/shared …`). Coolify baut sie ebenso.
+  - Der Schritt „Build-Kontext bestimmen“ liest die Quellen aller `COPY`- und `ADD`-Anweisungen.
+    Zeilenfortsetzungen werden zusammengeführt. Nicht gezählt werden `--from`, Variablen, URLs,
+    Heredocs und Wildcards; Wildcards dürfen in Docker leer bleiben.
+  - Er geht vom Verzeichnis des Dockerfiles aufwärts bis zur Repo-Wurzel. Kontext wird das erste
+    Verzeichnis, in dem alle Quellen existieren. Ohne Quellen oder ohne Treffer bleibt es beim
+    eigenen Verzeichnis; der Build scheitert dann mit Dockers eigener Meldung.
+  - Die Eingabe `docker-context` (`auto`, `dockerfile`, `repository`) übersteuert das für
+    Sonderfälle, etwa ein `COPY . .`, das die Wurzel meint. Sie gilt für alle Dockerfiles des
+    Aufrufs.
+  - Verworfen: eine Liste von Kontexten je Dockerfile als Eingabe. Das wäre für die bekannten Repos
+    unnötig umständlich.
+  - Die Zusammenfassung nennt Kontext und Grund. Die Änderung ist kompatibel: Alle bisher
+    erfolgreichen Builds behalten ihren Kontext, weil ihre Quellen im eigenen Verzeichnis liegen.
 - **Compose:** `docker compose -f <datei> config --no-interpolate --quiet`, je Datei einzeln.
   Override-Dateien werden zusammen mit ihrer Basisdatei geprüft. Ein `compose build` findet nicht
   statt, denn die Dockerfiles sind schon einzeln abgedeckt.
@@ -183,6 +195,7 @@ jobs:
   | `python-req` | requirements, ohne Tests |
   | `go` | mit Test |
   | `docker` | Dockerfile |
+  | `docker-root` | Dockerfile in `app/`, das die Wurzel des Beispiels als Kontext braucht |
   | `compose` | Compose-Datei mit `${SECRET}` |
   | `node-postgres` | Test verbindet sich mit `DATABASE_URL` |
 
@@ -219,7 +232,8 @@ jobs:
 
 ## Migration Plan
 
-1. Merge in `main`, dann Tags `v1.0.0` und `v1` nach Freigabe.
+1. Merge in `main`, dann Tags `v1.0.0` und `v1` nach Freigabe. Die Kontext-Erkennung aus dem
+   Pilot folgt als `v1.1.0`; `v1` wandert mit.
 2. Pilot-PR in `Hiwamashi/smoking-tracker` nach Freigabe. Der PR selbst löst den Check aus.
 3. Danach weitere Repos über das Dashboard-Onboarding.
 
@@ -229,3 +243,8 @@ Rückweg: Aufruf-Datei im Repo entfernen. Tag `v1` auf den vorherigen Commit zur
 
 - Ob smoking-tracker für die Tests weitere Umgebungsvariablen braucht, zeigt der Pilot. Das ändert
   nur dessen Aufruf, nicht den Build-Check.
+- **Install-Skripte unter npm 12.** npm 11 warnt bei Abhängigkeiten mit Install-Skripten ohne
+  Freigabe über `allowScripts`; npm 12 soll sie standardmäßig blockieren. Dann brauchen die Repos
+  eine gepflegte Freigabeliste (`npm approve-scripts`), sonst fehlen etwa native Module. Der
+  Build-Check übernimmt das Verhalten der npm-Version und umgeht es nicht. Ob das Dashboard die
+  Liste beim Onboarding anlegt, entscheidet ein späterer Change.
