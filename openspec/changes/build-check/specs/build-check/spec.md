@@ -102,7 +102,7 @@ Für ein Node-Projekt gelten diese Regeln:
 Python- und Go-Projekte prüft der Build-Check so:
 
 - **Python:**
-  - Er MUST die Abhängigkeiten mit uv installieren (`uv sync --frozen`, wenn `uv.lock` existiert)
+  - Er MUST die Abhängigkeiten mit uv installieren (`uv sync --frozen --all-extras`, wenn `uv.lock` existiert)
     oder sonst per pip aus `pyproject.toml` bzw. `requirements*.txt`.
   - Er MUST alle Quelldateien kompilieren.
   - Er MUST `pytest` ausführen, wenn Tests existieren und `run-tests` an ist.
