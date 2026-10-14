@@ -184,7 +184,9 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
 
 - Den Cache-Pfad von CE bestimmt die Doku der gepinnten Version, voraussichtlich
   `/tmp/renovate`. Er bekommt das Volume `renovate-cache`.
-- Zusätzlich gesetzt: `MEND_RNV_API_ENABLED=true`, `MEND_RNV_API_ENABLE_JOBS=true` (ohne sie hätte
+- Zusätzlich gesetzt: `MEND_RNV_API_ENABLED=true`, `MEND_RNV_API_ENABLE_JOBS=true`,
+  `MEND_RNV_API_ENABLE_SYSTEM=true` (System-API für App-Sync und Läufe je Repo, vom Dashboard
+  benötigt; nach dem ersten Deploy ergänzt) (ohne sie hätte
   das API-Secret keinen Zweck) und `MEND_RNV_SERVER_PORT=8080` (das Image meldet Port 3000, die
   Doku 8080; explizit gesetzt). Health-Endpunkt `/health`, `curl` ist im Image.
 - Cache: Volume `renovate-cache` auf `/tmp/renovate`; `containerbaseDir` in `config.js` legt den

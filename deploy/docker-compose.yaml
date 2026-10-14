@@ -58,6 +58,8 @@ services:
       # Job-API fuer das spaetere Dashboard; nur intern erreichbar (kein oeffentlicher Router).
       MEND_RNV_API_ENABLED: "true"
       MEND_RNV_API_ENABLE_JOBS: "true"
+      # System-API (App-Sync, Lauf fuer ein Repo anstossen); vom Dashboard benoetigt, nur intern.
+      MEND_RNV_API_ENABLE_SYSTEM: "true"
       MEND_RNV_API_SERVER_SECRET: ${MEND_RNV_API_SERVER_SECRET}
       MEND_RNV_AUTODISCOVER_FILTER: "Hiwamashi/*,Krinke-IT-Consulting/*"
       MEND_RNV_DATA_HANDLER_TYPE: postgresql
