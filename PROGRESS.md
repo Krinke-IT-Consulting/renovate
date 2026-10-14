@@ -11,7 +11,7 @@ Stand: 2026-10-14
 - Produktbeschreibung `PRODUCT.md` (Impeccable)
 - Entwurf der Übersicht bestätigt: `feature-documentation/uebersicht-entwurf.md`
 - Renovate-Konfiguration (OpenSpec-Change `renovate-konfiguration`, Gruppen 1–4 und 6): Shared Preset `default.json`, `renovate-ce/config.js`, `renovate.json`, `templates/renovate.json`, Validierungs-Workflow — Doku: `feature-documentation/renovate-konfiguration.md`
-- Betriebs-Stack (Change `compose-stack`, alle Tasks): Renovate CE, Postgres, Authelia (2FA) und Platzhalter laufen auf Coolify (`gentle-goose`), `renovate.krinke-it.cloud` hinter Login, Webhook unter `/webhook`; GitHub App „Krinke IT Renovate“ installiert für `Krinke-IT-Consulting/renovate` — Doku: `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`
+- Betriebs-Stack (Change `compose-stack`, archiviert; Specs `platform-deployment` und `access-protection`): Renovate CE, Postgres, Authelia (2FA) und Platzhalter laufen auf Coolify (`gentle-goose`), `renovate.krinke-it.cloud` hinter Login, Webhook unter `/webhook`; GitHub App „Krinke IT Renovate“ installiert für `Krinke-IT-Consulting/renovate` — Doku: `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`
 
 ## In Arbeit
 

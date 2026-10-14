@@ -3,7 +3,7 @@
 Status: Stack im Repo angelegt (OpenSpec-Change `compose-stack`, Tasks 1 bis 4 erledigt). Noch nicht
 deployt: Die Einrichtung in Coolify, das Deploy und die Prüfungen nach dem Deploy (Tasks 5.x) stehen
 aus und brauchen eine ausdrückliche Freigabe des Betreibers. Quelle der Anforderungen:
-`openspec/changes/compose-stack/` (`proposal.md`, `design.md`, `tasks.md`, `specs/`).
+`openspec/changes/archive/2026-10-14-compose-stack/` (`proposal.md`, `design.md`, `tasks.md`, `specs/`).
 
 Dieses Dokument beschreibt, was die Dateien im Repo tatsächlich enthalten. Wenn eine Datei und dieser
 Text voneinander abweichen, gilt die Datei. Werte (Secrets, Passwörter, Lizenzschlüssel, PEM-Schlüssel)
