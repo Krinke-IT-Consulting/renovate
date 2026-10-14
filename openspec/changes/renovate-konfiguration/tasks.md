@@ -33,6 +33,10 @@
   eintragen (Mensch, Scaleway-IAM-API-Key nur mit Registry-Lesen, optional) — `.env.example`
   existiert und ist nicht durch `.gitignore` ausgenommen (`git check-ignore` liefert nichts)
 
+- [x] 2.4 Scaleway-Region in `renovate-ce/config.js`, Feature-Doku und Kommentaren von `fr-par` auf
+  `nl-ams` umstellen (Registry `rg.nl-ams.scw.cloud`, Namespace `krinke-dockersolutions` öffentlich)
+  — `grep -rn fr-par` ohne Treffer außerhalb des Archivs, Prüfungen aus 2.1 und 2.2 erneut grün
+
 ## 3. Repo-Konfiguration und Vorlage
 
 - [x] 3.1 `renovate.json` im Repo-Root mit `extends: ["local>Krinke-IT-Consulting/renovate"]`

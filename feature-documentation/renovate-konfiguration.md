@@ -84,9 +84,9 @@ laut `design.md`).
 | `onboarding` | `false` | Onboarding-PRs übernimmt das Dashboard, nicht Renovate. |
 | `requireConfig` | `"required"` | Repos ohne eigene Renovate-Konfigurationsdatei werden übersprungen. |
 | `binarySource` | `"install"` | Werkzeuge (Node, pnpm, Bun, Python, Go, CocoaPods) werden bei Bedarf installiert. |
-| `hostRules` | bedingt | Nur wenn die Umgebungsvariable `SCW_REGISTRY_SECRET_KEY` gesetzt ist, ein Eintrag für `rg.fr-par.scw.cloud` (`hostType: "docker"`, Benutzer `nologin`, Passwort aus der Umgebungsvariable). Ohne Variable ist die Liste leer. |
+| `hostRules` | bedingt | Nur wenn die Umgebungsvariable `SCW_REGISTRY_SECRET_KEY` gesetzt ist, ein Eintrag für `rg.nl-ams.scw.cloud` (`hostType: "docker"`, Benutzer `nologin`, Passwort aus der Umgebungsvariable). Ohne Variable ist die Liste leer. |
 
-Die Region `fr-par` ist fest eingetragen. Eine zweite Region bräuchte eine weitere Regel.
+Die Region `nl-ams` ist fest eingetragen. Der Namespace `rg.nl-ams.scw.cloud/krinke-dockersolutions` ist öffentlich; Renovate liest ihn ohne Zugangsdaten. Die Regel greift erst für private Namespaces. Eine zweite Region bräuchte eine weitere Regel.
 
 Die Datei setzt keine Werte für `cacheDir` oder `containerbaseDir`. Das klärt der Compose-Change.
 `forkProcessing` und das Überspringen archivierter Repos sind Renovate-Standard und stehen nicht

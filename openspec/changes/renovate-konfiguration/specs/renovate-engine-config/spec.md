@@ -55,10 +55,11 @@ sie nicht gesetzt, MUST die Instanz ohne Registry-Zugangsdaten normal starten un
 
 #### Scenario: Variable nicht gesetzt
 - **WHEN** die CE-Instanz ohne `SCW_REGISTRY_SECRET_KEY` startet
-- **THEN** startet sie fehlerfrei, und Images aus öffentlichen Registries werden aktualisiert
+- **THEN** startet sie fehlerfrei, und Images aus öffentlichen Registries werden aktualisiert,
+  einschließlich des öffentlichen Namespaces `rg.nl-ams.scw.cloud/krinke-dockersolutions`
 
 #### Scenario: Variable gesetzt
-- **WHEN** die Variable gesetzt ist und ein Repo ein Image aus `rg.fr-par.scw.cloud` nutzt
+- **WHEN** die Variable gesetzt ist und ein Repo ein Image aus `rg.nl-ams.scw.cloud` nutzt
 - **THEN** kann Renovate die verfügbaren Tags dieses Images abfragen
 
 ### Requirement: Selbstaktualisierung dieses Repos

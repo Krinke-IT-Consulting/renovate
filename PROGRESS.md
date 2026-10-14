@@ -14,11 +14,12 @@ Stand: 2026-10-13
 
 ## In Arbeit
 
+- Change `compose-stack`: Dateien und lokaler Test fertig (Gruppen 1–4: `deploy/compose.yml`, Dockerfiles, Authelia-Konfiguration, Postgres-Init, Einrichtungsskript, Secrets erzeugt) — Doku `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`. Offen: Gruppe 5 (DNS, Push, Coolify-Ressource, Deploy nach Freigabe, Authelia-Nutzer, GitHub App)
 - Change `renovate-konfiguration`: Gruppe 5 (Verifikation am Test-Repo) wartet auf den laufenden Compose-Stack; Change danach archivieren
 
 ## Ausstehend
 
-- Lizenzschlüssel für Renovate CE anfordern, GitHub App anlegen und installieren
-- OpenSpec-Changes: Build-Check-Workflow, Compose-Stack mit Authelia, Dashboard (Datenmodell, Sync, Ansichten, Onboarding)
+- GitHub App anlegen und installieren (Anleitung in `feature-documentation/betrieb-coolify.md`)
+- OpenSpec-Changes: Build-Check-Workflow, Dashboard (Datenmodell, Sync, Ansichten, Onboarding)
 - Graphify einrichten, sobald es Code gibt
 - `DESIGN.md` nach dem Bau der ersten Oberfläche

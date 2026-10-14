@@ -1,0 +1,76 @@
+# Authelia fuer die Renovate-Plattform (Change compose-stack, Entscheidung 4).
+#
+# KEINE Secrets in dieser Datei. Drei Werte kommen als Umgebungsvariablen:
+#   AUTHELIA_SESSION_SECRET
+#   AUTHELIA_STORAGE_ENCRYPTION_KEY
+#   AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET
+# Die Schluessel fehlen hier bewusst: Fehlt eine Variable, startet Authelia nicht, statt mit
+# einem oeffentlichen Standardwert zu laufen (fail closed).
+theme: 'auto'
+
+server:
+  address: 'tcp://0.0.0.0:9091'
+  endpoints:
+    authz:
+      forward-auth:
+        implementation: 'ForwardAuth'
+
+log:
+  level: 'info'
+  format: 'text'
+
+totp:
+  disable: false
+  issuer: 'Krinke-IT - Update Zentrale'
+  algorithm: 'sha1'
+  digits: 6
+  period: 30
+  skew: 1
+
+authentication_backend:
+  file:
+    # Einmalig per deploy/scripts/setup-authelia-user.sh auf das Volume geschrieben,
+    # nie im Repo (enthaelt den Passwort-Hash).
+    path: '/data/users_database.yml'
+    watch: true
+    search:
+      email: false
+    password:
+      algorithm: 'argon2'
+      argon2:
+        variant: 'argon2id'
+  password_reset:
+    # Kein Mailserver, ein Nutzer: ein Reset-Ablauf waere eine Sackgasse.
+    disable: true
+
+access_control:
+  default_policy: 'deny'
+  rules:
+    - domain: 'renovate.krinke-it.cloud'
+      policy: 'two_factor'
+
+session:
+  name: 'renovate_authelia_session'
+  cookies:
+    - domain: 'krinke-it.cloud'
+      authelia_url: 'https://renovate-auth.krinke-it.cloud'
+      default_redirection_url: 'https://renovate.krinke-it.cloud'
+      expiration: '12 hours'
+      inactivity: '1 hour'
+      # Kein "Angemeldet bleiben": es wuerde die 12 Stunden aushebeln.
+      remember_me: -1
+
+regulation:
+  max_retries: 3
+  find_time: '2 minutes'
+  ban_time: '10 minutes'
+
+storage:
+  local:
+    path: '/data/db.sqlite3'
+
+notifier:
+  # Schreibt in eine Datei statt Mail zu senden; dient nur dem Einmalcode zur TOTP-Einrichtung.
+  disable_startup_check: true
+  filesystem:
+    filename: '/data/notification.txt'

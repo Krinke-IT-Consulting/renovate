@@ -112,7 +112,7 @@ module.exports = {
   binarySource: "install",
   // forkProcessing "disabled" und Überspringen archivierter Repos sind Renovate-Standard
   hostRules: process.env.SCW_REGISTRY_SECRET_KEY
-    ? [{ matchHost: "rg.fr-par.scw.cloud", hostType: "docker",
+    ? [{ matchHost: "rg.nl-ams.scw.cloud", hostType: "docker",
          username: "nologin", password: process.env.SCW_REGISTRY_SECRET_KEY }]
     : [],
 };
@@ -121,7 +121,8 @@ module.exports = {
 - Ein Cache-Verzeichnis (`cacheDir` / `containerbaseDir`) wird nur gesetzt, wenn der
   Standardpfad des CE-Images nicht auf ein Volume passt. Das klärt der Compose-Change; hier
   bleibt es beim Standard.
-- Region: fest `fr-par`. Eine zweite Region käme als weitere Regel dazu.
+- Region: fest `nl-ams`. Der Namespace `krinke-dockersolutions` ist öffentlich und braucht keine
+  Zugangsdaten; die Regel greift erst, wenn private Namespaces dazukommen.
 - **Verworfen:** die Registry-Regel ins Preset legen. Dort ginge das nur mit verschlüsseltem
   Secret (`encrypted`), wofür CE einen privaten Schlüssel bräuchte. Das ist unnötig kompliziert.
 
@@ -186,5 +187,3 @@ Stand.
 
 ## Open Questions
 
-- Scaleway-Region der späteren privaten Images (Annahme `fr-par`); sie ändert nur einen Wert in
-  `config.js`.
