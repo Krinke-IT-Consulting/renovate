@@ -11,3 +11,8 @@
 
 # Lokale Schlüsseldateien (z. B. GitHub-App-PEM), nie ins Repo
 .secrets/
+
+# Abhängigkeiten der Build-Check-Beispiele (nie einchecken)
+node_modules/
+.venv/
+__pycache__/

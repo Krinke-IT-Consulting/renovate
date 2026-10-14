@@ -2,6 +2,7 @@ name: Validate Renovate config
 
 on:
   push:
+    branches: [main]
     paths:
       - default.json
       - renovate.json

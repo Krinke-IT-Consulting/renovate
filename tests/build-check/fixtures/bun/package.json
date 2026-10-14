@@ -1,0 +1,13 @@
+{
+  "name": "fixture-bun",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "bun@1.4.3",
+  "scripts": {
+    "build": "bun -e \"require('is-number'); console.log('build ok')\"",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "is-number": "7.0.0"
+  }
+}

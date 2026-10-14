@@ -1,0 +1,6 @@
+services:
+  app:
+    image: busybox:1.37.0
+    command: ["sleep", "1"]
+    environment:
+      TOKEN: ${SECRET}

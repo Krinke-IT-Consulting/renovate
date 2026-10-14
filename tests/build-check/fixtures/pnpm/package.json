@@ -1,0 +1,13 @@
+{
+  "name": "fixture-pnpm",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.11.2",
+  "scripts": {
+    "build": "node -e \"require('is-number'); console.log('build ok')\"",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "is-number": "7.0.0"
+  }
+}

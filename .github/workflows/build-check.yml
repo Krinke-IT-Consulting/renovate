@@ -1,0 +1,782 @@
+name: Build-Check
+
+# Zentraler, wiederverwendbarer Build-Check (Spec: openspec/specs/build-check, Doku: feature-documentation/build-check.md).
+# Der Workflow erkennt die prüfbaren Teile des aufrufenden Repos selbst und prüft sie je Teil in einem
+# eigenen Job. Er braucht keine Secrets und nur Leserechte. Eingaben landen ausschließlich über `env:` in
+# Shell-Befehlen, nie per ${{ }} direkt in `run:` (Schutz vor Script-Injection).
+#
+# Das Erkennungsskript steht bewusst inline: Ein Reusable Workflow checkt das Repo des Aufrufers aus und
+# kann deshalb keine Dateien aus diesem Repo lesen.
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Wurzel der Suche (relativ zum Repo-Wurzelverzeichnis)
+        type: string
+        default: .
+      ecosystems:
+        description: "Einschränkung auf Ökosysteme, kommasepariert: node, python, go, docker, compose (leer = alle)"
+        type: string
+        default: ""
+      node-version:
+        description: Node-Version, wenn das Projekt weder .nvmrc noch .node-version hat (leer = lts/*)
+        type: string
+        default: ""
+      exclude-paths:
+        description: Auszuschließende Pfade, kommasepariert, relativ zu working-directory
+        type: string
+        default: ""
+      run-tests:
+        description: Tests ausführen
+        type: boolean
+        default: true
+      postgres:
+        description: Wegwerf-Postgres für Node- und Python-Projekte starten
+        type: boolean
+        default: false
+      postgres-version:
+        description: Postgres-Version (Image-Tag)
+        type: string
+        default: "17"
+      postgres-port:
+        description: Port der Wegwerf-Postgres auf localhost
+        type: number
+        default: 5432
+      pre-test-command:
+        description: Befehl, der im Projektverzeichnis vor den Tests läuft (z. B. Prisma-Migrationen)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Erkennung
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix_node: ${{ steps.detect.outputs.matrix_node }}
+      has_node: ${{ steps.detect.outputs.has_node }}
+      matrix_python: ${{ steps.detect.outputs.matrix_python }}
+      has_python: ${{ steps.detect.outputs.has_python }}
+      matrix_go: ${{ steps.detect.outputs.matrix_go }}
+      has_go: ${{ steps.detect.outputs.has_go }}
+      matrix_docker: ${{ steps.detect.outputs.matrix_docker }}
+      has_docker: ${{ steps.detect.outputs.has_docker }}
+      matrix_compose: ${{ steps.detect.outputs.matrix_compose }}
+      has_compose: ${{ steps.detect.outputs.has_compose }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prüfbare Teile erkennen
+        id: detect
+        env:
+          WORKDIR: ${{ inputs.working-directory }}
+          EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
+          ECOSYSTEMS: ${{ inputs.ecosystems }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Eingaben (kommen über env, nie per GitHub-Expression im Skript)
+          wd="${WORKDIR:-.}"
+          wd="${wd#./}"
+          wd="${wd%/}"
+          [ -n "$wd" ] || wd="."
+          case "/$wd/" in
+            */../* | //*)
+              echo "::error::working-directory muss ein relativer Pfad ohne '..' sein."
+              exit 1
+              ;;
+          esac
+          [ -d "$wd" ] || {
+            echo "::error::working-directory existiert nicht im Repository."
+            exit 1
+          }
+
+          out="${GITHUB_OUTPUT:-/dev/stdout}"
+          summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          all_kinds="node python go docker compose"
+
+          # Filter 'ecosystems'
+          wanted=""
+          if [ -n "${ECOSYSTEMS//[[:space:]]/}" ]; then
+            IFS=',' read -r -a eco <<<"$ECOSYSTEMS"
+            for e in "${eco[@]}"; do
+              e="${e//[[:space:]]/}"
+              [ -n "$e" ] || continue
+              case " $all_kinds " in
+                *" $e "*) wanted="$wanted $e" ;;
+                *)
+                  echo "::error::Unbekanntes Ökosystem in 'ecosystems': $e (erlaubt: ${all_kinds// /, })"
+                  exit 1
+                  ;;
+              esac
+            done
+          else
+            wanted="$all_kinds"
+          fi
+          want() {
+            case " $wanted " in *" $1 "*) return 0 ;; esac
+            return 1
+          }
+
+          # Ausschlüsse 'exclude-paths' (kommasepariert, relativ zu working-directory)
+          excludes=()
+          if [ -n "${EXCLUDE_PATHS:-}" ]; then
+            IFS=',' read -r -a ex_raw <<<"$EXCLUDE_PATHS"
+            for p in "${ex_raw[@]}"; do
+              p="${p#"${p%%[![:space:]]*}"}"
+              p="${p%"${p##*[![:space:]]}"}"
+              p="${p#./}"
+              p="${p%/}"
+              [ -z "$p" ] || excludes+=("$p")
+            done
+          fi
+
+          tmp="$(mktemp -d)"
+          add() { # kind dir pm [files]
+            jq -nc --arg kind "$1" --arg dir "$2" --arg pm "$3" --arg files "${4:-}" \
+              '{dir: $dir, kind: $kind, pm: $pm} + (if $files != "" then {files: $files} else {} end)' \
+              >>"$tmp/$1.jsonl"
+          }
+
+          # Verzeichnisse mit Erkennungsmerkmalen: Tiefe drei unter working-directory
+          dirs=()
+          while IFS= read -r line; do
+            dirs+=("${line%/*}")
+          done < <(
+            find "$wd" -mindepth 1 -maxdepth 4 \
+              \( -name node_modules -o -name .venv -o -name venv -o -name vendor \
+              -o -name dist -o -name build -o -name .git \) -prune -o \
+              -type f \( -name package-lock.json -o -name pnpm-lock.yaml -o -name bun.lock \
+              -o -name bun.lockb -o -name yarn.lock -o -name uv.lock -o -name pyproject.toml \
+              -o -name 'requirements*.txt' -o -name go.mod -o -name Dockerfile \
+              -o -name 'docker-compose*.y*ml' -o -name 'compose*.y*ml' \) -print | sort
+          )
+
+          shopt -s nullglob
+          prev=""
+          for d in "${dirs[@]}"; do
+            [ "$d" != "$prev" ] || continue
+            prev="$d"
+            d="${d#./}"
+
+            if [ "$wd" = "." ]; then
+              rel="$d"
+            else
+              rel="${d#"$wd"}"
+              rel="${rel#/}"
+              [ -n "$rel" ] || rel="."
+            fi
+            skip=0
+            for p in "${excludes[@]}"; do
+              case "$rel" in "$p" | "$p"/*) skip=1 ;; esac
+            done
+            [ "$skip" -eq 0 ] || continue
+
+            # Node: Lockfile bestimmt den Paketmanager, package.json ist Pflicht
+            if want node; then
+              pm=""
+              if [ -f "$d/pnpm-lock.yaml" ]; then
+                pm=pnpm
+              elif [ -f "$d/bun.lock" ] || [ -f "$d/bun.lockb" ]; then
+                pm=bun
+              elif [ -f "$d/yarn.lock" ]; then
+                pm=yarn
+              elif [ -f "$d/package-lock.json" ]; then
+                pm=npm
+              fi
+              if [ -n "$pm" ]; then
+                if [ -f "$d/package.json" ]; then
+                  add node "$d" "$pm"
+                else
+                  echo "::notice::Lockfile ohne package.json in '$d' wird nicht als Node-Projekt geprüft."
+                fi
+              fi
+            fi
+
+            # Python: uv.lock > pyproject.toml > requirements*.txt, ein Eintrag je Verzeichnis
+            if want python; then
+              reqs=("$d"/requirements*.txt)
+              if [ -f "$d/uv.lock" ]; then
+                add python "$d" uv
+              elif [ -f "$d/pyproject.toml" ]; then
+                add python "$d" pyproject
+              elif [ "${#reqs[@]}" -gt 0 ]; then
+                add python "$d" requirements
+              fi
+            fi
+
+            if want go && [ -f "$d/go.mod" ]; then
+              add go "$d" gomod
+            fi
+
+            if want docker && [ -f "$d/Dockerfile" ]; then
+              add docker "$d" dockerfile
+            fi
+
+            # Compose: Override-Dateien zusammen mit der Basisdatei, nie als eigener Eintrag
+            if want compose; then
+              cfiles=("$d"/docker-compose*.y*ml "$d"/compose*.y*ml)
+              for f in "${cfiles[@]}"; do
+                b="${f##*/}"
+                case "$b" in *.override.yml | *.override.yaml) continue ;; esac
+                stem="${b%.*}"
+                ext="${b##*.}"
+                files="$b"
+                for o in "$d/$stem.override.yml" "$d/$stem.override.yaml"; do
+                  [ ! -f "$o" ] || files="$files,${o##*/}"
+                done
+                add compose "$d" "$ext" "$files"
+              done
+              # Override-Datei ohne Basisdatei: eigener Eintrag
+              for f in "${cfiles[@]}"; do
+                b="${f##*/}"
+                case "$b" in *.override.yml | *.override.yaml) ;; *) continue ;; esac
+                base="${b%.override.*}"
+                if [ ! -f "$d/$base.yml" ] && [ ! -f "$d/$base.yaml" ]; then
+                  add compose "$d" "${b##*.}" "$b"
+                fi
+              done
+            fi
+          done
+
+          # Ausgabe: je kind eine Matrix und ein has_<kind>-Flag
+          total=0
+          for k in $all_kinds; do
+            if [ -s "$tmp/$k.jsonl" ]; then
+              matrix="$(jq -sc '{include: .}' "$tmp/$k.jsonl")"
+              has=true
+              total=$((total + $(wc -l <"$tmp/$k.jsonl")))
+            else
+              matrix='{"include":[]}'
+              has=false
+            fi
+            echo "matrix_$k=$matrix" >>"$out"
+            echo "has_$k=$has" >>"$out"
+          done
+
+          # Zusammenfassung des Laufs
+
+          eco_txt="${wanted# }"
+          {
+            echo "### Erkannte Teile"
+            echo
+            echo "Suchwurzel: \`$wd\` (Tiefe drei) · Ökosysteme: ${eco_txt:-keine} · Ausgeschlossen: ${excludes[*]:-nichts}"
+            echo
+            if [ "$total" -gt 0 ]; then
+              echo "| Ökosystem | Verzeichnis | Paketmanager / Dateien |"
+              echo "|---|---|---|"
+              cat "$tmp"/*.jsonl | jq -rs 'group_by(.kind) | add | .[] | "| \(.kind) | `\(.dir)` | \(.files // .pm) |"'
+            else
+              echo "Nichts Prüfbares gefunden."
+            fi
+          } >>"$summary"
+
+          if [ "$total" -eq 0 ]; then
+            echo "::error::Nichts Prüfbares gefunden: unter '$wd' gibt es bis Tiefe drei kein Node-, Python-, Go-, Docker- oder Compose-Projekt (nach Filter und Ausschlüssen). Ein Check ohne Inhalt würde Automerge freigeben, deshalb schlägt er fehl."
+            exit 1
+          fi
+          echo "$total Teile erkannt."
+
+  node:
+    name: node · ${{ matrix.dir }}
+    needs: detect
+    if: needs.detect.outputs.has_node == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix_node) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.dir }}
+    env:
+      DIR: ${{ matrix.dir }}
+      PM: ${{ matrix.pm }}
+      CI: "true"
+    services:
+      # Ohne `postgres: true` ist das Image leer, dann wird der Service übersprungen.
+      postgres:
+        image: ${{ inputs.postgres && format('postgres:{0}', inputs.postgres-version) || '' }}
+        env:
+          # Wegwerf-Testwerte ohne Geheimnischarakter (Container lebt nur für diesen Lauf).
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - ${{ inputs.postgres-port }}:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Vorbereitung (Versionen, Zusammenfassung)
+        id: prep
+        env:
+          NODE_VERSION_INPUT: ${{ inputs.node-version }}
+        run: |
+          {
+            echo "### node · $DIR ($PM)"
+            echo
+            echo "| Schritt | Ergebnis |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Node-Version: .nvmrc / .node-version, sonst Eingabe, sonst LTS
+          nvfile=""
+          for f in .nvmrc .node-version; do
+            if [ -f "$f" ]; then
+              nvfile="$DIR/$f"
+              break
+            fi
+          done
+          if [ -n "$nvfile" ]; then
+            echo "node-version-file=$nvfile" >> "$GITHUB_OUTPUT"
+            echo "node-version=" >> "$GITHUB_OUTPUT"
+          else
+            echo "node-version-file=" >> "$GITHUB_OUTPUT"
+            echo "node-version=${NODE_VERSION_INPUT:-lts/*}" >> "$GITHUB_OUTPUT"
+          fi
+
+          pmfield="$(node -p 'require("./package.json").packageManager || ""')"
+
+          # pnpm: Version kommt aus packageManager, ohne das Feld gibt es keine verlässliche Version
+          if [ "$PM" = "pnpm" ]; then
+            case "$pmfield" in
+              pnpm@*) ;;
+              *)
+                echo "::error::pnpm-Projekt in '$DIR': package.json braucht das Feld \"packageManager\" (z. B. \"pnpm@10.0.0\"). Der Build-Check liest die pnpm-Version daraus."
+                exit 1
+                ;;
+            esac
+          fi
+
+          # Bun: packageManager "bun@x" nutzen, sonst die neueste Version
+          case "$pmfield" in
+            bun@*)
+              echo "bun-version-file=$DIR/package.json" >> "$GITHUB_OUTPUT"
+              echo "bun-version=" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "bun-version-file=" >> "$GITHUB_OUTPUT"
+              echo "bun-version=latest" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Setup pnpm
+        if: matrix.pm == 'pnpm'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: ${{ matrix.dir }}/package.json
+
+      - name: Setup Bun
+        if: matrix.pm == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ steps.prep.outputs.bun-version }}
+          bun-version-file: ${{ steps.prep.outputs.bun-version-file }}
+
+      - name: Corepack aktivieren (Yarn)
+        if: matrix.pm == 'yarn'
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ steps.prep.outputs.node-version }}
+          node-version-file: ${{ steps.prep.outputs.node-version-file }}
+          cache: ${{ matrix.pm != 'bun' && matrix.pm || '' }}
+          cache-dependency-path: ${{ matrix.dir }}/${{ matrix.pm == 'pnpm' && 'pnpm-lock.yaml' || matrix.pm == 'yarn' && 'yarn.lock' || 'package-lock.json' }}
+
+      - name: Postgres-Umgebung setzen
+        if: inputs.postgres
+        env:
+          PG_PORT: ${{ inputs.postgres-port }}
+        run: |
+          {
+            echo "DATABASE_URL=postgresql://postgres:postgres@localhost:${PG_PORT}/test"
+            echo "PGHOST=localhost"
+            echo "PGPORT=${PG_PORT}"
+            echo "PGUSER=postgres"
+            echo "PGPASSWORD=postgres"
+            echo "PGDATABASE=test"
+          } >> "$GITHUB_ENV"
+          echo "| postgres | Wegwerf-Datenbank auf localhost:${PG_PORT} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install (eingefrorene Lockfile)
+        run: |
+          case "$PM" in
+            npm) npm ci ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            bun) bun install --frozen-lockfile ;;
+            yarn)
+              if [ "$(yarn --version | cut -d. -f1)" -ge 2 ]; then
+                yarn install --immutable
+              else
+                yarn install --frozen-lockfile
+              fi
+              ;;
+            *)
+              echo "::error::Unbekannter Paketmanager: $PM"
+              exit 1
+              ;;
+          esac
+          echo "| install | ausgeführt ($PM, eingefrorene Lockfile) |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build
+        env:
+          SCRIPT: build
+        run: |
+          if node -e 'process.exit(require("./package.json").scripts?.[process.env.SCRIPT] ? 0 : 1)'; then
+            "$PM" run "$SCRIPT"
+            echo "| $SCRIPT | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| $SCRIPT | übersprungen (kein Skript) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Typecheck
+        env:
+          SCRIPT: typecheck
+        run: |
+          if node -e 'process.exit(require("./package.json").scripts?.[process.env.SCRIPT] ? 0 : 1)'; then
+            "$PM" run "$SCRIPT"
+            echo "| $SCRIPT | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -f tsconfig.json ] && [ -d node_modules/typescript ]; then
+            npx --no-install tsc --noEmit
+            echo "| $SCRIPT | ausgeführt (Ersatz: tsc --noEmit) |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| $SCRIPT | übersprungen (kein Skript, keine tsconfig.json mit installiertem typescript) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Lint
+        env:
+          SCRIPT: lint
+        run: |
+          if node -e 'process.exit(require("./package.json").scripts?.[process.env.SCRIPT] ? 0 : 1)'; then
+            "$PM" run "$SCRIPT"
+            echo "| $SCRIPT | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| $SCRIPT | übersprungen (kein Skript) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Tests
+        env:
+          SCRIPT: test
+          RUN_TESTS: ${{ inputs.run-tests }}
+          PRE_TEST_COMMAND: ${{ inputs.pre-test-command }}
+        run: |
+          if [ "$RUN_TESTS" != "true" ]; then
+            echo "| $SCRIPT | übersprungen (run-tests ist aus) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! node -e 'process.exit(require("./package.json").scripts?.[process.env.SCRIPT] ? 0 : 1)'; then
+            echo "| $SCRIPT | übersprungen (kein Skript) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if node -e 'process.exit(/no test specified/.test(require("./package.json").scripts[process.env.SCRIPT]) ? 0 : 1)'; then
+            echo "::notice::Platzhalter-Testskript in '$DIR' (no test specified): Tests werden übersprungen."
+            echo "| $SCRIPT | übersprungen (Platzhalter-Skript) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -n "$PRE_TEST_COMMAND" ]; then
+            bash -euo pipefail -c "$PRE_TEST_COMMAND"
+            echo "| pre-test-command | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          "$PM" run "$SCRIPT"
+          echo "| $SCRIPT | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+
+  python:
+    name: python · ${{ matrix.dir }}
+    needs: detect
+    if: needs.detect.outputs.has_python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix_python) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.dir }}
+    env:
+      DIR: ${{ matrix.dir }}
+      PM: ${{ matrix.pm }}
+      CI: "true"
+    services:
+      postgres:
+        image: ${{ inputs.postgres && format('postgres:{0}', inputs.postgres-version) || '' }}
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - ${{ inputs.postgres-port }}:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Vorbereitung (Python-Version, Zusammenfassung)
+        id: prep
+        run: |
+          {
+            echo "### python · $DIR ($PM)"
+            echo
+            echo "| Schritt | Ergebnis |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Python-Version: .python-version, sonst requires-python (untere Schranke), sonst 3.12
+          pyver=""
+          if [ -f .python-version ]; then
+            pyver="$(head -n1 .python-version | tr -d '[:space:]')"
+            pyver="${pyver#python-}"
+          elif [ -f pyproject.toml ]; then
+            pyver="$(grep -E '^[[:space:]]*requires-python' pyproject.toml | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1 || true)"
+          fi
+          if ! printf '%s' "$pyver" | grep -qE '^[0-9]+(\.[0-9]+){1,2}$'; then
+            pyver="3.12"
+          fi
+          echo "pyver=$pyver" >> "$GITHUB_OUTPUT"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: ${{ steps.prep.outputs.pyver }}
+          enable-cache: true
+
+      - name: Postgres-Umgebung setzen
+        if: inputs.postgres
+        env:
+          PG_PORT: ${{ inputs.postgres-port }}
+        run: |
+          {
+            echo "DATABASE_URL=postgresql://postgres:postgres@localhost:${PG_PORT}/test"
+            echo "PGHOST=localhost"
+            echo "PGPORT=${PG_PORT}"
+            echo "PGUSER=postgres"
+            echo "PGPASSWORD=postgres"
+            echo "PGDATABASE=test"
+          } >> "$GITHUB_ENV"
+          echo "| postgres | Wegwerf-Datenbank auf localhost:${PG_PORT} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install
+        run: |
+          case "$PM" in
+            uv)
+              uv sync --frozen --all-extras
+              ;;
+            pyproject)
+              uv venv
+              uv pip install -e .
+              ;;
+            requirements)
+              uv venv
+              for f in requirements*.txt; do
+                uv pip install -r "$f"
+              done
+              ;;
+            *)
+              echo "::error::Unbekannter Python-Ablauf: $PM"
+              exit 1
+              ;;
+          esac
+          echo "| install | ausgeführt ($PM) |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Quellen kompilieren
+        run: |
+          py=.venv/bin/python
+          files="$(find . \( -name .venv -o -name venv -o -name node_modules -o -name vendor -o -name dist -o -name build -o -name .git \) -prune -o -type f -name '*.py' -print)"
+          if [ -z "$files" ]; then
+            echo "| compileall | übersprungen (keine .py-Dateien) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf '%s\n' "$files" | xargs "$py" -m compileall -q
+          echo "| compileall | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tests (pytest)
+        env:
+          RUN_TESTS: ${{ inputs.run-tests }}
+          PRE_TEST_COMMAND: ${{ inputs.pre-test-command }}
+        run: |
+          py=.venv/bin/python
+          if [ "$RUN_TESTS" != "true" ]; then
+            echo "| pytest | übersprungen (run-tests ist aus) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          tests="$(find . \( -name .venv -o -name venv -o -name node_modules -o -name vendor -o -name dist -o -name build -o -name .git \) -prune -o -type f \( -name 'test_*.py' -o -name '*_test.py' \) -print -quit)"
+          if [ ! -d tests ] && [ -z "$tests" ]; then
+            echo "| pytest | übersprungen (keine Tests gefunden) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if ! "$py" -m pytest --version > /dev/null 2>&1; then
+            uv pip install --python "$py" pytest
+          fi
+          if [ -n "$PRE_TEST_COMMAND" ]; then
+            bash -euo pipefail -c "$PRE_TEST_COMMAND"
+            echo "| pre-test-command | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          status=0
+          "$py" -m pytest || status=$?
+          if [ "$status" -eq 5 ]; then
+            echo "::notice::pytest hat in '$DIR' keine Tests gesammelt."
+            echo "| pytest | übersprungen (keine Tests gesammelt) |" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          else
+            echo "| pytest | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  go:
+    name: go · ${{ matrix.dir }}
+    needs: detect
+    if: needs.detect.outputs.has_go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix_go) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.dir }}
+    env:
+      DIR: ${{ matrix.dir }}
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Zusammenfassung vorbereiten
+        run: |
+          {
+            echo "### go · $DIR"
+            echo
+            echo "| Schritt | Ergebnis |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: ${{ matrix.dir }}/go.mod
+          # Cache nur mit go.sum, sonst bricht setup-go ab
+          cache: ${{ hashFiles(format('{0}/go.sum', matrix.dir)) != '' }}
+          cache-dependency-path: ${{ matrix.dir }}/go.sum
+
+      - name: Build
+        run: |
+          go build ./...
+          echo "| go build | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Vet
+        run: |
+          go vet ./...
+          echo "| go vet | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tests
+        env:
+          RUN_TESTS: ${{ inputs.run-tests }}
+        run: |
+          if [ "$RUN_TESTS" != "true" ]; then
+            echo "| go test | übersprungen (run-tests ist aus) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "$(find . -name vendor -prune -o -type f -name '*_test.go' -print -quit)" ]; then
+            echo "| go test | übersprungen (keine *_test.go) |" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          go test ./...
+          echo "| go test | ausgeführt |" >> "$GITHUB_STEP_SUMMARY"
+
+  docker:
+    name: docker · ${{ matrix.dir }}
+    needs: detect
+    if: needs.detect.outputs.has_docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix_docker) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Dockerfile bauen (ohne Push)
+        shell: bash
+        env:
+          DIR: ${{ matrix.dir }}
+        run: |
+          docker buildx build --output type=cacheonly -f "$DIR/Dockerfile" "$DIR"
+          {
+            echo "### docker · $DIR"
+            echo
+            echo "| Schritt | Ergebnis |"
+            echo "|---|---|"
+            echo "| docker buildx build | ausgeführt (Kontext $DIR, nur Cache, kein Push) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  compose:
+    name: compose · ${{ matrix.dir }}
+    needs: detect
+    if: needs.detect.outputs.has_compose == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix_compose) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compose-Datei prüfen (ohne Variablen aufzulösen)
+        env:
+          DIR: ${{ matrix.dir }}
+          FILES: ${{ matrix.files }}
+        run: |
+          args=()
+          IFS=',' read -r -a compose_files <<< "$FILES"
+          for f in "${compose_files[@]}"; do
+            args+=(-f "$f")
+          done
+          docker compose "${args[@]}" config --no-interpolate --quiet
+          {
+            echo "### compose · $DIR"
+            echo
+            echo "| Schritt | Ergebnis |"
+            echo "|---|---|"
+            echo "| docker compose config | ausgeführt ($FILES, ohne Interpolation) |"
+          } >> "$GITHUB_STEP_SUMMARY"
