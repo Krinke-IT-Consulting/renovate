@@ -85,7 +85,7 @@
 
   Erst nach Freigabe; Coolify zeigt alle Namen aus `.env.example` außer den leeren optionalen
   (Namen per `list_env_keys` abgleichen, keine Werte)
-- [ ] 5.3 Nach Freigabe deployen, dann prüfen:
+- [x] 5.3 Nach Freigabe deployen, dann prüfen:
   - Postgres, Authelia und Platzhalter sind gesund (Renovate CE erst nach 5.5 mit App-ID und Key).
   - Für `renovate.krinke-it.cloud` gibt es nur die eigenen Router `renovate-webhook` und
     `renovate-dashboard` (+ http-Pendants), keinen von Coolify erzeugten; der Dashboard-Router trägt

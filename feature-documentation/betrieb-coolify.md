@@ -261,7 +261,34 @@ Offen ist insbesondere:
 - Ob die Forward-Auth für den Platzhalter wirkt (Redirect ohne Sitzung).
 - Die Labels der Router, wie in Task 5.3 gefordert, für die Dokumentation.
 
-*Wird nach Task 5.3 ergänzt, sobald der Stack läuft.*
+Erstes Deploy am 2026-10-14 (Coolify 4.4.6, Traefik 3.6.25):
+
+- **Pflichtprüfung `${VAR:?}` bricht den Build ab.** Coolify ruft `docker compose build` nur mit
+  den Build-Variablen auf (`--env-file /artifacts/build-time.env`). Laufzeit-Secrets fehlen dort.
+  Deshalb prüft `renovate-ce/check-env.sh` die Pflichtwerte beim Containerstart.
+- **Coolify ergänzt `ARG`-Zeilen** in jedem Dockerfile (für `COOLIFY_*` und alle Build-Variablen).
+  Secrets deshalb nie als Build-Variable markieren.
+- **Compose-Domain mit Port:** Die Coolify-API verwirft den Port (`:9091`) aus der Domain. Daher
+  routet der Stack alle Ziele über eigene Labels; Coolify-Domains sind leer.
+- **Die CLI kann den Pfad der Compose-Datei nicht setzen**; Coolify sucht `docker-compose.yaml`
+  im Base Directory.
+- **Eigene Labels und Netz `coolify` werden unverändert übernommen.** Der Certresolver heißt
+  `letsencrypt`, die Entrypoints `http` und `https`. Die Zertifikate kamen innerhalb einer Minute.
+- **Prüfungen ohne Sitzung** (alle bestanden):
+
+  | Anfrage | Ergebnis |
+  |---|---|
+  | `GET /`, `/api/jobs`, `/api/v1/jobs`, `/webhook/`, `/webhook/api/jobs`, `/health` | 302 auf `renovate-auth.krinke-it.cloud` |
+  | `http://renovate.krinke-it.cloud/` | 301 auf https |
+  | `GET /webhook` | 404 von CE (nur POST) |
+  | `POST /webhook` ohne bzw. mit falscher Signatur | 401 |
+  | `https://renovate-auth.krinke-it.cloud/api/health` | 200 |
+  | Ports 5432, 8080, 9091 von außen | geschlossen |
+
+- **Authelia beendet sich beim ersten Start einmal** (legt die Nutzerdatei an) und startet danach
+  neu; Coolify zählt das als einen Crash-Neustart.
+- **Renovate CE meldet sich als App `krinke-it-renovate[bot]` an**; ohne Installation findet die
+  App-Synchronisation 0 Repos.
 
 ## 9. Bekannte Grenzen
 
