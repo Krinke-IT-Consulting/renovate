@@ -1,5 +1,5 @@
 # Renovate-Plattform fuer Coolify (Change compose-stack).
-# Coolify: Base Directory = /deploy, Compose-Datei = /compose.yml.
+# Coolify: Base Directory = /deploy, Compose-Datei = /docker-compose.yaml.
 # Build-Kontexte sind relativ zu dieser Datei (./postgres, ./authelia, ./placeholder,
 # ../renovate-ce).
 #

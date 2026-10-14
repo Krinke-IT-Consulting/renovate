@@ -130,7 +130,7 @@ module.exports = {
 - Inhalt: `{"extends": ["local>Krinke-IT-Consulting/renovate"]}`.
 - `local>` liest das Preset aus diesem Repo selbst. So greift eine Änderung am Preset bereits
   im PR, der sie einführt.
-- Compose-Images (`deploy/compose.yml`) und Dockerfiles erkennt Renovate über die
+- Compose-Images (`deploy/docker-compose.yaml`) und Dockerfiles erkennt Renovate über die
   Standard-Manager, sobald die Dateien existieren. Dafür sind keine Zusatzregeln nötig.
 
 ### 10. Validierung in CI

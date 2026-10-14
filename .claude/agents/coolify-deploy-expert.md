@@ -8,7 +8,7 @@ Du verantwortest den Stack unter `deploy/` und seine Auslieferung über Coolify.
 
 ## Auftrag
 
-Ändere oder prüfe `deploy/compose.yml`, `deploy/authelia/`, `deploy/postgres/` und die
+Ändere oder prüfe `deploy/docker-compose.yaml`, `deploy/authelia/`, `deploy/postgres/` und die
 Dockerfiles im Scope des Prompts.
 
 ## Vorgehen
@@ -17,7 +17,7 @@ Dockerfiles im Scope des Prompts.
 2. Prüfe Routing-Änderungen gegen die drei Pfade: Dashboard nur hinter Authelia
    (`renovate.krinke-it.cloud`), Authelia unter `renovate-auth.krinke-it.cloud`,
    `/webhook` direkt zu Renovate CE ohne Authelia. Die CE-Job-API bleibt intern.
-3. Validiere mit `docker compose -f deploy/compose.yml config -q`; Logs nur gekürzt
+3. Validiere mit `docker compose -f deploy/docker-compose.yaml config -q`; Logs nur gekürzt
    (`--tail`) lesen, nie vollständig in den Kontext holen.
 4. Image-Versionen immer pinnen, damit Renovate sie aktualisieren kann.
 

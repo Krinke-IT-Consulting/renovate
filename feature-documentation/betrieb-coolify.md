@@ -11,8 +11,8 @@ stehen in keinem Dokument dieses Repos; sie leben in `.env.production` und in Co
 
 ## 1. Überblick
 
-Der Stack besteht aus vier Diensten in einer Datei, `deploy/compose.yml`. Coolify liest diese Datei
-(Compose-Ressource, Base Directory `/deploy`, Compose-Datei `/compose.yml`). Dienste mit `build:` baut
+Der Stack besteht aus vier Diensten in einer Datei, `deploy/docker-compose.yaml`. Coolify liest diese Datei
+(Compose-Ressource, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`). Dienste mit `build:` baut
 Coolify beim Deploy aus den Kontexten unter `deploy/` und `renovate-ce/`. Pflicht-Secrets stehen als
 `${VAR:?VAR fehlt}` in der Datei: Fehlt einer, bricht das Deploy mit dem Namen ab.
 
@@ -63,13 +63,13 @@ Platz frei.
 
 ## 3. Routing
 
-Alle Hostnamen zeigen auf 2.28.133.29. Die Zuordnung steht in `deploy/compose.yml` (Kommentarkopf und
+Alle Hostnamen zeigen auf 2.28.133.29. Die Zuordnung steht in `deploy/docker-compose.yaml` (Kommentarkopf und
 Labels) und in `deploy/authelia/configuration.yml`.
 
 | Host / Pfad | Dienst | Login | Wie geroutet |
 |---|---|---|---|
 | `https://renovate.krinke-it.cloud/webhook` (exakt, Port 8080) | `renovate-ce` | nein (Signatur mit Webhook-Secret) | Eigene Labels: Router `renovate-webhook`, Regel `Host && Path(/webhook)`, Priorität 100. **Keine Coolify-Domain** – Coolify würde bei einer Domain mit Pfad den Pfad abschneiden und `/webhook/api/...` an CE durchreichen. |
-| `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-placeholder` | ja (Passwort und TOTP) | Eigene Labels in `deploy/compose.yml`: Router `renovate-dashboard` (https, Middleware `renovate-authelia@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. |
+| `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-placeholder` | ja (Passwort und TOTP) | Eigene Labels in `deploy/docker-compose.yaml`: Router `renovate-dashboard` (https, Middleware `renovate-authelia@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. |
 | `https://renovate-auth.krinke-it.cloud:9091` | `renovate-authelia` | nein (ist das Anmeldeportal) | Coolify-Domain der Ressource `renovate-authelia`. |
 | Job-API von `renovate-ce` | `renovate-ce` | – | Kein Router. Nur im Stack-Netz erreichbar. |
 | Postgres (Port 5432) | `postgres` | – | Kein Router, kein veröffentlichter Port. Nur im Stack-Netz erreichbar. |
@@ -102,7 +102,7 @@ Traefik-Labels für alle drei öffentlichen Ziele.
 Die Fakten in diesem Abschnitt stammen aus der Doku der gepinnten Version 15.7.0
 (`https://github.com/mend/renovate-ce-ee/tree/15.7.0/docs`, Dateien `configuration-options.md`,
 `setup-for-github.md`, `overview.md`). Sie wurden für dieses Dokument nicht erneut online geprüft. Die Umsetzung im Repo (Dockerfiles,
-`compose.yml`, `config.js`) wurde dagegen am Code gelesen.
+`docker-compose.yaml`, `config.js`) wurde dagegen am Code gelesen.
 
 - **Pflicht-Variablen:** `MEND_RNV_LICENSE_KEY`, `MEND_RNV_GITHUB_APP_ID`, `MEND_RNV_GITHUB_APP_KEY`,
   `MEND_RNV_WEBHOOK_SECRET`. Ohne Lizenzschlüssel beendet sich CE mit `FATAL`. Die Meldung nennt nur den
@@ -126,7 +126,7 @@ Die Fakten in diesem Abschnitt stammen aus der Doku der gepinnten Version 15.7.0
 Container Registry (`rg.nl-ams.scw.cloud`). Die Regel greift nur, wenn `SCW_REGISTRY_SECRET_KEY` gesetzt
 ist. Das Passwort kommt aus der Umgebung, nie aus der Datei.
 
-**Was der Stack an Umgebung setzt** (`deploy/compose.yml`, Dienst `renovate-ce`): `MEND_RNV_ACCEPT_TOS=y`,
+**Was der Stack an Umgebung setzt** (`deploy/docker-compose.yaml`, Dienst `renovate-ce`): `MEND_RNV_ACCEPT_TOS=y`,
 `MEND_RNV_PLATFORM=github`, `MEND_RNV_AUTODISCOVER_FILTER=Hiwamashi/*,Krinke-IT-Consulting/*`,
 `MEND_RNV_DATA_HANDLER_TYPE=postgresql`, `MEND_RNV_API_ENABLED=true`, `MEND_RNV_API_ENABLE_JOBS=true`
 sowie `PGHOST=postgres`, `PGPORT=5432`, `PGDATABASE=renovate_ce`, `PGUSER=renovate_ce` und
@@ -144,7 +144,7 @@ vor, führt aber kein Deploy ohne Freigabe aus (Spec `platform-deployment`, „K
    dem Remote-Branch.
 3. **Coolify-Ressource anlegen.**
    - Typ: Docker Compose, neues Projekt „Renovate", Server `gentle-goose`.
-   - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/compose.yml`.
+   - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`.
    - Domain **nur** für `renovate-authelia`: `https://renovate-auth.krinke-it.cloud:9091`. **Keine** Domain für
      `renovate-ce`, `renovate-placeholder` und `postgres` – deren Routing steckt in den Labels.
    - Variablen aus `.env.production` übertragen (Namen aus `.env.example`). Leere optionale Werte weglassen,

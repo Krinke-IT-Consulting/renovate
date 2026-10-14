@@ -29,7 +29,7 @@
   `authelia validate-config` im Image ohne Fehler (Secrets dabei als Dummy-Env im Kommando)
 - [x] 2.3 `deploy/postgres/init/01-databases.sh` und `deploy/postgres/Dockerfile` anlegen —
   `shellcheck` sauber (falls verfügbar, sonst per Docker), `docker build` erfolgreich
-- [x] 2.4 `deploy/compose.yml` anlegen. Inhalt:
+- [x] 2.4 `deploy/docker-compose.yaml` anlegen. Inhalt:
   - vier Dienste mit `build:` bzw. gepinntem Image
   - Volumes `postgres-data`, `authelia-data`, `renovate-cache`
   - Healthchecks und `restart: unless-stopped`
@@ -37,7 +37,7 @@
   - Variablen laut Entscheidung 6
   - Forward-Auth-Labels laut Entscheidung 3
 
-  Prüfen mit `docker compose -f deploy/compose.yml config` mit einer Platzhalter-Env-Datei aus
+  Prüfen mit `docker compose -f deploy/docker-compose.yaml config` mit einer Platzhalter-Env-Datei aus
   dem Scratchpad: ohne Fehler, und `grep -n "ports:"` liefert nichts
 - [x] 2.5 `deploy/scripts/setup-authelia-user.sh` nach dem Muster aus vaultsync anlegen:
   - TTY-Pflicht, mindestens zwölf Zeichen
@@ -50,7 +50,7 @@
 ## 3. Konfigurationswerte
 
 - [x] 3.1 In `.env.example` alle Namen aus design.md Entscheidungen 4–6 ergänzen, jeweils mit
-  leerem Wert und Herkunftskommentar — jeder `${VAR}`-Verweis in `deploy/compose.yml` hat einen
+  leerem Wert und Herkunftskommentar — jeder `${VAR}`-Verweis in `deploy/docker-compose.yaml` hat einen
   Eintrag (per Skript abgleichen)
 - [x] 3.2 Die acht selbst erzeugten Werte laut Entscheidung 7 erzeugen und per `>>` an
   `.env.production` anhängen, ohne die Datei zu lesen und ohne einen Wert auszugeben.
@@ -75,11 +75,11 @@
 
 ## 5. Einrichtung und Deploy (mit Betreiber; Deploy nur nach ausdrücklicher Freigabe)
 
-- [ ] 5.1 Betreiber setzt DNS-A-Einträge für `renovate.krinke-it.cloud` und
+- [x] 5.1 Betreiber setzt DNS-A-Einträge für `renovate.krinke-it.cloud` und
   `renovate-auth.krinke-it.cloud` auf 2.28.133.29 — `dig +short` liefert für beide diese IP
 - [ ] 5.2 Coolify-Ressource vom Typ Docker Compose im neuen Projekt „Renovate" auf
   `gentle-goose` anlegen. Dazu gehören:
-  - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/compose.yml`
+  - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`
   - Domain nur für `renovate-authelia` laut Entscheidung 3
   - Variablen aus `.env.production`, leere optionale Werte weggelassen
 

@@ -43,7 +43,7 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
   `COPY configuration.yml /config/configuration.yml`. Die Konfiguration enthält keine Secrets.
 - **`deploy/postgres/Dockerfile`:** `FROM postgres:17.<x>` plus
   `COPY init/ /docker-entrypoint-initdb.d/`.
-- In `deploy/compose.yml` verweisen diese Dienste per `build:` auf ihren Kontext. Coolify baut sie
+- In `deploy/docker-compose.yaml` verweisen diese Dienste per `build:` auf ihren Kontext. Coolify baut sie
   beim Deploy.
 - Renovate erkennt die `FROM`-Zeilen über den Dockerfile-Manager. Dafür sind keine Zusatzregeln
   nötig.
@@ -106,7 +106,7 @@ Siehe proposal.md (Why). Ausgangslage und Randbedingungen:
 - Pflicht-Secrets stehen in der Compose-Datei als `${VAR:?VAR fehlt}`. Ohne Wert bricht das Deploy
   mit dem Namen ab; sonst nutzte CE für ein fehlendes Webhook-Secret still den öffentlichen
   Standardwert `renovate`.
-- Coolify: Base Directory `/deploy`, Compose-Datei `/compose.yml`; die Build-Kontexte sind relativ
+- Coolify: Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`; die Build-Kontexte sind relativ
   zu `deploy/` und stimmen damit unabhängig davon, wie Coolify das Projektverzeichnis setzt.
 - Kein Dienst veröffentlicht `ports:`.
 

@@ -15,7 +15,7 @@ an einem echten Repo erledigen.
 
 ## What Changes
 
-- **`deploy/compose.yml`**: ein Docker-Compose-Stack für Coolify auf dem Server `gentle-goose`.
+- **`deploy/docker-compose.yaml`**: ein Docker-Compose-Stack für Coolify auf dem Server `gentle-goose`.
   Er hat vier Dienste:
   - `renovate-ce`: eigenes kleines Image auf Basis von `ghcr.io/mend/renovate-ce` mit
     eingebauter `config.js`
@@ -71,7 +71,7 @@ Nicht Teil dieses Changes:
 ## Impact
 
 - **Neue Dateien:**
-  - `deploy/compose.yml`
+  - `deploy/docker-compose.yaml`
   - `renovate-ce/Dockerfile`
   - `deploy/authelia/Dockerfile`
   - `deploy/authelia/configuration.yml`

@@ -14,7 +14,7 @@ Stand: 2026-10-13
 
 ## In Arbeit
 
-- Change `compose-stack`: Dateien und lokaler Test fertig (Gruppen 1–4: `deploy/compose.yml`, Dockerfiles, Authelia-Konfiguration, Postgres-Init, Einrichtungsskript, Secrets erzeugt) — Doku `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`. Offen: Gruppe 5 (DNS, Push, Coolify-Ressource, Deploy nach Freigabe, Authelia-Nutzer, GitHub App)
+- Change `compose-stack`: Dateien und lokaler Test fertig (Gruppen 1–4: `deploy/docker-compose.yaml`, Dockerfiles, Authelia-Konfiguration, Postgres-Init, Einrichtungsskript, Secrets erzeugt) — Doku `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`. Offen: Gruppe 5 (DNS, Push, Coolify-Ressource, Deploy nach Freigabe, Authelia-Nutzer, GitHub App)
 - Change `renovate-konfiguration`: Gruppe 5 (Verifikation am Test-Repo) wartet auf den laufenden Compose-Stack; Change danach archivieren
 
 ## Ausstehend

@@ -154,7 +154,7 @@
 | Auth | Authelia (Forward-Auth über Traefik-Labels in Coolify) | Vorhandenes Muster, eine Instanz pro Projekt |
 | Build-Check | GitHub Actions Reusable Workflow | Ein zentraler Ort für die CI-Logik aller Repos |
 | Tests | Vitest (Unit), Playwright (Smoke-Test des Dashboards) | Standard im Next.js-Umfeld |
-| Deployment | `deploy/compose.yml` als Docker-Compose-Ressource in Coolify | Ein Stack, Secrets als Coolify-Variablen |
+| Deployment | `deploy/docker-compose.yaml` als Docker-Compose-Ressource in Coolify | Ein Stack, Secrets als Coolify-Variablen |
 
 **Vorgeschlagene Repo-Struktur**
 
@@ -172,7 +172,7 @@
 │   └── config.js                      # globale Self-Hosted-Konfiguration
 ├── dashboard/                         # Next.js-App
 ├── deploy/
-│   ├── compose.yml                    # renovate-ce, dashboard, postgres, authelia
+│   ├── docker-compose.yaml            # renovate-ce, dashboard, postgres, authelia
 │   ├── authelia/configuration.yml     # ohne Secrets
 │   └── postgres/init.sql              # legt die DBs renovate_ce und dashboard an
 ├── feature-documentation/
