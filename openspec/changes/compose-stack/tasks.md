@@ -99,7 +99,8 @@
   - Die Labels der Router sind dokumentiert.
 
   Greift die Forward-Auth nicht, sofort stoppen (mit Freigabe) und auf den Raw-Modus umstellen
-- [ ] 5.4 Betreiber führt `setup-authelia-user.sh` per SSH aus, meldet sich an und registriert
+- [x] 5.4 (2026-10-14: Konto `sascha`, TOTP registriert; Platzhalter zeigt Remote-User/-Name/-Email/-Groups;
+  Überschreiben gleichnamiger Header per Traefik-`authResponseHeaders` dokumentiert) Betreiber führt `setup-authelia-user.sh` per SSH aus, meldet sich an und registriert
   TOTP mit dem Code aus `/data/notification.txt`. Prüfen:
   - Der Platzhalter zeigt den Header `Remote-User`.
   - Ein selbst mitgeschickter `Remote-User` wird überschrieben.
