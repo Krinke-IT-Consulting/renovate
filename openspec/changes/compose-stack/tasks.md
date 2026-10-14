@@ -104,23 +104,24 @@
   TOTP mit dem Code aus `/data/notification.txt`. Prüfen:
   - Der Platzhalter zeigt den Header `Remote-User`.
   - Ein selbst mitgeschickter `Remote-User` wird überschrieben.
-- [ ] 5.5 (App angelegt und App-ID/Key übertragen am 2026-10-14 vor dem Deploy, weil beide Pflichtwerte sind;
+- [x] 5.5 (App angelegt und App-ID/Key übertragen am 2026-10-14 vor dem Deploy, weil beide Pflichtwerte sind;
   offen: Installation für das Test-Repo erst nach bestandener Prüfung 5.3) Betreiber legt die GitHub App laut Feature-Doku an, mit Webhook-URL und Webhook-Secret,
   und installiert sie für ein Test-Repo. App-ID und Key trägt er in `.env.production` und
   Coolify ein, danach Redeploy nach Freigabe. Prüfen:
   - Die Webhook-Zustellung „ping" zeigt in GitHub den Status 2xx.
   - Eine erneut zugestellte Anfrage mit falschem Secret, etwa per `curl` ohne Signatur, wird
     abgewiesen.
-- [ ] 5.6 Neustart-Szenario: Den Stack nach Freigabe in Coolify neu starten. Danach sind alle
+- [x] 5.6 (2026-10-14: Redeploy 09:35 und Neustart 09:36 UTC, alle Dienste gesund, Cache 1,5 MB,
+  db.sqlite3 und users_database.yml unverändert) Neustart-Szenario: Den Stack nach Freigabe in Coolify neu starten. Danach sind alle
   Dienste gesund, das TOTP-Gerät existiert noch, und der Cache von CE ist erhalten (zuvor
   installierte Werkzeugversion noch vorhanden)
 
 ## 6. Dokumentation
 
-- [ ] 6.1 `feature-documentation/betrieb-coolify.md` schreiben. Inhalt:
+- [x] 6.1 `feature-documentation/betrieb-coolify.md` schreiben. Inhalt:
   - Aufbau des Stacks und Routing-Tabelle
   - Schritte von Hand: DNS, Coolify, Authelia-Nutzer, GitHub App mit Rechten und Events
   - Werte rotieren
   - Erkenntnisse zu den Coolify-Labels aus 5.3
   - Server-Kennzahlen aus 1.1
-- [ ] 6.2 `PROGRESS.md` aktualisieren und `openspec validate compose-stack --strict` grün
+- [x] 6.2 `PROGRESS.md` aktualisieren und `openspec validate compose-stack --strict` grün

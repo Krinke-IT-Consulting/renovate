@@ -1,6 +1,6 @@
 # Fortschritt
 
-Stand: 2026-10-13
+Stand: 2026-10-14
 
 ## Umgesetzt
 
@@ -11,15 +11,15 @@ Stand: 2026-10-13
 - Produktbeschreibung `PRODUCT.md` (Impeccable)
 - Entwurf der Übersicht bestätigt: `feature-documentation/uebersicht-entwurf.md`
 - Renovate-Konfiguration (OpenSpec-Change `renovate-konfiguration`, Gruppen 1–4 und 6): Shared Preset `default.json`, `renovate-ce/config.js`, `renovate.json`, `templates/renovate.json`, Validierungs-Workflow — Doku: `feature-documentation/renovate-konfiguration.md`
+- Betriebs-Stack (Change `compose-stack`, alle Tasks): Renovate CE, Postgres, Authelia (2FA) und Platzhalter laufen auf Coolify (`gentle-goose`), `renovate.krinke-it.cloud` hinter Login, Webhook unter `/webhook`; GitHub App „Krinke IT Renovate“ installiert für `Krinke-IT-Consulting/renovate` — Doku: `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`
 
 ## In Arbeit
 
-- Change `compose-stack`: Dateien und lokaler Test fertig (Gruppen 1–4: `deploy/docker-compose.yaml`, Dockerfiles, Authelia-Konfiguration, Postgres-Init, Einrichtungsskript, Secrets erzeugt) — Doku `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`. Offen: Gruppe 5 (DNS, Push, Coolify-Ressource, Deploy nach Freigabe, Authelia-Nutzer, GitHub App)
-- Change `renovate-konfiguration`: Gruppe 5 (Verifikation am Test-Repo) wartet auf den laufenden Compose-Stack; Change danach archivieren
+- Change `renovate-konfiguration`: offen 5.1 (kein Automerge ohne Checks, braucht ein Repo ohne CI) und 5.2 (Limits bei Sicherheits-PRs, braucht einen echten Sicherheitsfall)
 
 ## Ausstehend
 
-- GitHub App anlegen und installieren (Anleitung in `feature-documentation/betrieb-coolify.md`)
+- GitHub App für weitere Repos installieren (über das Dashboard-Onboarding oder von Hand)
 - OpenSpec-Changes: Build-Check-Workflow, Dashboard (Datenmodell, Sync, Ansichten, Onboarding)
 - Graphify einrichten, sobald es Code gibt
 - `DESIGN.md` nach dem Bau der ersten Oberfläche

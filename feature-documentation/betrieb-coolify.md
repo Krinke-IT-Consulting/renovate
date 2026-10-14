@@ -289,6 +289,18 @@ Erstes Deploy am 2026-10-14 (Coolify 4.4.6, Traefik 3.6.25):
   neu; Coolify zählt das als einen Crash-Neustart.
 - **Renovate CE meldet sich als App `krinke-it-renovate[bot]` an**; ohne Installation findet die
   App-Synchronisation 0 Repos.
+- **System-API nachträglich eingeschaltet** (`MEND_RNV_API_ENABLE_SYSTEM=true`): ohne sie liefern
+  `POST /system/v1/sync` und `/system/v1/jobs/add` 404. Aufruf nur im Container, z. B.
+  `docker exec <renovate-ce> sh -c 'curl -X POST -H "Authorization: Bearer $MEND_RNV_API_SERVER_SECRET" http://localhost:8080/system/v1/sync'`
+  — das Secret verlässt den Container dabei nicht.
+- **Erste Installation** (nur `Krinke-IT-Consulting/renovate`): Webhooks `installation.created` und
+  `issues.opened` kamen an; Renovate legte Issue #1 „Dependency Dashboard“ an (Postgres v18 wartet
+  auf Freigabe, Minor-Gruppe wartet auf den Zeitplan).
+- **Postgres-Major im eigenen Stack gesperrt** (Regel in `renovate.json`): Der Sprung braucht Dump
+  und Wiederherstellung und wird bewusst als eigener Change gemacht.
+- **Neustart-Test (Task 5.6):** Redeploy und Neustart am 2026-10-14; Werkzeug-Cache, TOTP-Datenbank
+  und Nutzerdatei blieben erhalten, alle Dienste nach rund einer Minute gesund.
+- **Zeitzonen:** GitHub zeigt Zustellungen in Ortszeit, Coolify- und Container-Logs in UTC.
 
 ## 9. Bekannte Grenzen
 

@@ -62,7 +62,7 @@
   (Szenario „Repo ohne Status-Checks")
 - [ ] 5.2 Bestätigen, dass Sicherheits-PRs `prConcurrentLimit`/`prHourlyLimit` umgehen; andernfalls
   die Limits im Block `vulnerabilityAlerts` auf 0 setzen (design.md Entscheidung 5)
-- [ ] 5.3 Bestätigen, dass Major-Updates nur im Dependency Dashboard erscheinen und erst nach
+- [x] 5.3 (2026-10-14: Issue #1 in Krinke-IT-Consulting/renovate zeigt `postgres` v18 unter „Pending Approval“, kein PR) Bestätigen, dass Major-Updates nur im Dependency Dashboard erscheinen und erst nach
   dem Anhaken einen PR erhalten
 
 ## 6. Dokumentation
