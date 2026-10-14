@@ -71,19 +71,19 @@
   Befund. Renovate-Validator für die Repo-Konfiguration weiterhin grün.
 - [x] 5.2 Nach dem Merge und der Freigabe des Betreibers die Tags `v1.0.0` und `v1` setzen und
   pushen. `git ls-remote --tags` zeigt beide auf demselben Commit.
-- [ ] 5.3 Pilot nach Freigabe: Branch und PR in `Hiwamashi/smoking-tracker` mit der Aufruf-Datei,
+- [x] 5.3 Pilot nach Freigabe: Branch und PR in `Hiwamashi/smoking-tracker` mit der Aufruf-Datei,
   angepasst um `postgres: true`, `postgres-port: 5433` und
   `pre-test-command: npx prisma migrate deploy` (oder was das Repo braucht). Fertig, wenn der
   Build-Check im PR grün ist. Abweichungen (Zugangsdaten, weitere Variablen) gehen in die
   Feature-Doku. Den PR merged der Betreiber.
 
-- [ ] 5.4 Kontext-Erkennung per PR in `main`, Merge durch den Betreiber. Danach Tag `v1.1.0` setzen
+- [x] 5.4 Kontext-Erkennung per PR in `main`, Merge durch den Betreiber. Danach Tag `v1.1.0` setzen
   und `v1` auf denselben Commit verschieben. `git ls-remote --tags` zeigt `v1` und `v1.1.0` auf
   demselben Commit.
 
 ## 6. Dokumentation
 
-- [ ] 6.1 `feature-documentation/build-check.md` schreiben. Inhalt:
+- [x] 6.1 `feature-documentation/build-check.md` schreiben. Inhalt:
   - was geprüft wird, je Ökosystem als Tabelle
   - Eingaben mit Beispielen
   - Erkennung und Ausschlüsse
@@ -92,4 +92,4 @@
   - Versionierung und Release-Ablauf
   - Ergebnisse aus 4.3 und 5.3
   - Liste aus 1.1
-- [ ] 6.2 `PROGRESS.md` aktualisieren. `openspec validate build-check --strict` grün.
+- [x] 6.2 `PROGRESS.md` aktualisieren. `openspec validate build-check --strict` grün.

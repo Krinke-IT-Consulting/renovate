@@ -204,7 +204,7 @@ jobs:
     `working-directory`, für `node-postgres` mit `postgres: true`
   - läuft bei PRs und Pushes auf `build-check.yml`, die Beispiele und sich selbst
 - **`build-check-self.yml`:** ruft den lokalen Workflow für dieses Repo auf, mit
-  `exclude-paths: tests/build-check/fixtures`. Damit werden die vier Dockerfiles und die
+  `exclude-paths: tests/build-check` (Beispiele und Negativfälle). Damit werden die vier Dockerfiles und die
   Compose-Datei bei jedem PR geprüft, auch bei Renovate-PRs zu Basis-Images.
 - **Negativfälle** (Lockfile-Bruch, roter Test, leeres Repo): Ein Workflow kann einen erwarteten
   Fehlschlag eines Reusable-Workflow-Aufrufs nicht als Erfolg werten. Diese Fälle prüft Task 4.3
