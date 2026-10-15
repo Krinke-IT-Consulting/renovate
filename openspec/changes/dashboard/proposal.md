@@ -50,9 +50,8 @@ Grundgerüst steht, ersetzt es nach Freigabe den Platzhalter.
   - Der Dienst `renovate-placeholder` wird durch `renovate-dashboard` ersetzt. Router, Authelia-Middleware
     und Domain bleiben.
   - Renovate CE bekommt zusätzlich die Reporting-API.
-  - Das Dashboard nutzt dieselbe GitHub App und dasselbe API-Secret wie CE. Hinzu kommt ein neues,
-    selbst erzeugtes Secret, das Anfragen über Traefik von direkten Zugriffen im geteilten Netz
-    unterscheidet.
+  - Das Dashboard nutzt dieselbe GitHub App und dasselbe API-Secret wie CE. Die Sitzung prüft es
+    zusätzlich selbst bei Authelia, damit direkte Zugriffe ohne Login keine Daten sehen.
 - **Gestaltung:** Für die Seiten außer der Übersicht vorher `/impeccable shape`. Vor Abschluss
   `/impeccable audit`, danach `DESIGN.md` mit `/impeccable document`.
 - **Doku:**
@@ -105,9 +104,8 @@ Nicht Teil dieses Changes (PRD 3.2):
   - `.github/workflows/build-check-self.yml`: Postgres für die Dashboard-Tests
   - `betrieb-coolify.md`, `secrets-register.md`, `PROGRESS.md`
 - **Entfernt:** `deploy/placeholder/`
-- **Neuer Konfigurationswert:** `DASHBOARD_PROXY_SECRET`, selbst erzeugt. Er kommt in
-  `.env.example`, `.env.production`, Coolify und das Secrets-Register. Die übrigen Werte gibt es
-  schon:
+- **Konfiguration:** Es gibt kein neues Secret. Neu sind nur die festen internen Adressen
+  `RENOVATE_CE_API_URL` und `AUTHELIA_INTERNAL_URL`. Die übrigen Werte gibt es schon:
   - `DASHBOARD_DB_PASSWORD`
   - `MEND_RNV_API_SERVER_SECRET`
   - `MEND_RNV_GITHUB_APP_ID`

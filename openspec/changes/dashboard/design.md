@@ -137,19 +137,34 @@
   jede Migration vor dem Commit.
 
 ### 4. Vertrauensgrenze zum Login
-- **Problem:** Das Dashboard hängt im geteilten Netz `coolify`. Andere Container könnten es dort
-  direkt aufrufen und dabei `Remote-User` fälschen.
-- **Lösung:**
-  - Eine Traefik-Middleware `renovate-dashboard-proxy` (Typ `headers`) setzt
-    `X-Dashboard-Proxy-Secret: ${DASHBOARD_PROXY_SECRET}`.
-  - Der Router `renovate-dashboard` hängt sie hinter `renovate-authelia@docker`.
-  - Die Next-Middleware vergleicht den Wert in konstanter Zeit und antwortet sonst mit 403.
-  - Ausnahme: `GET /api/health`. Er liefert nur `ok` oder einen Fehlercode.
+- **Ausgangslage:** Traefik schickt nach der Forward-Auth die Header `Remote-*` an das Dashboard. Das
+  Dashboard darf ihnen nicht blind trauen, sobald es außer Traefik noch jemand direkt erreichen kann.
+- **Ursprünglicher Ansatz, verworfen nach dem ersten Deployment (Task 4.6):**
+  - Traefik sollte per Label-Middleware ein geheimes Header-Secret mitschicken.
+  - Coolify schreibt aber in Labels jedes `$` als `$$`. Im Label steht deshalb wörtlich
+    `${DASHBOARD_PROXY_SECRET}`, und Traefik schickt den Text statt des Werts.
+  - Außerdem ignoriert Coolify `networks: coolify`. Die Dienste hängen nur im Projektnetz, das sie
+    allein mit `coolify-proxy` teilen.
+- **Lösung: Das Dashboard prüft die Sitzung selbst bei Authelia.**
+  - Der Proxy (Next-Middleware) ruft für jede Anfrage
+    `GET <AUTHELIA_INTERNAL_URL>/api/authz/forward-auth` im internen Netz auf.
+  - Er reicht dabei das Cookie der Anfrage weiter, dazu `X-Forwarded-Method`, `-Proto`, `-Host`,
+    `-Uri` und `-For` der ursprünglichen Anfrage.
+  - **Antwortet Authelia mit 200,** gilt der Nutzer aus dem `Remote-User` dieser Antwort. Der Proxy
+    gibt ihn intern als `x-dashboard-user` an die Seiten weiter.
+  - **Jede andere Antwort, kein Cookie oder Authelia nicht erreichbar:** 403.
+  - **Eingehende Header** `Remote-*` und `x-dashboard-user` der ursprünglichen Anfrage werden vorher
+    entfernt.
+  - **Zwischenspeicher:** Das Ergebnis wird 30 Sekunden lang im Speicher gehalten. Schlüssel ist der
+    SHA-256 des Cookie-Werts plus der Host. Abgelehnte Antworten werden nicht gespeichert.
+  - **Ausnahme:** `GET /api/health`. Er liefert nur `ok` oder einen Fehlercode.
+- **Wirkung:** Eine gefälschte Anfrage bräuchte eine gültige Authelia-Sitzung, ihr Absender wäre also
+  ohnehin angemeldet. Die Prüfung hängt weder von Labels noch von der Netzbehandlung durch Coolify ab.
 - **Verworfen:**
+  - **Nur der Netztrennung vertrauen:** Das hängt am Verhalten von Coolify.
+  - **Secret in einer dynamischen Traefik-Konfiguration auf dem Server:** Sie läge außerhalb des
+    Repos und würde von Hand gepflegt.
   - **IP-Freigabe für Traefik:** Die Adresse ist dynamisch.
-  - **Eigenes Netz für Traefik:** Coolify verlangt `coolify`.
-- **Nutzer:** Er kommt ausschließlich aus `Remote-User`. Fehlt der Header trotz gültigem Secret,
-  antwortet das Dashboard mit 403.
 
 ### 5. Konfiguration
 - **Verwendete Werte:**
@@ -160,7 +175,7 @@
   | `RENOVATE_CE_API_URL` | Konfiguration | `http://renovate-ce:8080`, fest in Compose |
   | `MEND_RNV_API_SERVER_SECRET` | vorhanden, selbst erzeugt | dasselbe Secret wie bei CE |
   | `MEND_RNV_GITHUB_APP_ID`, `MEND_RNV_GITHUB_APP_KEY` | vorhanden, vom Menschen | dieselbe App wie CE |
-  | `DASHBOARD_PROXY_SECRET` | **neu**, selbst erzeugt (`openssl rand -hex 32`) | Router-Middleware und Dashboard |
+  | `AUTHELIA_INTERNAL_URL` | Konfiguration | `http://renovate-authelia:9091`, fest in Compose |
 
 - **Begründung für gemeinsame Namen:** Es ist ein Wert mit einem Namen. Ein Wechsel betrifft beide
   Dienste gemeinsam (`betrieb-coolify.md`).
@@ -303,10 +318,14 @@
 - **[Risiko] Rate-Limit geteilt mit CE.** Ein großer Abgleich am Wochenende könnte CE ausbremsen.
   - Gegenmaßnahmen: ETags, Inhalte nur bei neuem Head-SHA, Abgleich pausiert unter 20 % Rest-Limit
     (Header `x-ratelimit-remaining`) und vermerkt das im Stempel.
-- **[Risiko] Coolify ersetzt `${DASHBOARD_PROXY_SECRET}` in Labels nicht.** Dann käme das Secret
-  nicht an, und jede Anfrage endete mit 403.
-  - Gegenmaßnahme: Prüfung beim ersten Deployment (Task 4.6). Rückfall: Wert als Coolify-Variable
-    mit gleichem Namen; Compose interpoliert Labels aus der `.env` des Stacks.
+- **[Eingetreten] Coolify ersetzt Variablen in Labels nicht.** Im ersten Deployment wurde das
+  Proxy-Secret deshalb nie gesetzt.
+  - Folge: Umstieg auf die Sitzungsprüfung bei Authelia (Entscheidung 4).
+  - Merksatz für Labels in diesem Stack: keine `${…}`-Werte, nur Literale.
+- **[Risiko] Zusätzliche Last durch die Sitzungsprüfung.** Jede Anfrage braucht ohne
+  Zwischenspeicher einen internen Aufruf bei Authelia.
+  - Gegenmaßnahme: 30 Sekunden Zwischenspeicher je Sitzung. Bei einem Nutzer ist die Last
+    vernachlässigbar.
 - **[Risiko] CE-Doku ist nicht versioniert.** Endpunkte können in 15.7 abweichen.
   - Gegenmaßnahme: Task 1.2 prüft jeden genutzten Endpunkt lesend gegen die laufende Instanz.
     Abweichungen ändern das Design, bevor Code entsteht.

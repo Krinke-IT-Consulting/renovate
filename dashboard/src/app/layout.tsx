@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Der Nutzer kommt ausschliesslich aus Remote-User (von Authelia gesetzt; proxy.ts erzwingt den Header).
-  const account = (await headers()).get("remote-user")?.trim().slice(0, 64) || null;
+  // Der Nutzer kommt ausschliesslich aus x-dashboard-user, das proxy.ts aus der Authelia-Antwort setzt.
+  const account = (await headers()).get("x-dashboard-user")?.trim().slice(0, 64) || null;
 
   return (
     <html lang="de">

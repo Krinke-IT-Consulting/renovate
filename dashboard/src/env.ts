@@ -14,7 +14,7 @@ export const envSchema = z.object({
   MEND_RNV_API_SERVER_SECRET: nonEmpty,
   MEND_RNV_GITHUB_APP_ID: nonEmpty,
   MEND_RNV_GITHUB_APP_KEY: nonEmpty,
-  DASHBOARD_PROXY_SECRET: nonEmpty,
+  AUTHELIA_INTERNAL_URL: nonEmpty.refine((v) => /^https?:\/\//.test(v)),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -63,7 +63,7 @@ export function getEnv(): Env {
   return cached;
 }
 
-/** Nur die benötigten Werte prüfen (z. B. Proxy-Guard und Migration brauchen nicht alle). */
+/** Nur die benötigten Werte prüfen (z. B. Proxy und Migration brauchen nicht alle). */
 export function getEnvFor<K extends EnvName>(...keys: K[]): Pick<Env, K> {
   return parseEnv(process.env, keys);
 }

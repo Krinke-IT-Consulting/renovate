@@ -6,8 +6,8 @@
 Nach erfolgreicher Anmeldung MUST der geschützte Dienst den angemeldeten Nutzer über die Header
 `Remote-User`, `Remote-Email`, `Remote-Name` und `Remote-Groups` erhalten. Von außen
 mitgeschickte Header dieses Namens MUST NOT beim Dienst ankommen. Der geschützte Dienst ist das
-Dashboard. Es MUST Anfragen abweisen, die nicht über den Traefik-Router mit Authelia kommen, auch
-wenn sie diese Header tragen.
+Dashboard. Es MUST die Sitzung zusätzlich selbst bei Authelia prüfen. Anfragen ohne gültige Sitzung
+MUST es abweisen, auch wenn sie diese Header tragen.
 
 #### Scenario: Angemeldeter Aufruf
 - **WHEN** der angemeldete Betreiber das Dashboard aufruft
@@ -18,5 +18,5 @@ wenn sie diese Header tragen.
 - **THEN** sieht der Dienst nur den von Authelia gesetzten Wert
 
 #### Scenario: Umgehung des Routers
-- **WHEN** ein Container im geteilten Netz `coolify` das Dashboard direkt mit `Remote-User` aufruft
+- **WHEN** ein Container das Dashboard unter Umgehung von Traefik direkt mit `Remote-User` aufruft
 - **THEN** weist das Dashboard die Anfrage ab
