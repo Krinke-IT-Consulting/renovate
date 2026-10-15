@@ -33,8 +33,11 @@ Alle Dienste haben `restart: unless-stopped`. Kein Dienst veröffentlicht `ports
 
 - `default` ist das Netz des Stacks. Alle vier Dienste hängen darin und finden sich über ihren
   Dienstnamen (`postgres`, `renovate-ce`, …).
-- `coolify` ist das externe Proxy-Netz des Servers (`networks.coolify.external: true`). Dort hängen
-  nur `renovate-authelia` und `renovate-dashboard`, damit Traefik sie erreicht.
+- `coolify` ist das externe Proxy-Netz des Servers (`networks.coolify.external: true`). Die Datei
+  trägt den Eintrag `networks: coolify` an einzelnen Diensten, **Coolify ignoriert ihn aber**: Alle Dienste
+  hängen laut Befund aus dem Deploy vom 2026-10-15 nur im Projektnetz des Stacks, das sie allein mit
+  `coolify-proxy` (Traefik) teilen. Darauf darf sich nichts verlassen; die Vertrauensgrenze des
+  Dashboards hängt deshalb nicht an der Netzzuordnung (siehe Sitzungsprüfung in Abschnitt 3).
 - Der Präfix `renovate-` steht, weil Compose Dienstnamen als Alias im geteilten Netz `coolify`
   einträgt. Auf dem Server betreibt vaultsync eine eigene Authelia in diesem Netz. Mit dem Präfix
   kollidieren die Aliase nicht. Die Middleware-Namen tragen aus demselben Grund den Präfix
@@ -45,7 +48,7 @@ trägt zusätzlich vaultsync. Ohne Grenze könnte ein speicherhungriger Lauf (et
 den ganzen Host an den OOM-Killer bringen. Das Dashboard hat `mem_limit: 512m`. Postgres und Authelia haben keine Grenze.
 
 **Abhängigkeit:** `renovate-ce` und `renovate-dashboard` warten per `depends_on` mit
-`condition: service_healthy` auf `postgres`. Das Dashboard legt seine Tabellen beim Start selbst an
+`condition: service_healthy` auf `postgres`, das Dashboard zusätzlich auf `renovate-authelia`. Das Dashboard legt seine Tabellen beim Start selbst an
 (`migrate.js`, unter Advisory Lock) und spricht CE nur über `http://renovate-ce:8080` im Stack-Netz an.
 
 ## 2. Server
@@ -72,7 +75,7 @@ Labels) und in `deploy/authelia/configuration.yml`.
 | Host / Pfad | Dienst | Login | Wie geroutet |
 |---|---|---|---|
 | `https://renovate.krinke-it.cloud/webhook` (exakt, Port 8080) | `renovate-ce` | nein (Signatur mit Webhook-Secret) | Eigene Labels: Router `renovate-webhook`, Regel `Host && Path(/webhook)`, Priorität 100. **Keine Coolify-Domain** – Coolify würde bei einer Domain mit Pfad den Pfad abschneiden und `/webhook/api/...` an CE durchreichen. |
-| `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-dashboard` (Port 3000) | ja (Passwort und TOTP) | Eigene Labels in `deploy/docker-compose.yaml`: Router `renovate-dashboard` (https, Middleware-Kette `renovate-authelia@docker,renovate-dashboard-proxy@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. `GET /api/health` ist nur intern für den Healthcheck gedacht. |
+| `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-dashboard` (Port 3000) | ja (Passwort und TOTP) | Eigene Labels in `deploy/docker-compose.yaml`: Router `renovate-dashboard` (https, Middleware `renovate-authelia@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. `GET /api/health` ist nur intern für den Healthcheck gedacht. |
 | `https://renovate-auth.krinke-it.cloud` (Port 9091 intern) | `renovate-authelia` | nein (ist das Anmeldeportal) | Eigene Labels: Router `renovate-auth` (https) und `renovate-auth-http` (Redirect). **Keine Coolify-Domain** – die Coolify-API verwirft den Port aus der Domain. |
 | Job-, System- und Reporting-API von `renovate-ce` | `renovate-ce` | – | Kein Router. Nur im Stack-Netz erreichbar; das Dashboard nutzt sie mit `MEND_RNV_API_SERVER_SECRET`. |
 | Postgres (Port 5432) | `postgres` | – | Kein Router, kein veröffentlichter Port. Nur im Stack-Netz erreichbar. |
@@ -81,21 +84,28 @@ Labels) und in `deploy/authelia/configuration.yml`.
 einen zweiten, ungeschützten Router für `renovate.krinke-it.cloud` erzeugen. Der Dienst wird allein über
 die Labels geroutet.
 
-**Proxy-Secret (Vertrauensgrenze):** Das Dashboard hängt im geteilten Netz `coolify`; ein anderer Container
-dort könnte es direkt aufrufen und `Remote-User` fälschen. Deshalb setzt die Middleware
-`renovate-dashboard-proxy` (Typ `headers`, Label am Dienst `renovate-dashboard`) den Request-Header
-`X-Dashboard-Proxy-Secret` mit dem Wert von `DASHBOARD_PROXY_SECRET`. Die Next-Middleware des Dashboards
-vergleicht ihn in konstanter Zeit und antwortet sonst mit 403 (ebenso ohne `Remote-User`). Ausnahme ist
-`GET /api/health`. Die Kette ist `renovate-authelia@docker` zuerst, danach `renovate-dashboard-proxy@docker`.
+**Sitzungsprüfung im Dashboard (Vertrauensgrenze):** Das Dashboard vertraut keinem eingehenden Header.
+Der Proxy der Next-App (`dashboard/src/proxy.ts`, Logik in `dashboard/src/lib/session-check.ts`) ruft für
+jede Anfrage `GET ${AUTHELIA_INTERNAL_URL}/api/authz/forward-auth` auf (in Produktion
+`http://renovate-authelia:9091`, fest in der Compose-Datei) und reicht Cookie, `X-Forwarded-Method`,
+`-Proto`, `-Host`, `-Uri` und `-For` der Anfrage weiter. Nur Status 200 mit nicht-leerem `Remote-User`
+gilt als gültige Sitzung; alles andere (401, 3xx, kein Cookie, Authelia nicht erreichbar, Zeitlimit 3 s)
+ergibt 403. Eingehende `Remote-*`- und `x-dashboard-user`-Header werden entfernt, der Nutzer kommt nur aus
+der Authelia-Antwort (`x-dashboard-user`, gelesen in `layout.tsx`). Positive Ergebnisse werden 30 s im Speicher
+gehalten (SHA-256 aus Cookie und Host, höchstens 500 Einträge). Ausnahme ist exakt `GET /api/health`.
+Ist Authelia nicht erreichbar, steht höchstens einmal pro Minute eine kurze Meldung ohne Werte im Log.
+Der Router `renovate-dashboard` trägt nur noch die Middleware `renovate-authelia@docker`. Es gibt kein
+Proxy-Secret mehr; die frühere Middleware `renovate-dashboard-proxy` entfällt.
 Die Redirect-Middleware `renovate-redirect-https` ist an jedem Dienst mit http-Router identisch definiert
 (`renovate-ce`, `renovate-authelia`, `renovate-dashboard`). Traefik blendet ungesunde Container aus; so
 hängen die http-Router der anderen Dienste nicht davon ab, dass das Dashboard gesund ist.
 
-**Die Variable `DASHBOARD_PROXY_SECRET` muss in Coolify gesetzt sein, bevor deployt wird.** Fehlt sie, ist
-der Wert im Label und im Dashboard leer bzw. verschieden, und das Dashboard antwortet auf jeden Aufruf
-mit 403. Fehlt die Variable in der Umgebung des Dashboards, bricht schon der Start ab: `migrate.js`
-prüft das gesamte Env-Schema und nennt die fehlenden Namen im Log. Fehlt sie nur im Label, startet das
-Dashboard, weist alles mit 403 ab und schreibt einmalig einen Hinweis ins Log.
+**Coolify escapt `$` in Labels zu `$$`** (Befund aus dem Deploy am 2026-10-15). Ein Label mit
+`${VARIABLE}` erreicht Traefik deshalb als wörtlicher Text, nicht als Wert. Labels enthalten darum keine
+`${…}`-Platzhalter. Das war der Grund, den Proxy-Secret-Ansatz zu verwerfen.
+
+**Coolify-Variable `DASHBOARD_PROXY_SECRET` entfernen:** Die Variable wird nicht mehr gebraucht und ist in
+Coolify (und in `.env.production`) einzeln zu löschen, nur mit Freigabe des Betreibers.
 
 Die Middleware `renovate-authelia` ist am Dienst `renovate-authelia` als Label definiert:
 
@@ -103,9 +113,8 @@ Die Middleware `renovate-authelia` ist am Dienst `renovate-authelia` als Label d
 - `forwardauth.trustForwardHeader`: `true`
 - `forwardauth.authResponseHeaders`: `Remote-User,Remote-Groups,Remote-Email,Remote-Name`
 
-Der geschützte Dienst bekommt damit den angemeldeten Nutzer über diese Header. Von außen mitgeschickte
-Header dieser Namen sollen laut Spec (`specs/access-protection/spec.md`) nicht ankommen. Diese Prüfung
-steht in Task 5.4 noch aus.
+Traefik prüft damit die Anmeldung vor dem Dashboard. Gegen gefälschte `Remote-*`-Header und Aufrufe am
+Router vorbei schützt zusätzlich die Sitzungsprüfung im Dashboard (siehe oben).
 
 **Authelia-Regeln** (`deploy/authelia/configuration.yml`): `default_policy: deny`. Eine einzige Regel
 erlaubt `renovate.krinke-it.cloud` mit `two_factor`. Die Cookie-Domain ist `krinke-it.cloud`, der Cookie
@@ -166,8 +175,8 @@ vor, führt aber kein Deploy ohne Freigabe aus (Spec `platform-deployment`, „K
    - Typ: Docker Compose, neues Projekt „Renovate", Server `gentle-goose`.
    - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`.
    - **Keine Domains** in Coolify setzen. Alle Router stehen als Labels in `deploy/docker-compose.yaml`.
-   - Variablen aus `.env.production` übertragen (Namen aus `.env.example`), **auch `DASHBOARD_PROXY_SECRET`**
-     (vor dem ersten Deploy der Dashboard-Version). Leere optionale Werte weglassen,
+   - Variablen aus `.env.production` übertragen (Namen aus `.env.example`). `AUTHELIA_INTERNAL_URL` ist
+     keine Coolify-Variable, sie steht fest in der Compose-Datei. Leere optionale Werte weglassen,
      also `SCW_REGISTRY_SECRET_KEY`, wenn er leer ist.
    - `MEND_RNV_GITHUB_APP_KEY` ist ein PEM-Schlüssel und wird als mehrzeiliger Wert eingetragen.
    - Namen per `list_env_keys` abgleichen, nie Werte ausgeben.
@@ -249,8 +258,7 @@ ohne gültige Signatur wird abgewiesen.
 ## 7. Werte rotieren
 
 Die selbst erzeugten Werte stehen mit Name, Herkunft, Zweck, Ablage und Folgen eines Wechsels in
-`feature-documentation/secrets-register.md`. Dort steht auch das Muster zum Neuerzeugen. Das gilt auch
-für `DASHBOARD_PROXY_SECRET`. Die Werte von Menschen (Lizenzschlüssel, App-ID, PEM-Key, optional
+`feature-documentation/secrets-register.md`. Dort steht auch das Muster zum Neuerzeugen. Die Werte von Menschen (Lizenzschlüssel, App-ID, PEM-Key, optional
 Scaleway-Schlüssel) stehen nicht im Register.
 
 Die Besonderheiten, die im Register nur knapp stehen:
@@ -269,20 +277,23 @@ Die Besonderheiten, die im Register nur knapp stehen:
   ändern und beide gemeinsam neu deployen (ein Redeploy des Stacks), sonst weist CE das Dashboard ab.
 - **`MEND_RNV_GITHUB_APP_ID` und `MEND_RNV_GITHUB_APP_KEY`:** Ebenfalls von CE und Dashboard genutzt; Wechsel
   mit gemeinsamem Redeploy.
-- **`DASHBOARD_PROXY_SECRET`:** Neu erzeugen (`openssl rand -hex 32`), in Coolify und `.env.production`
-  ändern, Redeploy des Stacks. Der Wert steckt im Label (Traefik) und in der Umgebung des Dashboards; beides
-  muss denselben Wert tragen, sonst 403 überall. Keine Sitzung geht verloren.
 - **`AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET`:** Neu erzeugen und Redeploy. Keine weiteren
   Folgen, weil der Passwort-Reset deaktiviert ist.
 
 ## 8. Erkenntnisse aus dem ersten Deploy
 
-Offen bis zum ersten Deploy des Dashboards (Task 4.6 des Changes `dashboard`):
+Offen bis zum Deploy der Sitzungsprüfung (Task 4.6 des Changes `dashboard`):
 
-- Ob Coolify die Labels von `renovate-dashboard` und `renovate-authelia` unverändert übernimmt, insbesondere
-  ob `${DASHBOARD_PROXY_SECRET}` im Label `...customrequestheaders.X-Dashboard-Proxy-Secret` mit dem
-  Laufzeitwert interpoliert wird (Task 4.6 des Changes `dashboard`; Rückfall Raw-Modus).
-- Ob die Kette Forward-Auth plus Proxy-Secret für das Dashboard wirkt (Redirect ohne Sitzung, 403 bei direktem Aufruf im Netz `coolify`).
+- Ob die Sitzungsprüfung im Betrieb wirkt: Login führt zum Dashboard mit Kontonamen im Kopf, ein direkter
+  Aufruf aus einem anderen Container liefert 403.
+
+Deploy des Dashboards am 2026-10-15 (Coolify 4.4.6):
+
+- **Coolify escapt `$` in Labels zu `$$`.** Aus `${DASHBOARD_PROXY_SECRET}` im Label wurde wörtlicher Text;
+  Traefik schickte den Platzhalter statt des Werts. Der Proxy-Secret-Ansatz ist deshalb verworfen
+  (Entscheidung 4 im Change `dashboard`).
+- **Coolify ignoriert `networks: coolify`.** Die Dienste hängen nur im Projektnetz des Stacks, das sie mit
+  `coolify-proxy` teilen.
 
 Erstes Deploy am 2026-10-14 (Coolify 4.4.6, Traefik 3.6.25):
 

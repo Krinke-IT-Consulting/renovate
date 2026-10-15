@@ -49,16 +49,22 @@ MUST nach Tenant eingrenzen.
 - **WHEN** das Dashboard zum ersten Mal startet
 - **THEN** existiert genau ein Tenant „Krinke IT“
 
-### Requirement: Nur Anfragen über den Login
-Das Dashboard MUST jede Anfrage abweisen, die nicht über Traefik mit vorgeschalteter Authelia
-kommt. Erkennbar ist das an einem geheimen Kopfwert, den nur der Traefik-Router setzt. Ausgenommen
-ist allein der Healthcheck, der keine Daten preisgibt. Den angemeldeten Nutzer MUST das Dashboard
-ausschließlich aus `Remote-User` ableiten. Fehlt der Header, MUST es die Anfrage abweisen.
+### Requirement: Nur Anfragen mit gültiger Sitzung
+Das Dashboard MUST für jede Anfrage selbst bei Authelia prüfen, ob die mitgeschickte Sitzung gültig
+ist. Den angemeldeten Nutzer MUST es ausschließlich aus der Antwort von Authelia ableiten. Header wie
+`Remote-User`, die mit der Anfrage ankommen, MUST es ignorieren. Ohne gültige Sitzung, und wenn
+Authelia nicht erreichbar ist, MUST es die Anfrage abweisen. Ausgenommen ist allein der
+Healthcheck, der keine Daten preisgibt. Die Prüfung MUST NOT von Konfiguration in Traefik-Labels
+abhängen.
 
 #### Scenario: Direkter Aufruf im geteilten Netz
-- **WHEN** ein anderer Container im Netz `coolify` das Dashboard direkt aufruft und
-  `Remote-User: admin` mitschickt
+- **WHEN** ein Container das Dashboard unter Umgehung von Traefik direkt aufruft und
+  `Remote-User: admin` mitschickt, aber keine gültige Sitzung
 - **THEN** antwortet das Dashboard mit 403 und zeigt keine Daten
+
+#### Scenario: Authelia nicht erreichbar
+- **WHEN** Authelia nicht antwortet
+- **THEN** antwortet das Dashboard mit 403, auch auf Anfragen mit Sitzungs-Cookie
 
 #### Scenario: Angemeldeter Aufruf
 - **WHEN** der angemeldete Betreiber `https://renovate.krinke-it.cloud/` aufruft

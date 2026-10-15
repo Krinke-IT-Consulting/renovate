@@ -170,6 +170,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Das Dashboard prueft jede Sitzung bei Authelia (Entscheidung 4 im Change dashboard).
+      renovate-authelia:
+        condition: service_healthy
     environment:
       # Passwort ist hex, daher ohne URL-Encoding in der Verbindungszeichenfolge.
       DATABASE_URL: postgresql://dashboard:${DASHBOARD_DB_PASSWORD}@postgres:5432/dashboard
@@ -179,9 +182,9 @@ services:
       MEND_RNV_API_SERVER_SECRET: ${MEND_RNV_API_SERVER_SECRET}
       MEND_RNV_GITHUB_APP_ID: ${MEND_RNV_GITHUB_APP_ID}
       MEND_RNV_GITHUB_APP_KEY: ${MEND_RNV_GITHUB_APP_KEY}
-      # Gleicher Wert steckt in der Traefik-Middleware renovate-dashboard-proxy (Labels unten).
-      # Das Dashboard weist Anfragen ohne diesen Header mit 403 ab.
-      DASHBOARD_PROXY_SECRET: ${DASHBOARD_PROXY_SECRET}
+      # Interne Adresse von Authelia: Das Dashboard fragt dort fuer jede Anfrage die Sitzung ab
+      # und weist Anfragen ohne gueltige Sitzung mit 403 ab. Kein Secret, nur Konfiguration.
+      AUTHELIA_INTERNAL_URL: http://renovate-authelia:9091
       TZ: Europe/Berlin
     networks:
       default:
@@ -203,11 +206,9 @@ services:
       # renovate-authelia wiederverwendet).
       # Prioritaet 1 = Catch-all fuer den Host; der Webhook-Router an renovate-ce (100) gewinnt
       # fuer /webhook immer.
-      # Middleware-Kette: erst Authelia (Anmeldung, setzt Remote-*-Header), dann
-      # renovate-dashboard-proxy (setzt das Proxy-Secret). So kommt das Secret nur ueber den
-      # Router ans Dashboard; Aufrufe aus anderen Containern im Netz "coolify" bekommen 403.
-      # Ob Coolify ${DASHBOARD_PROXY_SECRET} in Labels interpoliert, klaert das erste Deploy
-      # (Rueckfall: Raw-Modus).
+      # Middleware: nur Authelia (Anmeldung). Die Vertrauensgrenze liegt im Dashboard: Es prueft die
+      # Sitzung selbst bei Authelia, Aufrufe ohne gueltige Sitzung bekommen 403, auch direkt aus
+      # anderen Containern. Keine ${...} in Labels: Coolify schreibt jedes $ als $$ um.
       - traefik.enable=true
       - traefik.docker.network=coolify
       - traefik.http.services.renovate-dashboard.loadbalancer.server.port=3000
@@ -216,9 +217,8 @@ services:
       - traefik.http.routers.renovate-dashboard.entryPoints=https
       - traefik.http.routers.renovate-dashboard.tls=true
       - traefik.http.routers.renovate-dashboard.tls.certresolver=letsencrypt
-      - traefik.http.routers.renovate-dashboard.middlewares=renovate-authelia@docker,renovate-dashboard-proxy@docker
+      - traefik.http.routers.renovate-dashboard.middlewares=renovate-authelia@docker
       - traefik.http.routers.renovate-dashboard.service=renovate-dashboard
-      - traefik.http.middlewares.renovate-dashboard-proxy.headers.customrequestheaders.X-Dashboard-Proxy-Secret=${DASHBOARD_PROXY_SECRET}
       - traefik.http.routers.renovate-dashboard-http.rule=Host(`renovate.krinke-it.cloud`)
       - traefik.http.routers.renovate-dashboard-http.priority=1
       - traefik.http.routers.renovate-dashboard-http.entryPoints=http

@@ -8,7 +8,7 @@ const valid = {
   MEND_RNV_API_SERVER_SECRET: "test-api-secret",
   MEND_RNV_GITHUB_APP_ID: "12345",
   MEND_RNV_GITHUB_APP_KEY: "test-app-key",
-  DASHBOARD_PROXY_SECRET: "test-proxy-secret",
+  AUTHELIA_INTERNAL_URL: "http://renovate-authelia:9091",
 };
 
 function catchError(fn: () => unknown): EnvError {
@@ -22,7 +22,7 @@ function catchError(fn: () => unknown): EnvError {
 
 describe("parseEnv", () => {
   it("akzeptiert vollständige Konfiguration", () => {
-    expect(parseEnv(valid).DASHBOARD_PROXY_SECRET).toBe("test-proxy-secret");
+    expect(parseEnv(valid).AUTHELIA_INTERNAL_URL).toBe("http://renovate-authelia:9091");
   });
 
   it("bricht bei fehlendem Wert mit dem Namen ab", () => {
@@ -35,8 +35,13 @@ describe("parseEnv", () => {
   });
 
   it("behandelt leere Werte wie fehlende", () => {
-    const error = catchError(() => parseEnv({ ...valid, DASHBOARD_PROXY_SECRET: "  " }));
-    expect(error.names).toEqual(["DASHBOARD_PROXY_SECRET"]);
+    const error = catchError(() => parseEnv({ ...valid, AUTHELIA_INTERNAL_URL: "  " }));
+    expect(error.names).toEqual(["AUTHELIA_INTERNAL_URL"]);
+  });
+
+  it("verlangt für AUTHELIA_INTERNAL_URL eine http(s)-URL", () => {
+    const error = catchError(() => parseEnv({ ...valid, AUTHELIA_INTERNAL_URL: "renovate-authelia:9091" }));
+    expect(error.names).toEqual(["AUTHELIA_INTERNAL_URL"]);
   });
 
   it("gibt bei ungültigen Werten keinen Wert aus", () => {
@@ -53,8 +58,8 @@ describe("parseEnv", () => {
   });
 
   it("prüft mit keys nur die genannten Variablen", () => {
-    expect(parseEnv({ DASHBOARD_PROXY_SECRET: "x" }, ["DASHBOARD_PROXY_SECRET"])).toEqual({
-      DASHBOARD_PROXY_SECRET: "x",
+    expect(parseEnv({ AUTHELIA_INTERNAL_URL: "http://a:1" }, ["AUTHELIA_INTERNAL_URL"])).toEqual({
+      AUTHELIA_INTERNAL_URL: "http://a:1",
     });
     const error = catchError(() => parseEnv({}, ["DATABASE_URL"]));
     expect(error.names).toEqual(["DATABASE_URL"]);

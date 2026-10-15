@@ -1,7 +1,7 @@
 # Secrets-Register
 
 Selbst erzeugte Werte der Renovate-Plattform. Dieses Register nennt nur Namen, nie Werte.
-Alle neun Werte werden mit `openssl rand -hex 32` erzeugt. Sie stehen in `.env.production` (nicht
+Alle acht Werte werden mit `openssl rand -hex 32` erzeugt. Sie stehen in `.env.production` (nicht
 versioniert) und in der Coolify-Ressource (Variablen der Compose-Ressource). Beim Neuerzeugen:
 Wert in `.env.production` ersetzen, in Coolify nachziehen, Redeploy nach Freigabe.
 
@@ -23,4 +23,3 @@ steht in `.env.example`.
 | `AUTHELIA_SESSION_SECRET` | selbst erzeugt | Signiert Sitzungen | Coolify-Variable, Dienst `renovate-authelia` | Neu erzeugen, Redeploy; alle Sitzungen enden, Neuanmeldung nötig. |
 | `AUTHELIA_STORAGE_ENCRYPTION_KEY` | selbst erzeugt | Verschlüsselt SQLite von Authelia (TOTP-Geheimnisse) | Coolify-Variable, Dienst `renovate-authelia` | Ein Wechsel macht die gespeicherten TOTP-Geräte unlesbar: Volume `authelia-data` leeren (oder Datenbank neu anlegen), Nutzerskript erneut ausführen, TOTP neu registrieren. |
 | `AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET` | selbst erzeugt | JWT-Secret des deaktivierten Passwort-Resets (Authelia verlangt es trotzdem) | Coolify-Variable, Dienst `renovate-authelia` | Neu erzeugen, Redeploy; keine weiteren Folgen. |
-| `DASHBOARD_PROXY_SECRET` | selbst erzeugt | Kennzeichnet Anfragen, die über den Traefik-Router mit Authelia kommen; das Dashboard weist alle anderen mit 403 ab | Coolify-Variable, Dienst `renovate-dashboard` (Umgebung und Label der Middleware `renovate-dashboard-proxy`) | Neu erzeugen, Redeploy von `renovate-dashboard`; Label und Umgebung ändern sich gemeinsam. Lokal hat `dashboard/.env.local` einen eigenen Wert. |
