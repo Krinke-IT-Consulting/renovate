@@ -1,15 +1,15 @@
 # Renovate-Plattform fuer Coolify (Change compose-stack).
 # Coolify: Base Directory = /deploy, Compose-Datei = /docker-compose.yaml.
-# Build-Kontexte sind relativ zu dieser Datei (./postgres, ./authelia, ./placeholder,
-# ../renovate-ce).
+# Build-Kontexte sind relativ zu dieser Datei (./postgres, ./authelia,
+# ../renovate-ce, ../dashboard).
 #
 # In Coolify bekommt KEIN Dienst eine Domain. Alle drei oeffentlichen Ziele werden ueber die
 # eigenen Traefik-Labels unten geroutet:
 #   renovate.krinke-it.cloud/webhook (exakt) -> renovate-ce:8080, ohne Login
-#   renovate.krinke-it.cloud (alles andere)  -> renovate-placeholder:80, hinter Authelia
+#   renovate.krinke-it.cloud (alles andere)  -> renovate-dashboard:3000, hinter Authelia
 #   renovate-auth.krinke-it.cloud            -> renovate-authelia:9091
 # Coolify-Domains wuerden zusaetzliche Router erzeugen: bei renovate-ce mit Strip-Prefix-Risiko
-# (/webhook/api koennte die CE-API oeffnen), beim Platzhalter einen ungeschuetzten Router fuer
+# (/webhook/api koennte die CE-API oeffnen), beim Dashboard einen ungeschuetzten Router fuer
 # "/", und bei Authelia verwirft die Coolify-API den Port 9091 aus der Domain.
 # Kein Dienst veroeffentlicht Ports. Die Job-API von CE bleibt im Stack-Netz.
 #
@@ -55,11 +55,13 @@ services:
       MEND_RNV_GITHUB_APP_KEY: ${MEND_RNV_GITHUB_APP_KEY}
       MEND_RNV_WEBHOOK_SECRET: ${MEND_RNV_WEBHOOK_SECRET}
       MEND_RNV_SERVER_PORT: "8080"
-      # Job-API fuer das spaetere Dashboard; nur intern erreichbar (kein oeffentlicher Router).
+      # Job-API fuer das Dashboard; nur intern erreichbar (kein oeffentlicher Router).
       MEND_RNV_API_ENABLED: "true"
       MEND_RNV_API_ENABLE_JOBS: "true"
       # System-API (App-Sync, Lauf fuer ein Repo anstossen); vom Dashboard benoetigt, nur intern.
       MEND_RNV_API_ENABLE_SYSTEM: "true"
+      # Reporting-API (Repo-Status, z. B. orgs/{org}/-/repos) fuer das Dashboard; nur intern.
+      MEND_RNV_API_ENABLE_REPORTING: "true"
       MEND_RNV_API_SERVER_SECRET: ${MEND_RNV_API_SERVER_SECRET}
       MEND_RNV_AUTODISCOVER_FILTER: "Hiwamashi/*,Krinke-IT-Consulting/*"
       MEND_RNV_DATA_HANDLER_TYPE: postgresql
@@ -84,9 +86,9 @@ services:
     labels:
       # Eigener Webhook-Router. Nur der exakte Pfad /webhook (Path, nicht PathPrefix) erreicht
       # CE; /webhook/... und /api/... gehen nie hierher.
-      # Prioritaet 100: ueber dem Catch-all des Platzhalters (1), damit der Webhook nie am Login
+      # Prioritaet 100: ueber dem Catch-all des Dashboards (1), damit der Webhook nie am Login
       # landet, unabhaengig von Regellaengen. Die Redirect-Middleware renovate-redirect-https
-      # ist am Platzhalter definiert und wird hier wiederverwendet.
+      # ist am Dashboard definiert und wird hier wiederverwendet.
       - traefik.enable=true
       - traefik.docker.network=coolify
       - traefik.http.services.renovate-webhook.loadbalancer.server.port=8080
@@ -100,6 +102,10 @@ services:
       - traefik.http.routers.renovate-webhook-http.priority=100
       - traefik.http.routers.renovate-webhook-http.entryPoints=http
       - traefik.http.routers.renovate-webhook-http.middlewares=renovate-redirect-https@docker
+      # Redirect-Middleware identisch an jedem Dienst mit http-Router definiert: Traefik blendet
+      # ungesunde Container aus, und die Router der anderen Dienste sollen davon nicht abhängen.
+      - traefik.http.middlewares.renovate-redirect-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.renovate-redirect-https.redirectscheme.permanent=true
       - traefik.http.routers.renovate-webhook-http.service=noop@internal
 
   # Dienstname eindeutig, weil er als Alias im geteilten Proxy-Netz "coolify" erscheint
@@ -145,16 +151,38 @@ services:
       - traefik.http.routers.renovate-auth-http.rule=Host(`renovate-auth.krinke-it.cloud`)
       - traefik.http.routers.renovate-auth-http.entryPoints=http
       - traefik.http.routers.renovate-auth-http.middlewares=renovate-redirect-https@docker
+      # Redirect-Middleware identisch an jedem Dienst mit http-Router definiert: Traefik blendet
+      # ungesunde Container aus, und die Router der anderen Dienste sollen davon nicht abhängen.
+      - traefik.http.middlewares.renovate-redirect-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.renovate-redirect-https.redirectscheme.permanent=true
       - traefik.http.routers.renovate-auth-http.service=noop@internal
 
   # Dienstname eindeutig, weil er als Alias im geteilten Proxy-Netz "coolify" erscheint.
-  renovate-placeholder:
+  renovate-dashboard:
     # In Coolify KEINE Domain fuer diesen Dienst setzen: Coolify wuerde sonst einen zweiten,
     # ungeschuetzten Router fuer renovate.krinke-it.cloud erzeugen. Der Dienst wird nur ueber
     # die Labels unten geroutet.
     build:
-      context: ./placeholder
+      context: ../dashboard
     restart: unless-stopped
+    # Harte Grenze, weil der Server nur 7,7 GB RAM ohne Swap hat (siehe renovate-ce).
+    mem_limit: 512m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Passwort ist hex, daher ohne URL-Encoding in der Verbindungszeichenfolge.
+      DATABASE_URL: postgresql://dashboard:${DASHBOARD_DB_PASSWORD}@postgres:5432/dashboard
+      # Interne CE-API, nie ueber einen Router veroeffentlicht.
+      RENOVATE_CE_API_URL: http://renovate-ce:8080
+      # Gleiche Werte wie bei renovate-ce: ein Wert, ein Name, gemeinsamer Redeploy bei Wechsel.
+      MEND_RNV_API_SERVER_SECRET: ${MEND_RNV_API_SERVER_SECRET}
+      MEND_RNV_GITHUB_APP_ID: ${MEND_RNV_GITHUB_APP_ID}
+      MEND_RNV_GITHUB_APP_KEY: ${MEND_RNV_GITHUB_APP_KEY}
+      # Gleicher Wert steckt in der Traefik-Middleware renovate-dashboard-proxy (Labels unten).
+      # Das Dashboard weist Anfragen ohne diesen Header mit 403 ab.
+      DASHBOARD_PROXY_SECRET: ${DASHBOARD_PROXY_SECRET}
+      TZ: Europe/Berlin
     networks:
       default:
       # Ohne Coolify-Domain ist unklar, ob Coolify den Dienst mit dem Proxy verbindet. Darum
@@ -162,27 +190,35 @@ services:
       # sagt Traefik, ueber welches Netz es ihn ansprechen soll.
       coolify:
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      # Kein wget im Image; 127.0.0.1 statt localhost, weil Node localhost auch als ::1 aufloest.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 3
+      start_period: 30s
     labels:
       # Eigene Router "renovate-dashboard" (https) und "renovate-dashboard-http" (Weiterleitung).
       # Coolifys redirect_enabled gilt nur fuer von Coolify erzeugte Router, nicht fuer diese;
-      # deshalb die eigene Redirect-Middleware.
+      # deshalb die eigene Redirect-Middleware (wird auch von den Routern an renovate-ce und
+      # renovate-authelia wiederverwendet).
       # Prioritaet 1 = Catch-all fuer den Host; der Webhook-Router an renovate-ce (100) gewinnt
       # fuer /webhook immer.
-      # Ob Coolify Labels und Netze unveraendert uebernimmt, klaert Task 5.3 (Rueckfall: Raw-Modus).
+      # Middleware-Kette: erst Authelia (Anmeldung, setzt Remote-*-Header), dann
+      # renovate-dashboard-proxy (setzt das Proxy-Secret). So kommt das Secret nur ueber den
+      # Router ans Dashboard; Aufrufe aus anderen Containern im Netz "coolify" bekommen 403.
+      # Ob Coolify ${DASHBOARD_PROXY_SECRET} in Labels interpoliert, klaert das erste Deploy
+      # (Rueckfall: Raw-Modus).
       - traefik.enable=true
       - traefik.docker.network=coolify
-      - traefik.http.services.renovate-dashboard.loadbalancer.server.port=80
+      - traefik.http.services.renovate-dashboard.loadbalancer.server.port=3000
       - traefik.http.routers.renovate-dashboard.rule=Host(`renovate.krinke-it.cloud`)
       - traefik.http.routers.renovate-dashboard.priority=1
       - traefik.http.routers.renovate-dashboard.entryPoints=https
       - traefik.http.routers.renovate-dashboard.tls=true
       - traefik.http.routers.renovate-dashboard.tls.certresolver=letsencrypt
-      - traefik.http.routers.renovate-dashboard.middlewares=renovate-authelia@docker
+      - traefik.http.routers.renovate-dashboard.middlewares=renovate-authelia@docker,renovate-dashboard-proxy@docker
       - traefik.http.routers.renovate-dashboard.service=renovate-dashboard
+      - traefik.http.middlewares.renovate-dashboard-proxy.headers.customrequestheaders.X-Dashboard-Proxy-Secret=${DASHBOARD_PROXY_SECRET}
       - traefik.http.routers.renovate-dashboard-http.rule=Host(`renovate.krinke-it.cloud`)
       - traefik.http.routers.renovate-dashboard-http.priority=1
       - traefik.http.routers.renovate-dashboard-http.entryPoints=http

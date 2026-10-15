@@ -21,3 +21,5 @@ jobs:
     uses: ./.github/workflows/build-check.yml
     with:
       exclude-paths: tests/build-check
+      # Die Dashboard-Integrationstests lesen DATABASE_URL (Superuser postgres) und legen Wegwerf-DBs an.
+      postgres: true
