@@ -106,7 +106,7 @@
 - [x] 4.4 `.github/workflows/build-check-self.yml` setzt `postgres: true`. Integrationstests lesen
   `DATABASE_URL` und werden ohne sie übersprungen. Fertig, wenn der Build-Check im PR grün ist
   und der Lauf `node · dashboard` die Integrationstests ausgeführt zeigt.
-- [ ] 4.5 `betrieb-coolify.md` aktualisieren: Dienste, Routing, Proxy-Secret, Secret-Wechsel. PR
+- [x] 4.5 `betrieb-coolify.md` aktualisieren: Dienste, Routing, Proxy-Secret, Secret-Wechsel. PR
   mit den Phasen 2 bis 4; Merge durch den Betreiber. Fertig, wenn der PR gemergt ist.
 - [x] 4.7 Nach dem ersten Deployment: Sitzungsprüfung bei Authelia statt Proxy-Secret
   (Entscheidung 4).
@@ -117,7 +117,7 @@
   Fertig, wenn Vitest-Tests vier Fälle abdecken: gültige Sitzung, ungültige Sitzung, Authelia
   nicht erreichbar, gefälschter `Remote-User` wird ignoriert. Außerdem muss der Build-Check grün
   sein.
-- [ ] 4.6 Nach Freigabe des Betreibers:
+- [x] 4.6 Nach Freigabe des Betreibers:
   1. Erledigt am 2026-10-15: `DASHBOARD_PROXY_SECRET` gesetzt und deployt; der Ansatz scheiterte (siehe
      4.7). Nach 4.7 die Coolify-Variable einzeln entfernen, nur mit Freigabe.
   2. Deployen.

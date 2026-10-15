@@ -282,10 +282,13 @@ Die Besonderheiten, die im Register nur knapp stehen:
 
 ## 8. Erkenntnisse aus dem ersten Deploy
 
-Offen bis zum Deploy der Sitzungsprüfung (Task 4.6 des Changes `dashboard`):
+Deploy der Sitzungsprüfung am 2026-10-15 (Coolify-Variable `DASHBOARD_PROXY_SECRET` vorher gelöscht):
 
-- Ob die Sitzungsprüfung im Betrieb wirkt: Login führt zum Dashboard mit Kontonamen im Kopf, ein direkter
-  Aufruf aus einem anderen Container liefert 403.
+- Alle vier Dienste gesund. Das Dashboard hat seine Migration angewendet und den Tenant angelegt.
+- Direkter Aufruf aus dem Projektnetz ohne Sitzung: 403. Mit `Remote-User: admin` und gefälschtem Cookie:
+  403. `GET /api/health`: 200 `{"status":"ok"}`.
+- `/webhook` ohne Signatur: 401. Startseite ohne Login: 302 zu `renovate-auth.krinke-it.cloud`.
+- Reporting-API von CE antwortet (`/api/v1/orgs`): beide Owner, 27 Repos.
 
 Deploy des Dashboards am 2026-10-15 (Coolify 4.4.6):
 

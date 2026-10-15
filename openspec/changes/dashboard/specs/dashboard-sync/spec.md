@@ -49,7 +49,9 @@ Für jedes Repo gilt:
 - **Onboarding-Status:**
   - `onboarded`, wenn eine Renovate-Konfiguration im Default-Branch liegt
   - `pr_open`, wenn ein offener Onboarding-PR des Dashboards existiert
-  - `disabled`, wenn Renovate CE das Repo als deaktiviert meldet
+  - `disabled`, wenn eine Renovate-Konfiguration vorliegt, Renovate CE das Repo aber als deaktiviert
+    meldet (etwa `"enabled": false`). Ein Repo ohne Konfiguration meldet CE wegen
+    `requireConfig: required` ebenfalls als `disabled`; es gilt trotzdem als `none`.
   - sonst `none`
 - **Build-Check-Status:**
   - `active`, wenn die Aufrufdatei im Default-Branch liegt
