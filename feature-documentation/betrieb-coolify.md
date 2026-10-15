@@ -154,6 +154,14 @@ Die Fakten in diesem Abschnitt stammen aus der Doku der gepinnten Version 15.7.0
 Container Registry (`rg.nl-ams.scw.cloud`). Die Regel greift nur, wenn `SCW_REGISTRY_SECRET_KEY` gesetzt
 ist. Das Passwort kommt aus der Umgebung, nie aus der Datei.
 
+Stand 2026-10-15:
+- Die Registry `rg.nl-ams.scw.cloud/krinke-dockersolutions` ist öffentlich, Renovate liest ihre Tags ohne
+  Anmeldung. Der Key ist deshalb leer, in Coolify und in `.env.production`.
+- Die leere Variable in Coolify trägt noch das Häkchen „beim Build verfügbar“. Das ist harmlos, solange
+  sie leer ist.
+- Wird die Registry privat, wird der Key als reine Laufzeit-Variable ohne dieses Häkchen gesetzt.
+  Secrets gehören nie in die Build-Variablen.
+
 **Was der Stack an Umgebung setzt** (`deploy/docker-compose.yaml`, Dienst `renovate-ce`): `MEND_RNV_ACCEPT_TOS=y`,
 `MEND_RNV_PLATFORM=github`, `MEND_RNV_AUTODISCOVER_FILTER=Hiwamashi/*,Krinke-IT-Consulting/*`,
 `MEND_RNV_DATA_HANDLER_TYPE=postgresql`, `MEND_RNV_API_ENABLED=true`, `MEND_RNV_API_ENABLE_JOBS=true`,
