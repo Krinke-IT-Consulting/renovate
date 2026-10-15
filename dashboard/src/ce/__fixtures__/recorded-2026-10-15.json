@@ -1,0 +1,107 @@
+{
+  "status": {
+    "bootTime": "2026-10-14T09:36:28.068Z",
+    "endpoint": "https://api.github.com/",
+    "platform": "github",
+    "app": {
+      "organizationCount": 1,
+      "repositoryCount": 1
+    },
+    "jobs": {
+      "history": {
+        "processed": 23,
+        "lastDispatchDate": "2026-10-15T07:00:12.719Z",
+        "lastFinished": {
+          "jobId": "f9b65c46-068c-4d2e-96c1-cb0df5c14482",
+          "reason": "schedule-all",
+          "priority": 10,
+          "addedAt": "2026-10-15T07:00:00.852Z",
+          "startedAt": "2026-10-15T07:00:12.482Z",
+          "lastAlive": "2026-10-15T07:00:12.482Z",
+          "attempts": 1,
+          "repository": "Krinke-IT-Consulting/renovate",
+          "organizationName": "Krinke-IT-Consulting",
+          "repositorySelection": "selected",
+          "installationId": 171298221,
+          "queueName": "main",
+          "status": "success",
+          "finishedAt": "2026-10-15T07:00:40.763Z"
+        }
+      },
+      "queue": {
+        "inProgress": [],
+        "size": 0
+      }
+    },
+    "scheduler": {
+      "allJobs": {
+        "cron": "0 * * * *",
+        "lastScheduling": "2026-10-15T07:00:00.004Z"
+      },
+      "sync": {
+        "cron": "0 0,4,8,12,16,20 * * *",
+        "lastScheduling": "2026-10-15T04:00:00.002Z"
+      }
+    },
+    "webhooks": {
+      "lastValidWebhookReceived": "2026-10-14T13:00:08.055Z"
+    },
+    "renovateVersion": "44.134.1"
+  },
+  "queue": {
+    "running": [],
+    "pending": []
+  },
+  "jobs": [
+    {
+      "jobId": "f9b65c46-068c-4d2e-96c1-cb0df5c14482",
+      "reason": "schedule-all",
+      "addedAt": "2026-10-15T07:00:00.852Z",
+      "startedAt": "2026-10-15T07:00:12.482Z",
+      "completedAt": "2026-10-15T07:00:40.764Z",
+      "logLocation": "/tmp/renovate/logs/krinke-it-consulting/renovate/20261015_070012_f9b65c46-068c-4d2e-96c1-cb0df5c14482.log",
+      "queueName": "main",
+      "status": "success"
+    },
+    {
+      "jobId": "7ff46671-63be-4cf1-92ec-2c9b625b7c8d",
+      "reason": "schedule-all",
+      "addedAt": "2026-10-15T06:00:00.627Z",
+      "startedAt": "2026-10-15T06:00:14.518Z",
+      "completedAt": "2026-10-15T06:00:41.787Z",
+      "logLocation": "/tmp/renovate/logs/krinke-it-consulting/renovate/20261015_060014_7ff46671-63be-4cf1-92ec-2c9b625b7c8d.log",
+      "queueName": "main",
+      "status": "success"
+    },
+    {
+      "jobId": "d6bc84f6-935c-45b8-8c7e-5ed1edd3ad2f",
+      "reason": "schedule-all",
+      "addedAt": "2026-10-15T05:00:00.404Z",
+      "startedAt": "2026-10-15T05:00:02.594Z",
+      "completedAt": "2026-10-15T05:00:28.856Z",
+      "logLocation": "/tmp/renovate/logs/krinke-it-consulting/renovate/20261015_050002_d6bc84f6-935c-45b8-8c7e-5ed1edd3ad2f.log",
+      "queueName": "main",
+      "status": "success"
+    },
+    {
+      "jobId": "8de5601a-175f-40f7-9e5b-1e93a77cdb08",
+      "reason": "schedule-all",
+      "addedAt": "2026-10-15T04:00:02.229Z",
+      "startedAt": "2026-10-15T04:00:14.648Z",
+      "completedAt": "2026-10-15T04:00:46.935Z",
+      "logLocation": "/tmp/renovate/logs/krinke-it-consulting/renovate/20261015_040014_8de5601a-175f-40f7-9e5b-1e93a77cdb08.log",
+      "queueName": "main",
+      "status": "success"
+    },
+    {
+      "jobId": "7fbf84af-43e5-4411-b358-8fbdb1ff414b",
+      "reason": "schedule-all",
+      "addedAt": "2026-10-15T03:00:00.121Z",
+      "startedAt": "2026-10-15T03:00:06.737Z",
+      "completedAt": "2026-10-15T03:00:43.997Z",
+      "logLocation": "/tmp/renovate/logs/krinke-it-consulting/renovate/20261015_030006_7fbf84af-43e5-4411-b358-8fbdb1ff414b.log",
+      "queueName": "main",
+      "status": "success"
+    }
+  ]
+}

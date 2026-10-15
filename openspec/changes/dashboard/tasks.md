@@ -137,7 +137,7 @@
   Secret. Mapping der Gründe und Status laut Entscheidung 7. Log-Auszug mit Level- und Feldfilter
   und Längengrenze. Fertig, wenn Vitest-Tests mit aufgezeichneten Antworten aus 1.2 Mapping und
   Filter abdecken, inklusive eines Logs mit einem Feld `token`.
-- [ ] 5.2 `PlatformAdapter` und `GitHubAdapter` laut Entscheidung 6:
+- [x] 5.2 `PlatformAdapter` und `GitHubAdapter` laut Entscheidung 6:
   - Installationen, Repos, Head-SHA
   - Konfigurations- und Build-Check-Datei
   - Renovate-PRs mit Labels, CI-Status, Dependency-Dashboard-Issue
@@ -150,7 +150,7 @@
 - [ ] 5.3 Reine Ableitungen in `src/domain/`: Update-Typ, CI-Status, Onboarding- und
   Build-Check-Status, Probleme laut Spec `dashboard-sync`. Fertig, wenn jedes Scenario der Spec
   einen Vitest-Test hat.
-- [ ] 5.4 Abgleich-Schleifen in `instrumentation.ts`:
+- [x] 5.4 Abgleich-Schleifen in `instrumentation.ts`:
   - GitHub alle 5 Minuten, CE jede Minute
   - je Quelle `pg_try_advisory_lock`
   - Upserts und Problem-Abgleich
