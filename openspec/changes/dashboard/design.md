@@ -238,6 +238,11 @@
   - Renovate maskiert Secrets selbst. Zusätzlich werden Felder mit `token`, `password`, `secret` und
     `key` im Namen entfernt.
 - **CE-Einstellung:** Renovate CE bekommt `MEND_RNV_API_ENABLE_REPORTING: "true"` für den Repo-Status.
+- **Repo-Status von CE** (geprüft nach dem ersten Deployment):
+  - CE meldet jedes Repo ohne Renovate-Konfiguration als `disabled`, weil `requireConfig: required`
+    gilt.
+  - Der Onboarding-Status folgt deshalb aus der Konfigurationsdatei auf der Plattform. `disabled` von
+    CE zählt nur, wenn eine Konfiguration existiert.
 - **Verworfen:** die Datenbank `renovate_ce` lesen. Das verbietet das PRD, und das Schema ist intern.
 
 ### 8. Probleme

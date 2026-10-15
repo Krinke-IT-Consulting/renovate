@@ -41,7 +41,7 @@ Container-Umgebung und wurde nicht ausgegeben.
 | `GET /system/v1/jobs/logs/{jobId}` | 200, JSON Lines im Bunyan-Format (`level` numerisch: 20 debug, 30 info, 40 warn, 50 error), etwa 136 KB je Lauf |
 | `GET /api/v1/repos/{org}/{repo}/-/jobs/{jobId}` und `/-/jobs/latest` | 200, gleiches Log |
 | `GET /system/v1/jobs/logs/latest` | 404. `latest` gilt nur im Repo-Pfad. |
-| `GET /api/v1/orgs`, `/api/v1/orgs/{org}/-/repos` | 404, solange die Reporting-API aus ist. Wird nach Task 4.6 erneut geprüft. |
+| `GET /api/v1/orgs`, `/api/v1/orgs/{org}/-/repos` | Vor dem Einschalten der Reporting-API 404. Nach dem Deployment am 2026-10-15: 200. `orgs` nennt `Hiwamashi` und `Krinke-IT-Consulting`. Je Repo gibt es `name`, `fullName`, `enabled`, `queueName`, `installedAt`, `status`. **Repos ohne `renovate.json` meldet CE als `disabled`** (`requireConfig: required`). Stand: Hiwamashi 14 Repos (alle `disabled`), Krinke-IT-Consulting 13 Repos (12 `disabled`, 1 `onboarded`). |
 
 Aufgezeichnete Antworten ohne Lizenz und Secrets dienen als Test-Fixtures (Task 5.1).
 
@@ -56,6 +56,7 @@ Gelesen per JWT über `GET /app` und `GET /app/installations`.
 
   Das deckt alle Anforderungen des Dashboards ab. Es fehlt nichts.
 - **Events:** check_run, check_suite, issues, pull_request, push, repository, status.
-- **Installationen:** nur `Krinke-IT-Consulting` (ausgewählte Repos). **In `Hiwamashi` ist die App
-  nicht installiert.** Bis der Betreiber das nachholt, sieht das Dashboard nur Repos von
-  Krinke-IT-Consulting.
+- **Installationen:**
+  - Am 2026-10-15 zunächst nur `Krinke-IT-Consulting` mit ausgewählten Repos.
+  - Danach hat der Betreiber die App in allen Repos beider Owner installiert. CE kennt seitdem 27
+    Repos.
