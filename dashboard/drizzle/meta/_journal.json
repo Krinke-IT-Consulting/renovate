@@ -8,6 +8,20 @@
       "when": 1792051451569,
       "tag": "0000_deep_midnight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792057294384,
+      "tag": "0001_late_red_shift",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792075143584,
+      "tag": "0002_renovate_jobs_created_at",
+      "breakpoints": true
     }
   ]
 }

@@ -206,7 +206,7 @@
     - die Datei `.github/workflows/build-check.yml`. Sie gilt als aktiv, wenn sie
       `Krinke-IT-Consulting/renovate/.github/workflows/build-check.yml@` enthält.
   - **Offene PRs:** Gezählt werden PRs mit Head-Branch `renovate/` von `<app-slug>[bot]`.
-  - **CI-Status:** Checks und kombinierter Status werden nur bei neuem Head-SHA gelesen.
+  - **CI-Status:** Checks und kombinierter Status werden bei neuem Head-SHA gelesen und danach so lange erneut (bedingt, ETag), bis der Status `success` ist.
   - **Nicht mehr gelistete PRs:** Sie werden einzeln nachgeladen, um merged oder closed festzuhalten.
   - **Dependency-Dashboard-Issue:** offenes Issue des Bots mit dem Titel „Dependency Dashboard“.
 - **Budget:**
@@ -321,8 +321,8 @@
   - Gegenmaßnahmen: Phasen mit eigenem Prüfpunkt, ein Commit bzw. PR je Phase, frühes Deployment
     (Entscheidung 12). Nach jeder Phase prüft der `reviewer` den Diff.
 - **[Risiko] Rate-Limit geteilt mit CE.** Ein großer Abgleich am Wochenende könnte CE ausbremsen.
-  - Gegenmaßnahmen: ETags, Inhalte nur bei neuem Head-SHA, Abgleich pausiert unter 20 % Rest-Limit
-    (Header `x-ratelimit-remaining`) und vermerkt das im Stempel.
+  - Gegenmaßnahmen: ETags, Inhalte nur bei neuem Head-SHA, Abgleich pausiert, wenn das Rest-Limit
+    (Header `x-ratelimit-remaining`) unter `max(20 % des Limits, 400)` fällt, und vermerkt das im Stempel.
 - **[Eingetreten] Coolify ersetzt Variablen in Labels nicht.** Im ersten Deployment wurde das
   Proxy-Secret deshalb nie gesetzt.
   - Folge: Umstieg auf die Sitzungsprüfung bei Authelia (Entscheidung 4).

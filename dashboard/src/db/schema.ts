@@ -199,6 +199,10 @@ export const renovateJobs = pgTable(
     errorMessage: text("error_message"),
     /** Roher CE-Zustand; unbekannte Werte gehen so nicht verloren. */
     statusRaw: text("status_raw"),
+    /** Anzahl der `artifactErrors` des Jobs (Lockfile-Fehler); Grundlage für lockfile_failure. */
+    artifactErrorCount: integer("artifact_error_count").notNull().default(0),
+    /** Wann das Dashboard den Job zuerst gesehen hat; Alter für "verschwundene" Jobs ohne Startzeit. */
+    createdAt: ts("created_at").notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("renovate_jobs_ce_job_id_key").on(t.ceJobId),
@@ -283,6 +287,10 @@ export const syncState = pgTable("sync_state", {
     .$type<{ repository: string; message: string }[]>()
     .notNull()
     .default(sql`'[]'::jsonb`),
+  /** Gesetzt, wenn der Durchlauf wegen knappen Kontingents (RateLimitPause) früh endete. */
+  pausedAt: ts("paused_at"),
+  pausedUntil: ts("paused_until"),
+  pauseNote: text("pause_note"),
 });
 
 /** Bedingte Requests: je URL-Schlüssel ETag und letzte Antwort. */
