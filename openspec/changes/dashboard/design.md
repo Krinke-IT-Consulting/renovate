@@ -105,10 +105,33 @@
   | neu: `sync_state` | Quelle, letzter Erfolg, letzter Fehler mit Zeit | Abgleich-Stempel |
   | neu: `http_cache` | URL-Schlüssel, ETag, Antwort | bedingte Requests |
 
+- **Nach dem Review durch `drizzle-migrations` (Task 3.3)** ergänzt, vor dem ersten Rollout in
+  Migration `0000`:
+  - **„Eigene CI“:** Sie ist eine eigene Spalte `own_ci boolean`. Der Abgleich berechnet
+    `build_check_status` und ergibt `own_ci` nur, wenn die Markierung gesetzt ist und keine
+    Aufrufdatei existiert. So überschreibt der Abgleich die Markierung des Betreibers nie.
+  - **Repo-Identität:** `external_id` (ID auf der Plattform) mit eindeutigem
+    `(connection_id, external_id)`. Ein umbenanntes Repo bleibt dieselbe Zeile, und `full_name`
+    wird nachgezogen.
+  - **Repos löschen:** Der Abgleich löscht keine Repos. Verschwundene Repos bekommen `removed_at`.
+    So bleibt das Gedächtnis für „Auto-Onboarding nicht wiederholen“ erhalten.
+  - **RolloutAction:** `pr_number`, dazu ein Teil-Unique-Index `(repository_id, kind)` für den Status
+    `pending`/`pr_open`. Es gibt also höchstens einen offenen Rollout je Art.
+  - **Problem:** `dedupe_key` (etwa die PR-Nummer) mit Teil-Unique-Index
+    `(repository_id, kind, dedupe_key)` für offene Probleme.
+  - **RenovateJob:** `status_raw` neben dem Enum. Unbekannte CE-Zustände gehen nicht verloren.
+  - **Tenant:** Er wird nur angelegt, wenn die Tabelle leer ist.
+  - **Weitere Indizes:**
+    - eindeutig `(platform, installation_id)`
+    - `renovate_jobs (repository_id, started_at)` und `(status)`
+    - `pull_requests (repository_id, state)`
+  - **Bewusst offen:** `sync_state`, `http_cache` und `audit_log` haben noch keinen Tenant-Bezug. Das
+    ist unkritisch, solange es nur einen Tenant gibt, und kommt mit der Mandantenfähigkeit.
 - **Schlüssel und Indizes:**
-  - eindeutig: `(connection_id, full_name)`, `(repository_id, number)`, `ce_job_id`
+  - eindeutig: `(connection_id, external_id)`, `(repository_id, number)`, `ce_job_id`
+  - `(connection_id, full_name)` als normaler Index (Umbenennungen)
   - Indizes auf `repository_id` in allen Kind-Tabellen
-  - Teilindex auf offene Probleme
+  - Teil-Unique-Indizes für offene Probleme und offene Rollouts (siehe oben)
 - **Migrationen:** `drizzle-kit generate` lokal, SQL eingecheckt. Zur Laufzeit wendet sie der
   Migrator von `drizzle-orm` an, unter `pg_advisory_lock`. Der Agent `drizzle-migrations` prüft
   jede Migration vor dem Commit.
@@ -194,8 +217,9 @@
 - **Status:** `success` bleibt `success`, alle Fehlerwerte werden `failed`. Wartende und laufende
   Jobs kommen aus der Queue.
 - **Log-Auszug für fehlgeschlagene Jobs:**
-  - Quelle ist `GET /system/v1/jobs/logs/{jobId}`.
-  - Behalten werden Zeilen ab Level `warn`, bis höchstens 200 Zeilen bzw. 16 KB.
+  - Quelle ist `GET /system/v1/jobs/logs/{jobId}`. Die Logs sind Bunyan-JSON-Lines mit numerischem
+    Level, etwa 136 KB je Lauf (geprüft in Task 1.2).
+  - Behalten werden Zeilen mit Level ≥ 40 (`warn`, `error`), bis höchstens 200 Zeilen bzw. 16 KB.
   - Renovate maskiert Secrets selbst. Zusätzlich werden Felder mit `token`, `password`, `secret` und
     `key` im Namen entfernt.
 - **CE-Einstellung:** Renovate CE bekommt `MEND_RNV_API_ENABLE_REPORTING: "true"` für den Repo-Status.

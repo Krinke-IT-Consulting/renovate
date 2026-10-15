@@ -1,7 +1,8 @@
 # Betrieb auf Coolify (Compose-Stack)
 
-Status: Stack im Repo angelegt (OpenSpec-Change `compose-stack`, Tasks 1 bis 4 erledigt). Noch nicht
-deployt: Die Einrichtung in Coolify, das Deploy und die Prüfungen nach dem Deploy (Tasks 5.x) stehen
+Status: Der Stack läuft seit dem ersten Deploy (Change `compose-stack`). Der Change `dashboard` ersetzt den
+Platzhalter durch das Dashboard (`renovate-dashboard`, Stand im Repo, Deploy steht aus). Noch nicht
+deployt ist diese Änderung: Die Einrichtung in Coolify, das Deploy und die Prüfungen nach dem Deploy (Tasks 5.x) stehen
 aus und brauchen eine ausdrückliche Freigabe des Betreibers. Quelle der Anforderungen:
 `openspec/changes/archive/2026-10-14-compose-stack/` (`proposal.md`, `design.md`, `tasks.md`, `specs/`).
 
@@ -11,7 +12,7 @@ stehen in keinem Dokument dieses Repos; sie leben in `.env.production` und in Co
 
 ## 1. Überblick
 
-Der Stack besteht aus vier Diensten in einer Datei, `deploy/docker-compose.yaml`. Coolify liest diese Datei
+Der Stack besteht aus vier Diensten (`postgres`, `renovate-ce`, `renovate-authelia`, `renovate-dashboard`) in einer Datei, `deploy/docker-compose.yaml`. Coolify liest diese Datei
 (Compose-Ressource, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`). Dienste mit `build:` baut
 Coolify beim Deploy aus den Kontexten unter `deploy/` und `renovate-ce/`. Pflicht-Secrets prüft der
 Containerstart (bei `renovate-ce` das Skript `renovate-ce/check-env.sh`), nicht die Compose-Datei:
@@ -23,7 +24,7 @@ gesetzt. Fehlt einer, startet der Dienst nicht, und das Log nennt nur den Namen.
 | `postgres` | `postgres:17.11`, gebaut aus `deploy/postgres/Dockerfile` (Init-Skript kopiert) | `postgres-data` → `/var/lib/postgresql/data` | nur `default` | `pg_isready -U postgres -d postgres` |
 | `renovate-ce` | `ghcr.io/mend/renovate-ce:15.7.0`, gebaut aus `renovate-ce/Dockerfile` (`config.js` eingebacken) | `renovate-cache` → `/tmp/renovate` | nur `default` | `curl -fsS http://localhost:8080/health` |
 | `renovate-authelia` | `authelia/authelia:4.39.28`, gebaut aus `deploy/authelia/Dockerfile` (`configuration.yml` eingebacken) | `authelia-data` → `/data` | `default` und `coolify` | `wget` auf `http://localhost:9091/api/health` |
-| `renovate-placeholder` | `traefik/whoami:v1.12.0` auf `busybox:1.37.0`, gebaut aus `deploy/placeholder/Dockerfile` | keines | `default` und `coolify` | `wget` auf `http://localhost:80/health` |
+| `renovate-dashboard` | Next.js-Dashboard (Node-Alpine), gebaut aus `dashboard/Dockerfile`, Port 3000, `mem_limit: 512m`, Start `node migrate.js && exec node server.js` | keines | `default` und `coolify` | `node -e fetch(...)` auf `http://127.0.0.1:3000/api/health` (DB erreichbar, Migrationen angewendet) |
 
 Alle Dienste haben `restart: unless-stopped`. Kein Dienst veröffentlicht `ports:`. Die Volumes
 `postgres-data`, `authelia-data` und `renovate-cache` sind Named Volumes der Compose-Datei.
@@ -33,7 +34,7 @@ Alle Dienste haben `restart: unless-stopped`. Kein Dienst veröffentlicht `ports
 - `default` ist das Netz des Stacks. Alle vier Dienste hängen darin und finden sich über ihren
   Dienstnamen (`postgres`, `renovate-ce`, …).
 - `coolify` ist das externe Proxy-Netz des Servers (`networks.coolify.external: true`). Dort hängen
-  nur `renovate-authelia` und `renovate-placeholder`, damit Traefik sie erreicht.
+  nur `renovate-authelia` und `renovate-dashboard`, damit Traefik sie erreicht.
 - Der Präfix `renovate-` steht, weil Compose Dienstnamen als Alias im geteilten Netz `coolify`
   einträgt. Auf dem Server betreibt vaultsync eine eigene Authelia in diesem Netz. Mit dem Präfix
   kollidieren die Aliase nicht. Die Middleware-Namen tragen aus demselben Grund den Präfix
@@ -41,11 +42,11 @@ Alle Dienste haben `restart: unless-stopped`. Kein Dienst veröffentlicht `ports
 
 **Speichergrenze:** `renovate-ce` hat `mem_limit: 3g`. Der Server hat 7,7 GB RAM und keinen Swap und
 trägt zusätzlich vaultsync. Ohne Grenze könnte ein speicherhungriger Lauf (etwa ein Lockfile-Update)
-den ganzen Host an den OOM-Killer bringen. Die Grenze gilt nur für `renovate-ce`. Die übrigen Dienste
-haben keine Grenze.
+den ganzen Host an den OOM-Killer bringen. Das Dashboard hat `mem_limit: 512m`. Postgres und Authelia haben keine Grenze.
 
-**Abhängigkeit:** `renovate-ce` wartet per `depends_on` mit `condition: service_healthy` auf
-`postgres`.
+**Abhängigkeit:** `renovate-ce` und `renovate-dashboard` warten per `depends_on` mit
+`condition: service_healthy` auf `postgres`. Das Dashboard legt seine Tabellen beim Start selbst an
+(`migrate.js`, unter Advisory Lock) und spricht CE nur über `http://renovate-ce:8080` im Stack-Netz an.
 
 ## 2. Server
 
@@ -71,14 +72,30 @@ Labels) und in `deploy/authelia/configuration.yml`.
 | Host / Pfad | Dienst | Login | Wie geroutet |
 |---|---|---|---|
 | `https://renovate.krinke-it.cloud/webhook` (exakt, Port 8080) | `renovate-ce` | nein (Signatur mit Webhook-Secret) | Eigene Labels: Router `renovate-webhook`, Regel `Host && Path(/webhook)`, Priorität 100. **Keine Coolify-Domain** – Coolify würde bei einer Domain mit Pfad den Pfad abschneiden und `/webhook/api/...` an CE durchreichen. |
-| `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-placeholder` | ja (Passwort und TOTP) | Eigene Labels in `deploy/docker-compose.yaml`: Router `renovate-dashboard` (https, Middleware `renovate-authelia@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. |
+| `https://renovate.krinke-it.cloud/` und alle anderen Pfade (auch `/api/...` und `/webhook/...`) | `renovate-dashboard` (Port 3000) | ja (Passwort und TOTP) | Eigene Labels in `deploy/docker-compose.yaml`: Router `renovate-dashboard` (https, Middleware-Kette `renovate-authelia@docker,renovate-dashboard-proxy@docker`) und Router `renovate-dashboard-http` (Redirect auf https). Priorität 1. `GET /api/health` ist nur intern für den Healthcheck gedacht. |
 | `https://renovate-auth.krinke-it.cloud` (Port 9091 intern) | `renovate-authelia` | nein (ist das Anmeldeportal) | Eigene Labels: Router `renovate-auth` (https) und `renovate-auth-http` (Redirect). **Keine Coolify-Domain** – die Coolify-API verwirft den Port aus der Domain. |
-| Job-API von `renovate-ce` | `renovate-ce` | – | Kein Router. Nur im Stack-Netz erreichbar. |
+| Job-, System- und Reporting-API von `renovate-ce` | `renovate-ce` | – | Kein Router. Nur im Stack-Netz erreichbar; das Dashboard nutzt sie mit `MEND_RNV_API_SERVER_SECRET`. |
 | Postgres (Port 5432) | `postgres` | – | Kein Router, kein veröffentlichter Port. Nur im Stack-Netz erreichbar. |
 
-**WICHTIG:** Für den Dienst `renovate-placeholder` in Coolify **keine Domain setzen**. Coolify würde sonst
+**WICHTIG:** Für den Dienst `renovate-dashboard` in Coolify **keine Domain setzen**. Coolify würde sonst
 einen zweiten, ungeschützten Router für `renovate.krinke-it.cloud` erzeugen. Der Dienst wird allein über
 die Labels geroutet.
+
+**Proxy-Secret (Vertrauensgrenze):** Das Dashboard hängt im geteilten Netz `coolify`; ein anderer Container
+dort könnte es direkt aufrufen und `Remote-User` fälschen. Deshalb setzt die Middleware
+`renovate-dashboard-proxy` (Typ `headers`, Label am Dienst `renovate-dashboard`) den Request-Header
+`X-Dashboard-Proxy-Secret` mit dem Wert von `DASHBOARD_PROXY_SECRET`. Die Next-Middleware des Dashboards
+vergleicht ihn in konstanter Zeit und antwortet sonst mit 403 (ebenso ohne `Remote-User`). Ausnahme ist
+`GET /api/health`. Die Kette ist `renovate-authelia@docker` zuerst, danach `renovate-dashboard-proxy@docker`.
+Die Redirect-Middleware `renovate-redirect-https` ist an jedem Dienst mit http-Router identisch definiert
+(`renovate-ce`, `renovate-authelia`, `renovate-dashboard`). Traefik blendet ungesunde Container aus; so
+hängen die http-Router der anderen Dienste nicht davon ab, dass das Dashboard gesund ist.
+
+**Die Variable `DASHBOARD_PROXY_SECRET` muss in Coolify gesetzt sein, bevor deployt wird.** Fehlt sie, ist
+der Wert im Label und im Dashboard leer bzw. verschieden, und das Dashboard antwortet auf jeden Aufruf
+mit 403. Fehlt die Variable in der Umgebung des Dashboards, bricht schon der Start ab: `migrate.js`
+prüft das gesamte Env-Schema und nennt die fehlenden Namen im Log. Fehlt sie nur im Label, startet das
+Dashboard, weist alles mit 403 ab und schreibt einmalig einen Hinweis ins Log.
 
 Die Middleware `renovate-authelia` ist am Dienst `renovate-authelia` als Label definiert:
 
@@ -130,8 +147,9 @@ ist. Das Passwort kommt aus der Umgebung, nie aus der Datei.
 
 **Was der Stack an Umgebung setzt** (`deploy/docker-compose.yaml`, Dienst `renovate-ce`): `MEND_RNV_ACCEPT_TOS=y`,
 `MEND_RNV_PLATFORM=github`, `MEND_RNV_AUTODISCOVER_FILTER=Hiwamashi/*,Krinke-IT-Consulting/*`,
-`MEND_RNV_DATA_HANDLER_TYPE=postgresql`, `MEND_RNV_API_ENABLED=true`, `MEND_RNV_API_ENABLE_JOBS=true`
-sowie `PGHOST=postgres`, `PGPORT=5432`, `PGDATABASE=renovate_ce`, `PGUSER=renovate_ce` und
+`MEND_RNV_DATA_HANDLER_TYPE=postgresql`, `MEND_RNV_API_ENABLED=true`, `MEND_RNV_API_ENABLE_JOBS=true`,
+`MEND_RNV_API_ENABLE_SYSTEM=true`, `MEND_RNV_API_ENABLE_REPORTING=true` (Repo-Status für das Dashboard, z. B.
+`GET /api/v1/orgs/{org}/-/repos`) sowie `PGHOST=postgres`, `PGPORT=5432`, `PGDATABASE=renovate_ce`, `PGUSER=renovate_ce` und
 `PGPASSWORD` aus `RENOVATE_CE_DB_PASSWORD`.
 
 ## 5. Schritte von Hand
@@ -148,13 +166,14 @@ vor, führt aber kein Deploy ohne Freigabe aus (Spec `platform-deployment`, „K
    - Typ: Docker Compose, neues Projekt „Renovate", Server `gentle-goose`.
    - Repo `Krinke-IT-Consulting/renovate`, Base Directory `/deploy`, Compose-Datei `/docker-compose.yaml`.
    - **Keine Domains** in Coolify setzen. Alle Router stehen als Labels in `deploy/docker-compose.yaml`.
-   - Variablen aus `.env.production` übertragen (Namen aus `.env.example`). Leere optionale Werte weglassen,
+   - Variablen aus `.env.production` übertragen (Namen aus `.env.example`), **auch `DASHBOARD_PROXY_SECRET`**
+     (vor dem ersten Deploy der Dashboard-Version). Leere optionale Werte weglassen,
      also `SCW_REGISTRY_SECRET_KEY`, wenn er leer ist.
    - `MEND_RNV_GITHUB_APP_KEY` ist ein PEM-Schlüssel und wird als mehrzeiliger Wert eingetragen.
    - Namen per `list_env_keys` abgleichen, nie Werte ausgeben.
 4. **Deploy nur nach ausdrücklicher Freigabe.**
 5. **Prüfungen nach dem Deploy** (Task 5.3):
-   - `postgres`, `renovate-authelia` und `renovate-placeholder` sind gesund. `renovate-ce` wird erst nach
+   - `postgres`, `renovate-authelia` und `renovate-dashboard` sind gesund. `renovate-ce` wird erst nach
      Schritt 7 gesund, weil App-ID und Key fehlen, bis die GitHub App existiert.
    - Für `renovate.krinke-it.cloud` gibt es nur die eigenen Router `renovate-webhook` und
      `renovate-dashboard` (plus http-Pendants), keinen von Coolify erzeugten; der Dashboard-Router trägt
@@ -230,8 +249,8 @@ ohne gültige Signatur wird abgewiesen.
 ## 7. Werte rotieren
 
 Die selbst erzeugten Werte stehen mit Name, Herkunft, Zweck, Ablage und Folgen eines Wechsels in
-`feature-documentation/secrets-register.md`. Dort steht auch das Muster zum Neuerzeugen. Es gibt acht
-selbst erzeugte Werte. Die Werte von Menschen (Lizenzschlüssel, App-ID, PEM-Key, optional
+`feature-documentation/secrets-register.md`. Dort steht auch das Muster zum Neuerzeugen. Das gilt auch
+für `DASHBOARD_PROXY_SECRET`. Die Werte von Menschen (Lizenzschlüssel, App-ID, PEM-Key, optional
 Scaleway-Schlüssel) stehen nicht im Register.
 
 Die Besonderheiten, die im Register nur knapp stehen:
@@ -246,20 +265,24 @@ Die Besonderheiten, die im Register nur knapp stehen:
   Volume `authelia-data` muss dann geleert werden (oder die Datenbank neu angelegt). Danach das
   Nutzerskript erneut ausführen und TOTP neu registrieren.
 - **`AUTHELIA_SESSION_SECRET`:** Neu erzeugen und Redeploy. Alle Sitzungen enden, Neuanmeldung nötig.
-- **`MEND_RNV_API_SERVER_SECRET`:** Redeploy. Künftige Nutzer der Job-API (Dashboard) brauchen den neuen Wert.
+- **`MEND_RNV_API_SERVER_SECRET`:** Wird von `renovate-ce` und `renovate-dashboard` genutzt. Wert in Coolify
+  ändern und beide gemeinsam neu deployen (ein Redeploy des Stacks), sonst weist CE das Dashboard ab.
+- **`MEND_RNV_GITHUB_APP_ID` und `MEND_RNV_GITHUB_APP_KEY`:** Ebenfalls von CE und Dashboard genutzt; Wechsel
+  mit gemeinsamem Redeploy.
+- **`DASHBOARD_PROXY_SECRET`:** Neu erzeugen (`openssl rand -hex 32`), in Coolify und `.env.production`
+  ändern, Redeploy des Stacks. Der Wert steckt im Label (Traefik) und in der Umgebung des Dashboards; beides
+  muss denselben Wert tragen, sonst 403 überall. Keine Sitzung geht verloren.
 - **`AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET`:** Neu erzeugen und Redeploy. Keine weiteren
   Folgen, weil der Passwort-Reset deaktiviert ist.
 
 ## 8. Erkenntnisse aus dem ersten Deploy
 
-Platzhalter. Dieser Abschnitt wird nach Task 5.3 ergänzt, sobald der Stack in Coolify läuft.
+Offen bis zum ersten Deploy des Dashboards (Task 4.6 des Changes `dashboard`):
 
-Offen ist insbesondere:
-
-- Ob Coolify die Labels von `renovate-placeholder` und `renovate-authelia` unverändert übernimmt.
-- Welcher Router-Name für `renovate.krinke-it.cloud` greift und ob Labels doppelt erscheinen.
-- Ob die Forward-Auth für den Platzhalter wirkt (Redirect ohne Sitzung).
-- Die Labels der Router, wie in Task 5.3 gefordert, für die Dokumentation.
+- Ob Coolify die Labels von `renovate-dashboard` und `renovate-authelia` unverändert übernimmt, insbesondere
+  ob `${DASHBOARD_PROXY_SECRET}` im Label `...customrequestheaders.X-Dashboard-Proxy-Secret` mit dem
+  Laufzeitwert interpoliert wird (Task 4.6 des Changes `dashboard`; Rückfall Raw-Modus).
+- Ob die Kette Forward-Auth plus Proxy-Secret für das Dashboard wirkt (Redirect ohne Sitzung, 403 bei direktem Aufruf im Netz `coolify`).
 
 Erstes Deploy am 2026-10-14 (Coolify 4.4.6, Traefik 3.6.25):
 

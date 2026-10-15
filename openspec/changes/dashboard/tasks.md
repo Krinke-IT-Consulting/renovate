@@ -2,7 +2,7 @@
 
 ## 1. Vorbereitung
 
-- [ ] 1.1 Die aktuellen stabilen Versionen ermitteln und in der Feature-Doku festhalten:
+- [x] 1.1 Die aktuellen stabilen Versionen ermitteln und in der Feature-Doku festhalten:
   - Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, TanStack Table
   - Drizzle ORM und drizzle-kit, `pg`
   - `@octokit/app`, zod, Vitest, msw, Playwright
@@ -11,7 +11,7 @@
 
   Fertig, wenn `npm view <paket> version` und `docker buildx imagetools inspect` je Eintrag eine
   Version bzw. einen Digest liefern.
-- [ ] 1.2 Jeden genutzten CE-Endpunkt lesend gegen die laufende Instanz prüfen. Der Aufruf läuft
+- [x] 1.2 Jeden genutzten CE-Endpunkt lesend gegen die laufende Instanz prüfen. Der Aufruf läuft
   per `ssh` und `docker exec` im Container `renovate-ce`, das Secret kommt aus dessen Umgebung und
   wird nie ausgegeben. Geprüft werden:
   - `GET /system/v1/status`
@@ -22,7 +22,7 @@
   `GET /api/v1/orgs/{org}/-/repos` braucht die Reporting-API (Task 4.2) und wird nach dem ersten
   Deployment geprüft. Fertig, wenn die Antwortfelder zu design.md Entscheidung 7 passen oder die
   Abweichungen im Design nachgetragen sind.
-- [ ] 1.3 Die Rechte der GitHub App lesend prüfen, per JWT über `GET /app`, das Ergebnis enthält
+- [x] 1.3 Die Rechte der GitHub App lesend prüfen, per JWT über `GET /app`, das Ergebnis enthält
   keine Secrets. Benötigt werden:
   - Contents RW, Pull requests RW, Issues RW
   - Workflows RW
@@ -33,23 +33,23 @@
 
 ## 2. Grundgerüst
 
-- [ ] 2.1 Unter `dashboard/` eine Next.js-App anlegen (App Router, TypeScript strict,
+- [x] 2.1 Unter `dashboard/` eine Next.js-App anlegen (App Router, TypeScript strict,
   `output: "standalone"`, npm), mit Tailwind und shadcn/ui. Skripte `build`, `typecheck`, `lint`,
   `test`. Fertig, wenn `npm ci && npm run build && npm run typecheck && npm run lint` lokal grün
   ist.
-- [ ] 2.2 `src/env.ts` mit zod für alle Werte aus design.md Entscheidung 5.
+- [x] 2.2 `src/env.ts` mit zod für alle Werte aus design.md Entscheidung 5.
   - Bei Fehlern nennt die Meldung nur Namen.
   - Gelesen wird erst zur Laufzeit, nicht beim Build.
 
   Fertig, wenn ein Vitest-Test zeigt: Ein fehlender Wert bricht mit dem Namen ab, und die Ausgabe
   enthält keinen Wert. Zusätzlich gelingt `npm run build` ohne gesetzte Variablen.
-- [ ] 2.3 Vertrauensgrenze laut Entscheidung 4: Middleware mit Vergleich des Proxy-Secrets in
+- [x] 2.3 Vertrauensgrenze laut Entscheidung 4: Middleware mit Vergleich des Proxy-Secrets in
   konstanter Zeit und Pflicht-Header `Remote-User`, Ausnahme `GET /api/health`. Fertig, wenn
   Vitest-Tests drei Fälle abdecken:
   - ohne Secret: 403
   - mit Secret, aber ohne `Remote-User`: 403
   - mit beidem: durchgelassen
-- [ ] 2.4 App-Shell nach `PRODUCT.md` und Entwurf:
+- [x] 2.4 App-Shell nach `PRODUCT.md` und Entwurf:
   - Header mit Logo (Dateien aus dem krinke.me-Repo unverändert kopiert)
   - Navigation (Übersicht, Repos, Pull Requests, Jobs, Probleme), Kontoname, Logout-Link zu Authelia
   - Overlay-Menü auf Mobil, Skip-Link
@@ -58,7 +58,7 @@
 
   Alle Seiten zeigen einen Leerzustand. Fertig, wenn die Seiten lokal per Tastatur bedienbar sind
   und bei 375 px Breite nicht waagerecht scrollen.
-- [ ] 2.5 Dockerfile:
+- [x] 2.5 Dockerfile:
   - mehrstufig, Basisimage gepinnt, als Nicht-Root-Nutzer
   - Startbefehl `node migrate.js && exec node server.js`
   - `GET /api/health` meldet DB-Erreichbarkeit und Migrationsstand
@@ -68,20 +68,20 @@
 
 ## 3. Datenmodell
 
-- [ ] 3.1 Drizzle-Schema unter `src/db/schema.ts` mit allen Tabellen aus PRD 4.3 und den
+- [x] 3.1 Drizzle-Schema unter `src/db/schema.ts` mit allen Tabellen aus PRD 4.3 und den
   Ergänzungen aus Entscheidung 3, inklusive Enums, eindeutigen Schlüsseln und Indizes. Erste
   Migration mit `drizzle-kit generate` nach `dashboard/drizzle/`. Fertig, wenn die Migration gegen
   eine leere Postgres fehlerfrei läuft.
-- [ ] 3.2 `migrate.js`: Migrationen unter `pg_advisory_lock` anwenden, danach den Tenant
+- [x] 3.2 `migrate.js`: Migrationen unter `pg_advisory_lock` anwenden, danach den Tenant
   „Krinke IT“ anlegen, falls er fehlt. Fertig, wenn ein Integrationstest zwei Fälle zeigt:
   - Zwei gleichzeitige Läufe wenden jede Migration einmal an.
   - Der Tenant existiert genau einmal.
-- [ ] 3.3 Der Agent `drizzle-migrations` prüft Schema und Migration. Fertig, wenn seine Befunde
+- [x] 3.3 Der Agent `drizzle-migrations` prüft Schema und Migration. Fertig, wenn seine Befunde
   behoben oder begründet abgelehnt sind.
 
 ## 4. Stack und erstes Deployment
 
-- [ ] 4.1 `deploy/docker-compose.yaml`: `renovate-placeholder` durch `renovate-dashboard` ersetzen.
+- [x] 4.1 `deploy/docker-compose.yaml`: `renovate-placeholder` durch `renovate-dashboard` ersetzen.
   - Build `../dashboard`, `mem_limit: 512m`, Healthcheck, `restart: unless-stopped`
   - Netze `default` und `coolify`
   - `depends_on` auf `postgres` (healthy)
@@ -93,9 +93,9 @@
 
   Fertig, wenn `docker compose config --no-interpolate` gültig ist und der Build-Check des Repos
   grün ist.
-- [ ] 4.2 Renovate CE: `MEND_RNV_API_ENABLE_REPORTING: "true"` ergänzen. Fertig, wenn es in der
+- [x] 4.2 Renovate CE: `MEND_RNV_API_ENABLE_REPORTING: "true"` ergänzen. Fertig, wenn es in der
   Compose-Datei steht und in der Feature-Doku begründet ist.
-- [ ] 4.3 `DASHBOARD_PROXY_SECRET` erzeugen (`openssl rand -hex 32`) und sofort per Skript ohne
+- [x] 4.3 `DASHBOARD_PROXY_SECRET` erzeugen (`openssl rand -hex 32`) und sofort per Skript ohne
   Ausgabe in `.env.production` eintragen. `dashboard/.env.local` bekommt einen eigenen, getrennt
   erzeugten Wert für den lokalen Betrieb. Außerdem werden nachgezogen:
   - `.env.example`: neuer Name plus `DATABASE_URL` und `RENOVATE_CE_API_URL` mit Kommentar
