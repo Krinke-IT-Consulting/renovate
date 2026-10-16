@@ -161,7 +161,7 @@
   - Ein zweiter Durchlauf startet nicht parallel.
   - Ein fehlerhaftes Repo bricht den Rest nicht ab.
   - Ein behobenes Problem bekommt `resolved_at`.
-- [ ] 5.5 Der Agent `github-app-integration` prüft Adapter und Abgleich, der `reviewer` den Diff der
+- [x] 5.5 Der Agent `github-app-integration` prüft Adapter und Abgleich, der `reviewer` den Diff der
   Phase. Danach PR, Merge durch den Betreiber, Deployment nach Freigabe. Fertig, wenn nach dem
   Deployment drei Dinge gelten:
   - Der Abgleich-Stempel zeigt beide Quellen erfolgreich.
