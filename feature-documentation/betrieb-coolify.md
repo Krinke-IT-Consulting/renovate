@@ -290,6 +290,15 @@ Die Besonderheiten, die im Register nur knapp stehen:
 
 ## 8. Erkenntnisse aus dem ersten Deploy
 
+Deploy des Abgleichs am 2026-10-16 (Phase 5 des Changes `dashboard`):
+
+- Migrationen `0001` und `0002` beim Start angewendet. Beide Quellen (`github`, `ce`) melden nach etwa
+  einer Minute einen erfolgreichen Durchlauf ohne Teilfehler und ohne Rate-Limit-Pause.
+- 27 Repos (Hiwamashi 14, Krinke-IT-Consulting 13), alle mit CE-Status. 540 Jobs übernommen (je Repo die
+  letzten 20). Renovate CE lässt also stündlich auch Repos ohne `renovate.json` laufen; diese enden sofort.
+- Ein Fehlalarm: `missing_build_check` für `Krinke-IT-Consulting/renovate`. Das Repo ruft den Build-Check
+  als Quelle lokal über `build-check-self.yml` auf, nicht über die Aufruf-Datei.
+
 Deploy der Sitzungsprüfung am 2026-10-15 (Coolify-Variable `DASHBOARD_PROXY_SECRET` vorher gelöscht):
 
 - Alle vier Dienste gesund. Das Dashboard hat seine Migration angewendet und den Tenant angelegt.
