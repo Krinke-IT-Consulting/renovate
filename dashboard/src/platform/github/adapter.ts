@@ -18,7 +18,13 @@ import type {
   RepositoryRef,
   UpdateChangeRequest,
 } from "../types";
-import { BUILD_CHECK_CALLER_PATH, callsCentralBuildCheck } from "./build-check";
+import {
+  BUILD_CHECK_CALLER_PATH,
+  BUILD_CHECK_SELF_PATH,
+  callsCentralBuildCheck,
+  callsLocalBuildCheck,
+  isBuildCheckSourceRepo,
+} from "./build-check";
 import { deriveCiStatus } from "./ci-status";
 
 /**
@@ -247,6 +253,24 @@ export class GitHubAdapter implements PlatformAdapter {
       if (file?.content && file.encoding === "base64") {
         hasCallerFile = callsCentralBuildCheck(
           Buffer.from(file.content, "base64").toString("utf8"),
+        );
+      }
+    }
+    // Das Quell-Repo des Build-Checks ruft den Workflow lokal auf (`build-check-self.yml`).
+    if (
+      !hasCallerFile &&
+      rootDirs.has(".github") &&
+      isBuildCheckSourceRepo(repo.fullName)
+    ) {
+      const selfFile = await this.get<ApiFile>(
+        scope,
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        { owner, repo: name, ref: headSha, path: BUILD_CHECK_SELF_PATH },
+        { tolerate: [404], noCache: true },
+      );
+      if (selfFile?.content && selfFile.encoding === "base64") {
+        hasCallerFile = callsLocalBuildCheck(
+          Buffer.from(selfFile.content, "base64").toString("utf8"),
         );
       }
     }
