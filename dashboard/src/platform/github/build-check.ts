@@ -9,3 +9,16 @@ export const BUILD_CHECK_CALLER_MARKER =
 export function callsCentralBuildCheck(fileContent: string): boolean {
   return fileContent.includes(BUILD_CHECK_CALLER_MARKER);
 }
+
+/** Das Quell-Repo des Build-Checks: Es ruft den Workflow lokal auf, nicht über die Aufrufdatei. */
+export const BUILD_CHECK_SOURCE_REPO = "Krinke-IT-Consulting/renovate";
+export const BUILD_CHECK_SELF_PATH = ".github/workflows/build-check-self.yml";
+export const BUILD_CHECK_SELF_MARKER = "uses: ./.github/workflows/build-check.yml";
+
+export function isBuildCheckSourceRepo(fullName: string): boolean {
+  return fullName.toLowerCase() === BUILD_CHECK_SOURCE_REPO.toLowerCase();
+}
+
+export function callsLocalBuildCheck(fileContent: string): boolean {
+  return fileContent.includes(BUILD_CHECK_SELF_MARKER);
+}

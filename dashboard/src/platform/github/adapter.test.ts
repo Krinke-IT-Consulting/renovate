@@ -306,6 +306,47 @@ describe("Head-SHA und Repo-Zustand", () => {
   });
 });
 
+describe("Build-Check im Quell-Repo", () => {
+  const SELF = "jobs:\n  b:\n    uses: ./.github/workflows/build-check.yml\n";
+  const SOURCE = { ...REPO, fullName: "krinke-it-consulting/Renovate" };
+  const root = [dirEntry(".github", "dir")];
+
+  function repoContents(opts: { fullName: string; self: string | null }) {
+    server.use(
+      http.get(`${API}/repos/${opts.fullName}/contents`, () =>
+        HttpResponse.json(root),
+      ),
+      http.get(`${API}/repos/${opts.fullName}/contents/:path+`, ({ params }) => {
+        const path = ([] as string[]).concat(params.path as string | string[]).join("/");
+        return path === ".github/workflows/build-check-self.yml" && opts.self
+          ? HttpResponse.json(fileBody(opts.self))
+          : new HttpResponse(null, { status: 404 });
+      }),
+    );
+  }
+
+  it("Quell-Repo mit lokalem Aufruf gilt als aktiv (Name ohne Beachtung der Schreibweise)", async () => {
+    repoContents({ fullName: SOURCE.fullName, self: SELF });
+    expect(
+      (await makeAdapter().getRepositoryState(conn, SOURCE, HEAD_SHA)).hasBuildCheck,
+    ).toBe(true);
+  });
+
+  it("anderes Repo mit derselben Datei gilt nicht als aktiv", async () => {
+    repoContents({ fullName: REPO.fullName, self: SELF });
+    expect(
+      (await makeAdapter().getRepositoryState(conn, REPO, HEAD_SHA)).hasBuildCheck,
+    ).toBe(false);
+  });
+
+  it("Quell-Repo ohne build-check-self.yml gilt nicht als aktiv", async () => {
+    repoContents({ fullName: SOURCE.fullName, self: null });
+    expect(
+      (await makeAdapter().getRepositoryState(conn, SOURCE, HEAD_SHA)).hasBuildCheck,
+    ).toBe(false);
+  });
+});
+
 describe("Update-PRs, Status, Dashboard-Issue", () => {
   it("(d) filtert fremde Autoren und falsche Branches heraus und erkennt Automerge", async () => {
     server.use(

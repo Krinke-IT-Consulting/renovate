@@ -54,7 +54,9 @@ Für jedes Repo gilt:
     `requireConfig: required` ebenfalls als `disabled`; es gilt trotzdem als `none`.
   - sonst `none`
 - **Build-Check-Status:**
-  - `active`, wenn die Aufrufdatei im Default-Branch liegt
+  - `active`, wenn die Aufrufdatei im Default-Branch liegt. Im Quell-Repo des Build-Checks
+    (`Krinke-IT-Consulting/renovate`) gilt ebenso ein Workflow, der ihn lokal aufruft
+    (`uses: ./.github/workflows/build-check.yml`, dort `build-check-self.yml`), als `active`.
   - `pr_open`, wenn ein offener Rollout-PR existiert
   - `own_ci`, wenn der Betreiber das Repo als „eigene CI“ markiert hat
   - sonst `missing`
@@ -62,6 +64,11 @@ Für jedes Repo gilt:
 #### Scenario: Sicherheitsupdate als Major
 - **WHEN** ein PR die Labels `security` und `major` trägt
 - **THEN** führt das Dashboard ihn als Sicherheitsupdate
+
+#### Scenario: Quell-Repo des Build-Checks
+- **WHEN** das Repo `Krinke-IT-Consulting/renovate` im Default-Branch einen Workflow mit
+  `uses: ./.github/workflows/build-check.yml` enthält
+- **THEN** ist sein Build-Check-Status `active`, auch ohne Aufrufdatei `build-check.yml`
 
 #### Scenario: Repo ohne Checks
 - **WHEN** der letzte Commit eines Renovate-PRs weder Checks noch Commit-Status hat

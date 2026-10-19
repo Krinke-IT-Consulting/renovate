@@ -205,6 +205,9 @@
       `.github/renovate.json(5)`, `.renovaterc(.json)` usw.
     - die Datei `.github/workflows/build-check.yml`. Sie gilt als aktiv, wenn sie
       `Krinke-IT-Consulting/renovate/.github/workflows/build-check.yml@` enthält.
+      Nur im Quell-Repo `Krinke-IT-Consulting/renovate` (Vergleich ohne Beachtung der
+      Schreibweise) liest der Abgleich zusätzlich `.github/workflows/build-check-self.yml` und wertet
+      `uses: ./.github/workflows/build-check.yml` ebenfalls als aktiv.
   - **Offene PRs:** Gezählt werden PRs mit Head-Branch `renovate/` von `<app-slug>[bot]`.
   - **CI-Status:** Checks und kombinierter Status werden bei neuem Head-SHA gelesen und danach so lange erneut (bedingt, ETag), bis der Status `success` ist.
   - **Nicht mehr gelistete PRs:** Sie werden einzeln nachgeladen, um merged oder closed festzuhalten.
