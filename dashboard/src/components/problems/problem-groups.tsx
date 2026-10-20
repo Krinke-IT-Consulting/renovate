@@ -57,13 +57,17 @@ export function ProblemGroups({
   pathname,
   searchParams,
   showRepo = true,
+  headingLevel = 2,
 }: {
   problems: ProblemRow[];
   state: "offen" | "behoben";
   pathname: string;
   searchParams: RawSearchParams;
   showRepo?: boolean;
+  /** 3, wenn die Gruppen unter einer Abschnittsüberschrift stehen (Repo-Detail). */
+  headingLevel?: 2 | 3;
 }) {
+  const Heading = headingLevel === 3 ? "h3" : "h2";
   const expandedKinds = parseList<ProblemKind>(searchParams, "alle", PROBLEM_KIND_ORDER);
   const groups = PROBLEM_KIND_ORDER.map((kind) => ({ kind, items: problems.filter((p) => p.kind === kind) })).filter(
     (g) => g.items.length > 0,
@@ -78,14 +82,14 @@ export function ProblemGroups({
         const headingId = `problem-gruppe-${kind}`;
         return (
           <section key={kind} aria-labelledby={headingId}>
-            <h2 id={headingId} className="mb-2 flex items-center gap-2 text-lg font-semibold">
+            <Heading id={headingId} className={headingLevel === 3 ? "mb-2 flex items-center gap-2 text-base font-semibold" : "mb-2 flex items-center gap-2 text-lg font-semibold"}>
               <StatusIcon tone={PROBLEM_KIND_TONE[kind]} className="size-5" />
               {PROBLEM_KIND_LABEL[kind]}
               <span className="font-sans text-base font-medium text-ink-soft tabular-nums">
                 <span className="sr-only">Anzahl: </span>
                 {items.length}
               </span>
-            </h2>
+            </Heading>
             <div className="overflow-hidden rounded-xl bg-papier shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]">
               <ul className="divide-y divide-border/70 py-1">
                 {visible.map((p) => (

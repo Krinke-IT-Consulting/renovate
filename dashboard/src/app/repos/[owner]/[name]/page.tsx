@@ -230,7 +230,7 @@ export default async function Page({
         }
       >
         {repo.openProblems.length > 0 ? (
-          <ProblemGroups problems={repo.openProblems} state="offen" pathname={here} searchParams={sp} showRepo={false} />
+          <ProblemGroups problems={repo.openProblems} state="offen" pathname={here} searchParams={sp} showRepo={false} headingLevel={3} />
         ) : (
           <p className="text-ink-soft">Keine offenen Probleme.</p>
         )}
