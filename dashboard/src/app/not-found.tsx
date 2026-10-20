@@ -7,9 +7,12 @@ export default function NotFound() {
     <>
       <PageHeader title="Seite nicht gefunden" />
       <EmptyState title="Diese Seite gibt es nicht">
-        <p>
-          <Link href="/" className="font-medium text-olive underline underline-offset-4">
+        <p className="flex flex-wrap gap-x-6">
+          <Link href="/" className="inline-flex min-h-11 items-center font-medium text-olive underline underline-offset-4">
             Zurück zur Übersicht
+          </Link>
+          <Link href="/repos" className="inline-flex min-h-11 items-center font-medium text-olive underline underline-offset-4">
+            Alle Repos ansehen
           </Link>
         </p>
       </EmptyState>
