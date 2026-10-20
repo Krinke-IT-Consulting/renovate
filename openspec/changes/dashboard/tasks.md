@@ -170,11 +170,11 @@
 
 ## 6. Ansichten
 
-- [ ] 6.1 `/impeccable shape` für Repos, Repo-Detail, Pull Requests, Jobs und Probleme. Die
+- [x] 6.1 `/impeccable shape` für Repos, Repo-Detail, Pull Requests, Jobs und Probleme. Die
   Übersicht ist bereits entworfen. Dabei werden die Monospace-Schrift und die Statusfarben
   entschieden. Fertig, wenn der Betreiber die Entwürfe bestätigt hat und sie in
   `feature-documentation/dashboard/` stehen.
-- [ ] 6.2 Übersicht als Lagebericht laut Spec `dashboard-views`:
+- [x] 6.2 Übersicht als Lagebericht laut Spec `dashboard-views`:
   - Textbausteine in `src/domain/report.ts`
   - Schritte auf der Leiterbahn in fester Reihenfolge, Abhaken als Ring, „weitere X anzeigen“
   - Kennzahlen und Repo-Raster, Filter per Kachel
@@ -182,15 +182,15 @@
 
   Fertig, wenn Vitest-Tests die Scenarios „Zwei Sicherheitsupdates offen“, „Alles erledigt“ und
   „Erster Start“ abdecken und die Seite mit Fixture-Daten auf Desktop und bei 375 px stimmt.
-- [ ] 6.3 Repos und Repo-Detail mit TanStack Table, Filtern in der Adresse, Karten auf Mobil, Links
+- [x] 6.3 Repos und Repo-Detail mit TanStack Table, Filtern in der Adresse, Karten auf Mobil, Links
   zu GitHub und zum Dependency-Dashboard-Issue. Fertig, wenn ein Link mit Filter die gefilterte
   Ansicht öffnet und Sortieren per Tastatur geht.
-- [ ] 6.4 Pull Requests mit Filtern nach Repo, Update-Typ, CI-Status und Automerge. Statusbadges
+- [x] 6.4 Pull Requests mit Filtern nach Repo, Update-Typ, CI-Status und Automerge. Statusbadges
   mit Text. Fertig, wenn das Scenario „Gefilterte PR-Liste per Link“ im Playwright-Smoke besteht.
-- [ ] 6.5 Jobs mit Auslöser, Status, Dauer, aufklappbarem und kopierbarem Log-Auszug. Probleme mit
+- [x] 6.5 Jobs mit Auslöser, Status, Dauer, aufklappbarem und kopierbarem Log-Auszug. Probleme mit
   Umschalter offen/behoben. Fertig, wenn „Log-Auszug“ und „Noch kein Lauf“ im Playwright-Smoke
   bestehen.
-- [ ] 6.6 Lade-, Leer- und Fehlerzustände aller Seiten; Abgleich-Stempel mit Fehler und Uhrzeit;
+- [x] 6.6 Lade-, Leer- und Fehlerzustände aller Seiten; Abgleich-Stempel mit Fehler und Uhrzeit;
   `router.refresh()` alle 60 s bei sichtbarem Tab. Fertig, wenn der Playwright-Smoke mit
   Fixture-Daten durchläuft, mit `sync_state` im Fehlerzustand.
 - [ ] 6.7 `reviewer` für die Phase, PR, Merge durch den Betreiber, Deployment nach Freigabe.

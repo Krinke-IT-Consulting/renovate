@@ -6,7 +6,9 @@
  * Farbpalette aus PRD 5.1 (angelehnt an krinke.me). Hex-Werte stehen nur hier als Theme-Tokens,
  * Komponenten verwenden ausschliesslich die Token-Klassen (bg-rheinblau, text-ink, ...).
  * Nur heller Modus: kein Dark-Mode-Theme.
- * Statusfarben (Fehler, Warnung) legt Task 6.1 (/impeccable shape) fest.
+ * Statusfarben aus feature-documentation/dashboard/ansichten-entwurf.md (Task 6.1): Status wird nie
+ * allein über Farbe gezeigt, immer mit Text und Symbol. Erfolg (Logo-Grün) nur für Symbole und
+ * Linien, nie für Fließtext (Kontrast 3,8:1).
  */
 :root {
   --rheinblau: #2b4c9b;
@@ -18,6 +20,12 @@
   --surface: #f8f9fa;
   --papier: #ffffff;
   --ink-soft: #525866;
+
+  --status-fehler: #a63a2b;
+  --status-warnung: #8a5f10;
+  --status-erfolg: var(--logo-gruen);
+  --status-laeuft: var(--rheinblau-hell);
+  --status-neutral: var(--ink-soft);
 
   /* shadcn-Semantik auf die Palette abgebildet */
   --background: var(--surface);
@@ -34,7 +42,7 @@
   --muted-foreground: var(--ink-soft);
   --accent: var(--surface);
   --accent-foreground: var(--rheinblau);
-  --destructive: var(--fassholz);
+  --destructive: var(--status-fehler);
   --border: color-mix(in srgb, var(--rheinblau-tief) 15%, transparent);
   --input: color-mix(in srgb, var(--rheinblau-tief) 25%, transparent);
   --ring: var(--rheinblau);
@@ -56,6 +64,11 @@
   --color-papier: var(--papier);
   --color-ink: var(--rheinblau-tief);
   --color-ink-soft: var(--ink-soft);
+  --color-status-fehler: var(--status-fehler);
+  --color-status-warnung: var(--status-warnung);
+  --color-status-erfolg: var(--status-erfolg);
+  --color-status-laeuft: var(--status-laeuft);
+  --color-status-neutral: var(--status-neutral);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -97,6 +110,24 @@
   h2,
   h3 {
     @apply font-heading text-rheinblau;
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--rheinblau-hell) 22%, transparent);
+    color: var(--rheinblau-tief);
+  }
+  html {
+    caret-color: var(--rheinblau);
+    scrollbar-color: color-mix(in srgb, var(--rheinblau-tief) 30%, transparent) transparent;
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    @apply font-mono;
+    font-size: 0.875em;
+  }
+  table {
     font-variant-numeric: tabular-nums;
   }
   :focus-visible {

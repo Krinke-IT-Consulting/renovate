@@ -15,14 +15,14 @@ der Feature-Doku.
 | typescript | 7.0.2 |
 | tailwindcss, @tailwindcss/postcss | 4.3.3 |
 | shadcn (CLI) | 4.21.5 |
-| @tanstack/react-table | 9.3.1 |
+| @tanstack/react-table | 8.21.3 (v9 bewusst noch nicht, siehe `bausteine.md`) |
 | drizzle-orm / drizzle-kit | 0.45.4 / 0.31.11 |
 | pg, @types/pg | 8.23.1 |
 | @octokit/app / @octokit/rest | 16.1.4 / 22.0.1 |
 | zod | 4.6.7 |
 | vitest | 5.0.4 |
 | msw | 3.0.3 |
-| @playwright/test | 1.64.1 |
+| @playwright/test | 1.64.0 |
 | @fontsource/montserrat, @fontsource/inter | 5.3.0 |
 | eslint | 10.12.0 |
 | Node-LTS | 24.22.0 |
