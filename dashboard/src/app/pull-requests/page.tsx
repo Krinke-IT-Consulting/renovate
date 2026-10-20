@@ -41,7 +41,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
     allRepos.length === 0
       ? "Keine offenen PRs."
       : rows.length === 0
-        ? "Keine Treffer für diese Filter."
+        ? "Die Filter schließen alle offenen PRs aus."
         : `${plural(rows.length, "offener PR", "offene PRs")}${filtered ? " (gefiltert)" : ""}, davon ${security} Sicherheit`;
 
   const repoOptions: ChipOption<string>[] = allRepos.map((name) => ({ value: name, label: name }));
@@ -80,7 +80,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
           </FilterBar>
 
           {rows.length === 0 ? (
-            <EmptyState title="Keine Treffer für diese Filter." action={{ href: PATHNAME, label: "Filter zurücksetzen" }} />
+            <EmptyState title="Keine Treffer für diese Filter." action={{ href: PATHNAME, label: "Filter zurücksetzen" }}>
+              <p>Mit den gewählten Filtern ist kein offener Renovate-PR dabei.</p>
+            </EmptyState>
           ) : (
             <>
               <PullRequestTable rows={pageRows} now={new Date()} />

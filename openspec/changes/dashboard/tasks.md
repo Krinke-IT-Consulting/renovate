@@ -174,7 +174,7 @@
   Übersicht ist bereits entworfen. Dabei werden die Monospace-Schrift und die Statusfarben
   entschieden. Fertig, wenn der Betreiber die Entwürfe bestätigt hat und sie in
   `feature-documentation/dashboard/` stehen.
-- [ ] 6.2 Übersicht als Lagebericht laut Spec `dashboard-views`:
+- [x] 6.2 Übersicht als Lagebericht laut Spec `dashboard-views`:
   - Textbausteine in `src/domain/report.ts`
   - Schritte auf der Leiterbahn in fester Reihenfolge, Abhaken als Ring, „weitere X anzeigen“
   - Kennzahlen und Repo-Raster, Filter per Kachel
@@ -185,9 +185,9 @@
 - [ ] 6.3 Repos und Repo-Detail mit TanStack Table, Filtern in der Adresse, Karten auf Mobil, Links
   zu GitHub und zum Dependency-Dashboard-Issue. Fertig, wenn ein Link mit Filter die gefilterte
   Ansicht öffnet und Sortieren per Tastatur geht.
-- [ ] 6.4 Pull Requests mit Filtern nach Repo, Update-Typ, CI-Status und Automerge. Statusbadges
+- [x] 6.4 Pull Requests mit Filtern nach Repo, Update-Typ, CI-Status und Automerge. Statusbadges
   mit Text. Fertig, wenn das Scenario „Gefilterte PR-Liste per Link“ im Playwright-Smoke besteht.
-- [ ] 6.5 Jobs mit Auslöser, Status, Dauer, aufklappbarem und kopierbarem Log-Auszug. Probleme mit
+- [x] 6.5 Jobs mit Auslöser, Status, Dauer, aufklappbarem und kopierbarem Log-Auszug. Probleme mit
   Umschalter offen/behoben. Fertig, wenn „Log-Auszug“ und „Noch kein Lauf“ im Playwright-Smoke
   bestehen.
 - [ ] 6.6 Lade-, Leer- und Fehlerzustände aller Seiten; Abgleich-Stempel mit Fehler und Uhrzeit;
