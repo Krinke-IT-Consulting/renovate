@@ -10,12 +10,15 @@
     "lint": "eslint .",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "build:migrate": "node scripts/build-migrate.mjs"
+    "build:migrate": "node scripts/build-migrate.mjs",
+    "e2e": "playwright test",
+    "e2e:screens": "SCREENS=1 playwright test e2e/screens.spec.ts"
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
     "@fontsource/montserrat": "5.3.0",
     "@octokit/app": "16.1.4",
+    "@tanstack/react-table": "8.21.3",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "drizzle-orm": "0.45.4",
@@ -30,6 +33,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "22.20.5",
     "@types/pg": "8.23.1",

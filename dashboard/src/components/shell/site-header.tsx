@@ -4,9 +4,15 @@ import { LogOutIcon } from "lucide-react";
 import { MobileNav } from "./mobile-nav";
 import { NavLinks } from "./nav-links";
 import { APP_NAME, LOGOUT_URL } from "./nav-items";
-import { SyncStamp } from "./sync-stamp";
+import { SyncStamp, type SyncSourceState } from "./sync-stamp";
 
-export function SiteHeader({ account }: { account: string | null }) {
+export function SiteHeader({
+  account,
+  sync,
+}: {
+  account: string | null;
+  sync: SyncSourceState[] | null;
+}) {
   return (
     <header className="border-b bg-papier">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 lg:gap-8">
@@ -42,7 +48,7 @@ export function SiteHeader({ account }: { account: string | null }) {
 
         <div className="ml-auto flex items-center gap-4">
           <div className="hidden lg:block">
-            <SyncStamp />
+            <SyncStamp sources={sync} />
           </div>
           {account ? (
             <span className="hidden max-w-48 truncate text-sm text-ink-soft lg:inline" title={account}>
@@ -60,7 +66,7 @@ export function SiteHeader({ account }: { account: string | null }) {
         </div>
       </div>
       <div className="border-t bg-surface px-4 py-1.5 lg:hidden">
-        <SyncStamp />
+        <SyncStamp sources={sync} />
       </div>
     </header>
   );

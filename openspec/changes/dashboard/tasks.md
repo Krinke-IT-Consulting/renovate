@@ -170,7 +170,7 @@
 
 ## 6. Ansichten
 
-- [ ] 6.1 `/impeccable shape` für Repos, Repo-Detail, Pull Requests, Jobs und Probleme. Die
+- [x] 6.1 `/impeccable shape` für Repos, Repo-Detail, Pull Requests, Jobs und Probleme. Die
   Übersicht ist bereits entworfen. Dabei werden die Monospace-Schrift und die Statusfarben
   entschieden. Fertig, wenn der Betreiber die Entwürfe bestätigt hat und sie in
   `feature-documentation/dashboard/` stehen.

@@ -8,6 +8,9 @@ import "@fontsource/montserrat/latin-700.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/shell/site-header";
 import { APP_NAME } from "@/components/shell/nav-items";
+import { AutoRefresh } from "@/components/shell/auto-refresh";
+import { getDb } from "@/db/client";
+import { loadSyncStamp, type SyncSourceState } from "@/queries/sync";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +25,13 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Der Nutzer kommt ausschliesslich aus x-dashboard-user, das proxy.ts aus der Authelia-Antwort setzt.
   const account = (await headers()).get("x-dashboard-user")?.trim().slice(0, 64) || null;
+  // Ohne Datenbank bleibt die Shell bedienbar; der Stempel meldet den Ausfall.
+  let sync: SyncSourceState[] | null;
+  try {
+    sync = await loadSyncStamp(getDb());
+  } catch {
+    sync = null;
+  }
 
   return (
     <html lang="de">
@@ -32,7 +42,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         >
           Zum Inhalt springen
         </a>
-        <SiteHeader account={account} />
+        <SiteHeader account={account} sync={sync} />
+        <AutoRefresh />
         <main id="main" tabIndex={-1} className="mx-auto max-w-7xl px-4 py-6 outline-none sm:py-8">
           {children}
         </main>
