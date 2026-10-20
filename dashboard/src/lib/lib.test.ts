@@ -50,6 +50,9 @@ describe("search-params", () => {
     expect(parsePage({ seite: "-1" })).toBe(1);
     expect(parseText({ q: "  lector " }, "q")).toBe("lector");
     expect(parseText({ q: "   " }, "q")).toBeUndefined();
+    // Steuerzeichen (Nullbyte, Zeilenumbruch, Tab, DEL) fallen weg.
+    expect(parseText({ q: "la\u0000ger\n-\tsync\u007f" }, "q")).toBe("lager-sync");
+    expect(parseText({ q: "\u0001\u001f \u007f" }, "q")).toBeUndefined();
   });
 
   it("Sortierung", () => {

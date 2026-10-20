@@ -26,6 +26,8 @@ export type ProblemScope = {
   kinds?: ProblemKind[];
   /** Nur ein Repo (Repo-Detail); hebt den Ausschluss entfernter Repos auf. */
   repositoryId?: string;
+  /** Entfernte Repos nicht ausschließen, etwa wenn sie in der Adresse genannt sind. */
+  includeRemoved?: boolean;
 };
 
 export type ProblemFilter = ProblemScope & { state: "offen" | "behoben" };
@@ -33,7 +35,7 @@ export type ProblemFilter = ProblemScope & { state: "offen" | "behoben" };
 function scopeConditions(scope: ProblemScope): (SQL | undefined)[] {
   const where: (SQL | undefined)[] = [];
   if (scope.repositoryId) where.push(eq(problems.repositoryId, scope.repositoryId));
-  else where.push(isNull(repositories.removedAt));
+  else if (!scope.includeRemoved) where.push(isNull(repositories.removedAt));
   if (scope.repos?.length) where.push(inArray(repositories.fullName, scope.repos));
   if (scope.kinds?.length) where.push(inArray(problems.kind, scope.kinds));
   return where;

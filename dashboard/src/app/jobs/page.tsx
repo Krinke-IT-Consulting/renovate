@@ -8,8 +8,8 @@ import { PageHeader } from "@/components/shell/page-header";
 import { getDb } from "@/db/client";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/domain/status-tone";
 import { plural } from "@/lib/format";
-import { parseList, parsePage, parseText, withParams, type RawSearchParams } from "@/lib/search-params";
-import { JOBS_PAGE_SIZE, listJobRepos, listJobs, summarizeJobs } from "@/queries/jobs";
+import { parseList, parsePage, parseSort, parseText, withParams, type RawSearchParams } from "@/lib/search-params";
+import { JOBS_PAGE_SIZE, JOB_SORT_KEYS, listJobRepos, listJobs, summarizeJobs } from "@/queries/jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   const sp = await searchParams;
   const db = getDb();
 
-  const knownRepos = await listJobRepos(db);
+  // Ist ein Repo in der Adresse genannt, gelten auch entfernte Repos als bekannt (kein stilles Verwerfen).
+  const knownRepos = await listJobRepos(db, { includeRemoved: true });
   const repos = parseList(
     sp,
     "repo",
@@ -31,9 +32,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   const status = parseList(sp, "status", STATUS_ORDER);
   const q = parseText(sp, "q");
   const page = parsePage(sp);
+  const sort = parseSort(sp, JOB_SORT_KEYS);
+  // Genau ein Repo: der ganze Verlauf, wie im Repo-Detail ("Log ansehen" darf nicht ins Leere laufen).
+  const singleRepo = repos.length === 1;
 
   const [{ rows, total }, summary] = await Promise.all([
-    listJobs(db, { repos, status, q, page }),
+    listJobs(db, { repos, status, q, page, sort: sort ?? undefined, includeRemoved: repos.length > 0, allTime: singleRepo }),
     summarizeJobs(db),
   ]);
 
@@ -49,8 +53,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   }));
   const repoOptions: ChipOption<string>[] = repos.map((value) => ({ value, label: value }));
 
-  const description =
-    summary.total === 0
+  const description = singleRepo
+    ? total === 0
+      ? "Für dieses Repo liegt kein Lauf vor."
+      : `${plural(total, "Lauf", "Läufe")} für ${repos[0]}.`
+    : summary.total === 0
       ? "In den letzten 7 Tagen gab es noch keinen Lauf."
       : `${plural(summary.total, "Lauf", "Läufe")} in den letzten 7 Tagen, davon ${summary.failed} fehlgeschlagen.`;
 
@@ -68,18 +75,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
 
       {rows.length > 0 ? (
         <>
-          <JobTable rows={rows} />
+          <JobTable rows={rows} manualSorting />
           <Pagination page={page} pageCount={pageCount} pathname="/jobs" searchParams={sp} />
         </>
       ) : filtered && !(repos.length === 1 && status.length === 0 && q === undefined) ? (
         <EmptyState title="Keine Treffer für diese Filter." action={{ href: resetHref, label: "Filter zurücksetzen" }}>
-          <p>Mit den gewählten Filtern liegt in den letzten 7 Tagen kein Lauf vor.</p>
+          <p>Mit den gewählten Filtern liegt {singleRepo ? "" : "in den letzten 7 Tagen "}kein Lauf vor.</p>
         </EmptyState>
       ) : repos.length === 1 ? (
         <EmptyState title="Noch kein Lauf." action={{ href: resetHref, label: "Alle Läufe ansehen" }}>
           <p>
-            Für dieses Repo liegt in den letzten 7 Tagen kein Lauf vor. Renovate läuft stündlich, der erste Lauf
-            erscheint hier nach dem nächsten Abgleich.
+            Für dieses Repo liegt noch kein Lauf vor. Renovate läuft stündlich, der erste Lauf erscheint hier nach
+            dem nächsten Abgleich.
           </p>
         </EmptyState>
       ) : (

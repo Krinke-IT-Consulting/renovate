@@ -24,6 +24,9 @@ export type ColumnMeta = { align?: "left" | "right"; className?: string };
  *
  * Gefiltert wird auf dem Server (Adresse -> Abfrage); `rows` ist bereits gefiltert. Ohne
  * `sort` in der Adresse bleibt die Reihenfolge des Servers (Standardsortierung der Ansicht).
+ * Sortiert wird clientseitig über die Zeilen, die die Tabelle bekommt; bei paginierten Listen
+ * würde das nur die aktuelle Seite ordnen, dort setzt die Seite `manualSorting` und sortiert vor
+ * dem Schneiden selbst.
  *
  * Optional `renderExpanded`: liefert Zusatzinhalt (z. B. Log-Auszug) oder null. Der Inhalt steht
  * in einer eigenen Zeile direkt unter der Zeile (über alle Spalten) bzw. unter der Karte. Der
@@ -38,6 +41,7 @@ export function DataTable<T>({
   renderCard,
   rowClassName,
   renderExpanded,
+  manualSorting = false,
 }: {
   caption: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +51,12 @@ export function DataTable<T>({
   renderCard: (row: T) => React.ReactNode;
   rowClassName?: (row: T) => string | undefined;
   renderExpanded?: (row: T, layout: "table" | "card") => React.ReactNode | null;
+  /**
+   * Die Zeilen sind bereits nach `sort`/`dir` der Adresse sortiert (paginierte Listen, Sortierung
+   * auf dem Server). Die Tabelle übernimmt die Reihenfolge; Spaltenköpfe, `aria-sort` und das
+   * Schreiben in die Adresse bleiben gleich.
+   */
+  manualSorting?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -66,6 +76,7 @@ export function DataTable<T>({
     state: { sorting },
     getRowId: (row) => rowKey(row),
     manualFiltering: true,
+    manualSorting,
     enableSortingRemoval: true,
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
@@ -80,7 +91,7 @@ export function DataTable<T>({
       );
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    ...(manualSorting ? {} : { getSortedRowModel: getSortedRowModel() }),
   });
 
   const sortedRows = table.getRowModel().rows;

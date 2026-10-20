@@ -19,6 +19,17 @@ test.describe("Pull Requests", () => {
     expect(hrefs.map((h) => `#${h.split("/pull/")[1]}`).sort()).toEqual([...MAJOR].sort());
   });
 
+  test("Sortierung nach Alter wirkt auf die ganze Liste", async ({ page }, info) => {
+    await page.goto("/pull-requests?sort=alter&dir=desc");
+    const list = info.project.name === "mobil" ? page.getByRole("list", { name: "Offene Pull Requests" }) : page.getByRole("table");
+    const items = info.project.name === "mobil" ? list.getByRole("listitem") : list.locator("tbody tr");
+    // Fixtures: der älteste PR ist lager-sync #12 (20 Tage).
+    await expect(items.first().locator("a[href*='/pull/']")).toHaveAttribute(
+      "href",
+      "https://github.com/beispiel-firma/lager-sync/pull/12",
+    );
+  });
+
   test("Ein Klick auf einen Chip setzt den Filter in der Adresse", async ({ page }) => {
     await page.goto("/pull-requests");
     await page.getByRole("link", { name: /^Sicherheit/ }).click();

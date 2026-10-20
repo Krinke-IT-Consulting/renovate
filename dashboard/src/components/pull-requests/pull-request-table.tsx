@@ -14,7 +14,7 @@ import {
 } from "@/domain/status-tone";
 import { ageInDays } from "@/lib/format";
 import type { PullRequestRow } from "@/queries/pull-requests";
-import { UPDATE_TYPE_RANK, ageLabel, isStale, versionJump } from "./pull-request-format";
+import { PR_COMPARE, UPDATE_TYPE_RANK, ageLabel, isStale, versionJump } from "./pull-request-format";
 
 function Title({ row }: { row: PullRequestRow }) {
   const jump = versionJump(row.title);
@@ -60,11 +60,14 @@ export function PullRequestTable({
   showRepo = true,
   caption = "Offene Pull Requests",
   now,
+  manualSorting = false,
 }: {
   rows: PullRequestRow[];
   showRepo?: boolean;
   caption?: string;
   now?: Date;
+  /** Die Zeilen kommen bereits nach `sort`/`dir` der Adresse sortiert vom Server (paginierte Liste). */
+  manualSorting?: boolean;
 }) {
   const nowMs = (now ?? new Date()).getTime();
 
@@ -85,7 +88,7 @@ export function PullRequestTable({
         id: "repo",
         header: "Repo",
         accessorFn: (r) => r.repoFullName.toLowerCase(),
-        sortingFn: "alphanumeric",
+        sortingFn: (a, b) => PR_COMPARE.repo(a.original, b.original, at),
         cell: ({ row }) => <span className="text-sm whitespace-nowrap">{row.original.repoFullName}</span>,
       });
     }
@@ -95,7 +98,7 @@ export function PullRequestTable({
         header: "Typ",
         accessorFn: (r) => UPDATE_TYPE_RANK[r.updateType],
         // Absteigend (Vorgabe in der Adresse) heißt "dringendster zuerst": kleiner Rang oben.
-        sortingFn: (a, b) => UPDATE_TYPE_RANK[b.original.updateType] - UPDATE_TYPE_RANK[a.original.updateType],
+        sortingFn: (a, b) => PR_COMPARE.typ(a.original, b.original, at),
         cell: ({ row }) => (
           <StatusBadge tone={UPDATE_TYPE_TONE[row.original.updateType]}>
             {UPDATE_TYPE_LABEL[row.original.updateType]}
@@ -123,6 +126,7 @@ export function PullRequestTable({
         id: "alter",
         header: "Alter",
         accessorFn: (r) => ageInDays(r.createdAt, at),
+        sortingFn: (a, b) => PR_COMPARE.alter(a.original, b.original, at),
         meta: { align: "right" } satisfies ColumnMeta,
         cell: ({ row }) => <Age row={row.original} now={at} />,
       },
@@ -136,6 +140,7 @@ export function PullRequestTable({
       columns={columns}
       rows={rows}
       rowKey={(r) => r.id}
+      manualSorting={manualSorting}
       renderCard={(r) => {
         const at = new Date(nowMs);
         return (

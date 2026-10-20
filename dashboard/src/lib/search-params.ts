@@ -10,9 +10,12 @@ function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
-/** Freitext, gekürzt auf 100 Zeichen; leer = undefined. */
+/** Steuerzeichen (C0 und DEL) haben in einem Suchtext nichts verloren. */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
+
+/** Freitext ohne Steuerzeichen, gekürzt auf 100 Zeichen; leer = undefined. */
 export function parseText(sp: RawSearchParams, key: string): string | undefined {
-  const v = first(sp[key])?.trim().slice(0, 100);
+  const v = first(sp[key])?.replace(CONTROL_CHARS, "").trim().slice(0, 100);
   return v ? v : undefined;
 }
 

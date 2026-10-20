@@ -1,6 +1,7 @@
 import { and, asc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { pullRequests, repositories } from "@/db/schema";
+import { likePattern } from "@/lib/sql";
 import type { CiStatus, UpdateType } from "@/domain/pull-requests";
 
 export type PullRequestRow = {
@@ -28,11 +29,6 @@ export type PullRequestFilter = {
   /** Nur ein Repo (Repo-Detail). */
   repositoryId?: string;
 };
-
-/** `%`, `_` und `\` im Suchtext wörtlich nehmen. */
-function likePattern(q: string): string {
-  return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-}
 
 /**
  * Offene PRs von Repos ohne `removed_at`. Standardsortierung: Sicherheit zuerst, dann rote CI,

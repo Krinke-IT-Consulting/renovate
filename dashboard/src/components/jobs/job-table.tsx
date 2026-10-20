@@ -160,10 +160,13 @@ export function JobTable({
   rows,
   showRepo = true,
   caption = "Renovate-Läufe",
+  manualSorting = false,
 }: {
   rows: JobRow[];
   showRepo?: boolean;
   caption?: string;
+  /** Die Zeilen kommen bereits nach `sort`/`dir` der Adresse sortiert vom Server (paginierte Liste). */
+  manualSorting?: boolean;
 }) {
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set());
   const toggle = useCallback((id: string) => {
@@ -243,6 +246,7 @@ export function JobTable({
       columns={columns}
       rows={rows}
       rowKey={(j) => j.id}
+      manualSorting={manualSorting}
       renderExpanded={(job, layout) =>
         open.has(job.id) && hasLog(job) ? <LogPanel job={job} layout={layout} /> : null
       }

@@ -1,16 +1,8 @@
 import Link from "next/link";
 import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
 import { StatusText } from "@/components/status/status";
-import { STEP_GROUPS, type Step, type StepGroup } from "@/domain/report";
-import type { StatusTone } from "@/domain/status-tone";
-
-const GROUP_TONE: Record<StepGroup, StatusTone> = {
-  security: "fehler",
-  failure: "fehler",
-  major: "warnung",
-  onboarding: "warnung",
-  stale: "warnung",
-};
+import { GROUP_TONE, STEP_GROUPS, type Step } from "@/domain/report";
+import { safeExternalHref } from "@/lib/safe-external-href";
 
 const ACTION =
   "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-olive px-4 text-sm font-semibold text-papier transition-colors hover:bg-rheinblau";
@@ -29,6 +21,8 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
         const { action } = s;
         // Interne Ziele unter /repos/ wären diese Seite selbst.
         const showAction = action.external || !action.href.startsWith("/repos/");
+        // Nur https-Adressen werden verlinkt; sonst steht der Text ohne Link da.
+        const externalHref = action.external ? safeExternalHref(action.href) : null;
         return (
           <li key={s.id} className="flex items-start gap-4">
             <span
@@ -58,11 +52,15 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
               </div>
               {showAction ? (
                 action.external ? (
-                  <a href={action.href} target="_blank" rel="noopener noreferrer" className={ACTION}>
-                    {action.label}
-                    <ExternalLinkIcon aria-hidden="true" className="size-4" />
-                    <span className="sr-only"> (öffnet in neuem Tab)</span>
-                  </a>
+                  externalHref ? (
+                    <a href={externalHref} target="_blank" rel="noopener noreferrer" className={ACTION}>
+                      {action.label}
+                      <ExternalLinkIcon aria-hidden="true" className="size-4" />
+                      <span className="sr-only"> (öffnet in neuem Tab)</span>
+                    </a>
+                  ) : (
+                    <span className="shrink-0 text-sm text-ink-soft">{action.label}</span>
+                  )
                 ) : (
                   <Link href={action.href} className={ACTION}>
                     {action.label}

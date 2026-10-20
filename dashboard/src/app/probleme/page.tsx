@@ -25,7 +25,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
 
   const ansicht = parseOne(sp, "ansicht", VIEWS, "offen");
   const kinds = parseList<ProblemKind>(sp, "art", PROBLEM_KIND_ORDER);
-  const knownRepos = await listJobRepos(db);
+  // Ist ein Repo in der Adresse genannt, gelten auch entfernte Repos als bekannt (kein stilles Verwerfen).
+  const knownRepos = await listJobRepos(db, { includeRemoved: true });
   const repos = parseList(
     sp,
     "repo",
@@ -35,9 +36,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   // Die Repo-Chips bieten die Repos an, die in dieser Ansicht (mit Art-Filter) Probleme haben.
   const [inView, counts] = await Promise.all([
     listProblems(db, { state: ansicht, kinds }),
-    countProblems(db, { repos, kinds }),
+    countProblems(db, { repos, kinds, includeRemoved: repos.length > 0 }),
   ]);
-  const problems = repos.length > 0 ? inView.filter((p) => repos.includes(p.repoFullName)) : inView;
+  // Mit Repo-Filter gehören auch entfernte Repos dazu; die Chips oben bleiben bei den aktiven Repos.
+  const problems =
+    repos.length > 0 ? await listProblems(db, { state: ansicht, kinds, repos, includeRemoved: true }) : inView;
 
   const repoNames = [...new Set([...inView.map((p) => p.repoFullName), ...repos])].sort();
   const repoOptions: ChipOption<string>[] = repoNames.map((value) => ({ value, label: value }));

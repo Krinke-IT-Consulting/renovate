@@ -1,7 +1,12 @@
 import { ExternalLinkIcon } from "lucide-react";
+import { safeExternalHref } from "@/lib/safe-external-href";
 import { cn } from "@/lib/utils";
 
-/** Link auf die Plattform (PR, Repo, Dependency Dashboard): neuer Tab, Symbol für "extern". */
+/**
+ * Link auf die Plattform (PR, Repo, Dependency Dashboard): neuer Tab, Symbol für "extern".
+ * Verlinkt wird nur eine `https:`-Adresse; sonst (etwa ein unerwarteter Wert aus der Datenbank)
+ * steht der Text ohne Link da.
+ */
 export function ExternalLink({
   href,
   children,
@@ -11,9 +16,11 @@ export function ExternalLink({
   children: React.ReactNode;
   className?: string;
 }) {
+  const safe = safeExternalHref(href);
+  if (!safe) return <span className={className}>{children}</span>;
   return (
     <a
-      href={href}
+      href={safe}
       target="_blank"
       rel="noopener noreferrer"
       className={cn(

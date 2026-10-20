@@ -5,16 +5,9 @@ import Link from "next/link";
 import { ArrowRightIcon, CheckIcon, ExternalLinkIcon } from "lucide-react";
 import { StatusText } from "@/components/status/status";
 import { cn } from "@/lib/utils";
-import { STEP_GROUP_TITLE, STEP_GROUPS, shortName, type Step, type StepGroup } from "@/domain/report";
-import type { StatusTone } from "@/domain/status-tone";
-
-const GROUP_TONE: Record<StepGroup, StatusTone> = {
-  security: "fehler",
-  failure: "fehler",
-  major: "warnung",
-  onboarding: "warnung",
-  stale: "warnung",
-};
+import { GROUP_TONE, STEP_GROUP_TITLE, STEP_GROUPS, mergeSteps, shortName, type Step, type StepGroup } from "@/domain/report";
+import { repoDetailHref } from "@/lib/repo-detail-href";
+import { safeExternalHref } from "@/lib/safe-external-href";
 
 /** Je Gruppe sichtbar, bevor "weitere X anzeigen" erscheint. */
 const VISIBLE_PER_GROUP = 5;
@@ -24,16 +17,16 @@ type ShownStep = Step & { done: boolean; no: number };
 /**
  * Erledigte Schritte bleiben als Ring abgehakt stehen, bis die Seite neu geladen wird (Spec
  * dashboard-views). Erledigt heißt: Der Schritt war beim Laden der Seite da und fehlt nach einem
- * Abgleich (Auto-Refresh). Die Reihenfolge der ersten Anzeige bleibt fest, damit nichts springt.
+ * Abgleich (Auto-Refresh). Die Reihenfolge der ersten Anzeige bleibt fest, damit nichts springt;
+ * noch vorhandene Schritte zeigen den aktuellen Stand (`mergeSteps`), nur verschwundene bleiben
+ * als Snapshot stehen.
  */
 function useStepsWithDone(steps: Step[]): ShownStep[] {
   const [seen, setSeen] = useState<Step[]>(steps);
   const [lastSteps, setLastSteps] = useState(steps);
   if (steps !== lastSteps) {
     setLastSteps(steps);
-    const known = new Set(seen.map((s) => s.id));
-    const added = steps.filter((s) => !known.has(s.id));
-    if (added.length > 0) setSeen([...seen, ...added]);
+    setSeen(mergeSteps(seen, steps));
   }
   const current = new Set(steps.map((s) => s.id));
   const ordered = STEP_GROUPS.flatMap((g) => seen.filter((s) => s.group === g));
@@ -77,12 +70,18 @@ function ActionLink({ step, wide = false }: { step: ShownStep; wide?: boolean })
       )}
     </>
   );
-  return action.external ? (
-    <a href={action.href} target="_blank" rel="noopener noreferrer" className={cls}>
-      {label}
-      <span className="sr-only"> (öffnet in neuem Tab)</span>
-    </a>
-  ) : (
+  if (action.external) {
+    const href = safeExternalHref(action.href);
+    // Nur https-Adressen werden verlinkt; sonst steht der Text ohne Link da.
+    if (!href) return <span className="text-sm text-ink-soft">{action.label}</span>;
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+        {label}
+        <span className="sr-only"> (öffnet in neuem Tab)</span>
+      </a>
+    );
+  }
+  return (
     <Link href={action.href} className={cls}>
       {label}
     </Link>
@@ -103,7 +102,7 @@ function StepBody({ step }: { step: ShownStep }) {
         <StatusText tone={step.done ? "erfolg" : GROUP_TONE[step.group]}>{step.typeLabel}</StatusText>
         <span aria-hidden="true">·</span>
         <Link
-          href={`/repos/${step.repoFullName}`}
+          href={repoDetailHref(step.repoFullName)}
           className="font-medium text-ink underline decoration-rheinblau-tief/20 underline-offset-4 hover:text-rheinblau hover:decoration-rheinblau"
         >
           {shortName(step.repoFullName)}

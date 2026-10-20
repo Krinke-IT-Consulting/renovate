@@ -5,6 +5,7 @@ import type { ProblemKind } from "@/domain/problems";
 import type { BuildCheckStatus, OnboardingStatus } from "@/domain/repo-status";
 import { deriveRepoHealth, type RepoHealth, type StatusTone } from "@/domain/status-tone";
 import { sortByAttention } from "@/lib/repo-list";
+import { likePattern } from "@/lib/sql";
 
 export type RepoRow = {
   id: string;
@@ -34,6 +35,7 @@ export type RepoFilter = {
   owners?: string[];
   /** Tonlage des Zustands (`health.tone`). */
   tones?: StatusTone[];
+  /** Onboarding-Status; schließt archivierte Repos aus. */
   onboarding?: OnboardingStatus[];
   /** Nur Repos mit mindestens einem offenen Problem. */
   problem?: boolean;
@@ -45,10 +47,6 @@ export type RepoFilter = {
   q?: string;
 };
 
-function escapeLike(s: string): string {
-  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
 const ownerOf = sql<string>`split_part(${repositories.fullName}, '/', 1)`;
 
 /**
@@ -59,9 +57,13 @@ export async function listRepos(db: Db, filter: RepoFilter = {}): Promise<RepoRo
   const where: SQL[] = [];
   if (!filter.removed) where.push(isNull(repositories.removedAt));
   if (filter.owners?.length) where.push(inArray(ownerOf, filter.owners));
-  if (filter.onboarding?.length) where.push(inArray(repositories.onboardingStatus, filter.onboarding));
+  if (filter.onboarding?.length) {
+    where.push(inArray(repositories.onboardingStatus, filter.onboarding));
+    // Archivierte Repos brauchen kein Onboarding; sie zählen weder im Lagebericht noch hier.
+    where.push(eq(repositories.archived, false));
+  }
   if (filter.ownCi) where.push(eq(repositories.ownCi, true));
-  if (filter.q) where.push(ilike(repositories.fullName, `%${escapeLike(filter.q)}%`));
+  if (filter.q) where.push(ilike(repositories.fullName, likePattern(filter.q)));
 
   const repoRows = await db
     .select()

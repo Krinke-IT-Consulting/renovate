@@ -1,6 +1,10 @@
 import { STALE_PR_DAYS, STALE_SECURITY_PR_DAYS, type ProblemKind } from "./problems";
 import type { CiStatus, UpdateType } from "./pull-requests";
-import { CI_STATUS_LABEL, PROBLEM_KIND_LABEL } from "./status-tone";
+import { repoDetailHref } from "@/lib/repo-detail-href";
+import { CI_STATUS_LABEL, PROBLEM_KIND_LABEL, type StatusTone } from "./status-tone";
+import { versionJump } from "./version-jump";
+
+export { versionJump };
 
 /**
  * Lagebericht (Spec dashboard-views, "Lagebericht als Übersicht"): Schritte in fester Reihenfolge
@@ -18,6 +22,27 @@ export const STEP_GROUP_TITLE: Record<StepGroup, string> = {
   onboarding: "Nicht onboardete Repos",
   stale: "Hängende PRs",
 };
+
+/** Tonlage je Gruppe (Anzeige der Schritte im Lagebericht und im Repo-Detail). */
+export const GROUP_TONE: Record<StepGroup, StatusTone> = {
+  security: "fehler",
+  failure: "fehler",
+  major: "warnung",
+  onboarding: "warnung",
+  stale: "warnung",
+};
+
+/**
+ * Schritte für die Anzeige zusammenführen (Auto-Refresh): `seen` ist, was bisher gezeigt wurde,
+ * `current` der frische Stand. Bekannte Schritte zeigen die aktuelle Fassung an ihrer Stelle,
+ * verschwundene bleiben als Snapshot stehen (der Aufrufer markiert sie als erledigt), neue
+ * kommen ans Ende. So springt nichts, und die Nummern bleiben stabil.
+ */
+export function mergeSteps(seen: readonly Step[], current: readonly Step[]): Step[] {
+  const byId = new Map(current.map((s) => [s.id, s]));
+  const known = new Set(seen.map((s) => s.id));
+  return [...seen.map((s) => byId.get(s.id) ?? s), ...current.filter((s) => !known.has(s.id))];
+}
 
 export type ReportPr = {
   id: string;
@@ -86,12 +111,6 @@ function ageText(from: Date, now: Date): string {
   return d === 0 ? "seit heute offen" : d === 1 ? "seit 1 Tag offen" : `seit ${d} Tagen offen`;
 }
 
-/** "update dependency next to v16" -> "→ v16"; ohne erkennbares Ziel null (nichts erfinden). */
-export function versionJump(title: string): string | null {
-  const m = /\bto (v?\d[\w.+-]*)/i.exec(title);
-  return m ? `→ ${m[1]}` : null;
-}
-
 /** Paket(e) eines PR für die Anzeige; ohne Paketnamen der Titel. */
 function prSubject(pr: ReportPr): string {
   if (pr.packageNames.length === 0) return pr.title;
@@ -102,10 +121,6 @@ function prSubject(pr: ReportPr): string {
 /** Kurzname eines Repos ohne Owner. */
 export function shortName(fullName: string): string {
   return fullName.split("/").pop() ?? fullName;
-}
-
-function repoHref(fullName: string): string {
-  return `/repos/${fullName}`;
 }
 
 function byAgeThenRepo<T extends { createdAt?: Date; firstSeenAt?: Date; repoFullName: string }>(a: T, b: T) {
@@ -197,7 +212,7 @@ export function buildSteps(input: ReportInput): Step[] {
       repoFullName: r.fullName,
       detail: ["Noch keine Renovate-Konfiguration"],
       // Die Aktion "Onboarding-PR anlegen" kommt mit Phase 7; bis dahin führt der Schritt zum Repo.
-      action: { label: "Zum Repo", href: repoHref(r.fullName), external: false },
+      action: { label: "Zum Repo", href: repoDetailHref(r.fullName), external: false },
     });
   }
 
@@ -214,7 +229,7 @@ export function buildSteps(input: ReportInput): Step[] {
       detail: [p.message, `älter als ${STALE_PR_DAYS} Tage`],
       action: p.prUrl
         ? { label: "Auf GitHub öffnen", href: p.prUrl, external: true }
-        : { label: "Zum Repo", href: repoHref(p.repoFullName), external: false },
+        : { label: "Zum Repo", href: repoDetailHref(p.repoFullName), external: false },
     });
   }
 
@@ -251,8 +266,8 @@ export function joinGerman(parts: string[]): string {
   return `${parts.slice(0, -1).join(", ")} und ${parts[parts.length - 1]}`;
 }
 
-function wherePhrase(steps: Step[]): string {
-  const repos = [...new Set(steps.map((s) => shortName(s.repoFullName)))];
+function wherePhrase(repoFullNames: string[]): string {
+  const repos = [...new Set(repoFullNames.map(shortName))];
   if (repos.length <= 3) return ` in ${joinGerman(repos)}`;
   return ` in ${repos.length} Repos`;
 }
@@ -297,12 +312,19 @@ export function buildReport(input: ReportInput, steps: Step[]): Report {
     { text: n === 1 ? "Ein Punkt braucht Ihre Entscheidung: " : `${lead} Punkte brauchen Ihre Entscheidung: ` },
   ];
 
-  const groups = STEP_GROUPS.map((g) => ({ g, items: steps.filter((s) => s.group === g) })).filter((x) => x.items.length > 0);
-  groups.forEach(({ g, items }, i) => {
+  // Die Zahl "hängende PRs" nennt alle offenen stale_pr-Probleme, denn der Link zeigt sie alle.
+  // Die Schritte lassen hängende Sicherheits-PRs aus (sie stehen schon in Schritt 1).
+  const stale = input.openProblems.filter((p) => p.kind === "stale_pr").sort(byAgeThenRepo);
+  const groups = STEP_GROUPS.map((g) => {
+    const items = steps.filter((s) => s.group === g);
+    const repoFullNames = g === "stale" ? stale.map((p) => p.repoFullName) : items.map((s) => s.repoFullName);
+    return { g, items, count: g === "stale" ? stale.length : items.length, repoFullNames };
+  }).filter((x) => x.count > 0);
+  groups.forEach(({ g, items, count, repoFullNames }, i) => {
     if (i > 0) segments.push({ text: i === groups.length - 1 ? " und " : ", " });
     const [one, many] = GROUP_NOUN[g];
-    segments.push({ text: `${items.length} ${items.length === 1 ? one : many}`, href: GROUP_LINK[g] });
-    if (g !== "onboarding") segments.push({ text: wherePhrase(items) });
+    segments.push({ text: `${count} ${count === 1 ? one : many}`, href: GROUP_LINK[g] });
+    if (g !== "onboarding") segments.push({ text: wherePhrase(repoFullNames) });
     else if (items.length <= 3) segments.push({ text: ` (${joinGerman(items.map((s) => s.title))})` });
   });
   segments.push({ text: "." });

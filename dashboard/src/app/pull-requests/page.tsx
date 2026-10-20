@@ -1,6 +1,7 @@
 import { FilterBar, FilterChips, type ChipOption } from "@/components/data/filter-chips";
 import { Pagination } from "@/components/data/pagination";
 import { SearchBox } from "@/components/data/search-box";
+import { PR_SORT_KEYS, sortPullRequests } from "@/components/pull-requests/pull-request-format";
 import { PullRequestTable } from "@/components/pull-requests/pull-request-table";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -8,7 +9,7 @@ import { getDb } from "@/db/client";
 import { ciStatusEnum, updateTypeEnum } from "@/db/schema";
 import { CI_STATUS_LABEL, UPDATE_TYPE_LABEL } from "@/domain/status-tone";
 import { plural } from "@/lib/format";
-import { parseFlag, parseList, parsePage, parseText, type RawSearchParams } from "@/lib/search-params";
+import { parseFlag, parseList, parsePage, parseSort, parseText, type RawSearchParams } from "@/lib/search-params";
 import { listOpenPullRequests, listPullRequestRepos } from "@/queries/pull-requests";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   const q = parseText(sp, "q");
   const filtered = repos.length > 0 || types.length > 0 || ci.length > 0 || automerge || q !== undefined;
 
-  const rows = await listOpenPullRequests(db, { repos, types, ci, automerge: automerge || undefined, q });
+  const now = new Date();
+  const found = await listOpenPullRequests(db, { repos, types, ci, automerge: automerge || undefined, q });
+  // Sortierung wirkt auf alle Zeilen, nicht nur auf die Seite: erst sortieren, dann schneiden.
+  const sort = parseSort(sp, PR_SORT_KEYS);
+  const rows = sort ? sortPullRequests(found, sort, now) : found;
 
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const page = Math.min(parsePage(sp), pageCount);
@@ -85,7 +90,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
             </EmptyState>
           ) : (
             <>
-              <PullRequestTable rows={pageRows} now={new Date()} />
+              <PullRequestTable rows={pageRows} now={now} manualSorting />
               <Pagination page={page} pageCount={pageCount} pathname={PATHNAME} searchParams={sp} />
             </>
           )}

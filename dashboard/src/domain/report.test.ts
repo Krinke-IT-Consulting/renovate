@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReport, buildSteps, joinGerman, versionJump, type ReportInput, type ReportPr } from "./report";
+import { buildReport, buildSteps, joinGerman, mergeSteps, versionJump, type ReportInput, type ReportPr, type Step } from "./report";
 
 const now = new Date("2026-10-20T12:00:00Z");
 const DAY = 86_400_000;
@@ -98,13 +98,115 @@ describe("Lagebericht", () => {
     expect(steps[1].action).toEqual({ label: "Log ansehen", href: "/jobs?repo=o%2Fa&status=failed", external: false });
     expect(steps[2].version).toBe("→ v16");
     expect(text(input).plain).toBe(
-      "Fünf Punkte brauchen Ihre Entscheidung: 1 Sicherheitsupdate in b, 1 roter Build oder fehlgeschlagener Lauf in a, 1 Major-Update zur Freigabe in a, 1 Repo ohne Onboarding (neu) und 1 hängender PR in a.",
+      "Fünf Punkte brauchen Ihre Entscheidung: 1 Sicherheitsupdate in b, 1 roter Build oder fehlgeschlagener Lauf in a, 1 Major-Update zur Freigabe in a, 1 Repo ohne Onboarding (neu) und 2 hängende PRs in a und b.",
     );
+    // Die Zahl nennt alle hängenden PRs (auch den Sicherheits-PR aus Schritt 1), denn der Link zeigt sie alle.
+    expect(
+      text(input).report.segments.find((s) => "href" in s && s.href === "/probleme?art=stale_pr"),
+    ).toEqual({ text: "2 hängende PRs", href: "/probleme?art=stale_pr" });
   });
 
   it("Hilfen", () => {
     expect(joinGerman(["a", "b", "c"])).toBe("a, b und c");
     expect(versionJump("chore(deps): lock file maintenance")).toBeNull();
     expect(versionJump("update dependency zod to v4.6.8")).toBe("→ v4.6.8");
+  });
+});
+
+describe("Zahlen und Links im Lagebericht", () => {
+  const stale = (id: string, repoFullName: string, prIsSecurity: boolean) => ({
+    id,
+    kind: "stale_pr" as const,
+    message: `PR ${id} hängt`,
+    firstSeenAt: now,
+    repoFullName,
+    prNumber: 1,
+    prUrl: "https://github.com/x/y/pull/1",
+    prIsSecurity,
+  });
+
+  it("hängende PRs: die Zahl im Satz zählt alle stale_pr-Probleme, die Schritte nicht doppelt", () => {
+    const input: ReportInput = {
+      now,
+      repos: [onboarded("o/a"), onboarded("o/b")],
+      openPrs: [pr({ id: "sec", repoFullName: "o/b", createdAt: new Date(now.getTime() - 9 * DAY) })],
+      openProblems: [stale("p1", "o/b", true), stale("p2", "o/a", false)],
+      hasAnyJob: true,
+    };
+    const steps = buildSteps(input);
+    expect(steps.filter((s) => s.group === "stale")).toHaveLength(1);
+    const { plain, report } = text(input);
+    expect(plain).toBe(
+      "Zwei Punkte brauchen Ihre Entscheidung: 1 Sicherheitsupdate in b und 2 hängende PRs in a und b.",
+    );
+    expect(report.segments).toContainEqual({ text: "2 hängende PRs", href: "/probleme?art=stale_pr" });
+  });
+
+  it("hängende PRs: nur Sicherheits-PRs hängen, das Segment erscheint trotzdem", () => {
+    const input: ReportInput = {
+      now,
+      repos: [onboarded("o/b")],
+      openPrs: [pr({ id: "sec", repoFullName: "o/b", createdAt: new Date(now.getTime() - 9 * DAY) })],
+      openProblems: [stale("p1", "o/b", true)],
+      hasAnyJob: true,
+    };
+    expect(buildSteps(input).map((s) => s.group)).toEqual(["security"]);
+    expect(text(input).plain).toBe("Ein Punkt braucht Ihre Entscheidung: 1 Sicherheitsupdate in b und 1 hängender PR in b.");
+  });
+
+  it("Onboarding zählt keine archivierten Repos", () => {
+    const input: ReportInput = {
+      now,
+      repos: [
+        onboarded("o/a"),
+        { fullName: "o/neu", onboarding: "none", archived: false },
+        { fullName: "o/alt", onboarding: "none", archived: true },
+      ],
+      openPrs: [],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    expect(text(input).plain).toContain("1 Repo ohne Onboarding (neu)");
+  });
+
+  it("Repo-Links sind kodiert", () => {
+    const input: ReportInput = {
+      now,
+      repos: [{ fullName: "o/a b", onboarding: "none", archived: false }],
+      openPrs: [],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    expect(buildSteps(input)[0].action.href).toBe("/repos/o/a%20b");
+  });
+});
+
+describe("mergeSteps", () => {
+  const step = (id: string, over: Partial<Step> = {}): Step => ({
+    id,
+    group: "security",
+    typeLabel: "Sicherheitsupdate",
+    title: id,
+    version: null,
+    repoFullName: "o/r",
+    detail: ["CI grün", "seit 1 Tag offen"],
+    action: { label: "Auf GitHub mergen", href: "https://github.com/o/r/pull/1", external: true },
+    ...over,
+  });
+
+  it("zeigt für bekannte Schritte den aktuellen Stand an der alten Stelle", () => {
+    const seen = [step("a"), step("b")];
+    const current = [step("b", { detail: ["CI rot", "seit 2 Tagen offen"] }), step("a", { detail: ["CI grün", "seit 2 Tagen offen"] })];
+    const merged = mergeSteps(seen, current);
+    expect(merged.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(merged[0].detail[1]).toBe("seit 2 Tagen offen");
+    expect(merged[1].detail[0]).toBe("CI rot");
+  });
+
+  it("lässt verschwundene Schritte als Snapshot stehen und hängt neue ans Ende", () => {
+    const gone = step("gone", { detail: ["Stand von früher"] });
+    const merged = mergeSteps([step("a"), gone], [step("a"), step("neu")]);
+    expect(merged.map((s) => s.id)).toEqual(["a", "gone", "neu"]);
+    expect(merged[1]).toBe(gone);
   });
 });

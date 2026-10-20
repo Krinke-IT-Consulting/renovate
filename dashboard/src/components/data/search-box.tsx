@@ -14,19 +14,26 @@ export function SearchBox({ label, placeholder }: { label: string; placeholder: 
   const [value, setValue] = useState(current);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // Adresse geändert (etwa "Filter zurücksetzen"): Feld nachziehen.
-  const [lastCurrent, setLastCurrent] = useState(current);
-  if (current !== lastCurrent) {
-    setLastCurrent(current);
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** Eine Eingabe wartet noch auf ihre Pause und ist noch nicht in der Adresse. */
+  const pending = useRef(false);
+
+  // Adresse geändert (etwa "Filter zurücksetzen"): Feld nachziehen, aber nur, wenn gerade niemand
+  // tippt. Eine spät eintreffende Adresse darf laufende Eingaben nicht überschreiben; beim
+  // "Filter zurücksetzen" hat der Link den Fokus, nicht das Feld.
+  useEffect(() => {
+    if (pending.current || document.activeElement === inputRef.current) return;
     setValue(current);
-  }
+  }, [current]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
   function onChange(next: string) {
     setValue(next);
+    pending.current = true;
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
+      pending.current = false;
       router.replace(
         withParams(pathname, new URLSearchParams(searchParams.toString()), { q: next.trim() || undefined }),
         { scroll: false },
@@ -39,6 +46,7 @@ export function SearchBox({ label, placeholder }: { label: string; placeholder: 
       <span className="sr-only">{label}</span>
       <SearchIcon aria-hidden="true" className="pointer-events-none absolute left-3 size-4 text-ink-soft" />
       <input
+        ref={inputRef}
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
