@@ -12,8 +12,8 @@ export type OverviewMetrics = {
   onboarded: number;
   openPrs: number;
   automergePrs: number;
-  jobs24h: number;
-  failedJobs24h: number;
+  jobs7d: number;
+  failedJobs7d: number;
   openProblems: number;
 };
 
@@ -38,7 +38,8 @@ export async function loadOverview(db: Db, now = new Date()): Promise<OverviewDa
   const repoIds = repoRows.map((r) => r.id);
   const nameOf = new Map(repoRows.map((r) => [r.id, r.fullName]));
 
-  const since = new Date(now.getTime() - 86_400_000);
+  // Gleiches Fenster wie die Seite /jobs, auf die die Kennzahl verlinkt.
+  const since = new Date(now.getTime() - 7 * 86_400_000);
   const [prRows, problemRows, jobStats, activeJobs, anyJob] = repoIds.length
     ? await Promise.all([
         db
@@ -127,8 +128,8 @@ export async function loadOverview(db: Db, now = new Date()): Promise<OverviewDa
       onboarded: activeRepos.filter((r) => r.onboarding === "onboarded").length,
       openPrs: prRows.length,
       automergePrs: prRows.filter((p) => p.automerge).length,
-      jobs24h: jobStats[0]?.total ?? 0,
-      failedJobs24h: jobStats[0]?.failed ?? 0,
+      jobs7d: jobStats[0]?.total ?? 0,
+      failedJobs7d: jobStats[0]?.failed ?? 0,
       openProblems: problemRows.length,
     },
   };

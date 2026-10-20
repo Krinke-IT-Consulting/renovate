@@ -16,16 +16,16 @@ export function Metrics({ m }: { m: OverviewMetrics }) {
       href: "/pull-requests",
     },
     {
-      label: "Läufe, 24 Std.",
+      label: "Läufe, 7 Tage",
       value:
-        m.failedJobs24h > 0 ? (
+        m.failedJobs7d > 0 ? (
           <span className="inline-flex flex-wrap items-center justify-end gap-x-1.5">
-            {m.jobs24h},<StatusText tone="fehler">{m.failedJobs24h} fehlgeschlagen</StatusText>
+            {m.jobs7d},<StatusText tone="fehler">{m.failedJobs7d} fehlgeschlagen</StatusText>
           </span>
         ) : (
-          String(m.jobs24h)
+          String(m.jobs7d)
         ),
-      href: m.failedJobs24h > 0 ? "/jobs?status=failed" : "/jobs",
+      href: m.failedJobs7d > 0 ? "/jobs?status=failed" : "/jobs",
     },
     { label: "Offene Probleme", value: String(m.openProblems), href: "/probleme" },
   ];
