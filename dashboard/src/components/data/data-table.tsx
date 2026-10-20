@@ -85,7 +85,8 @@ export function DataTable<T>({
         withParams(pathname, new URLSearchParams(searchParams.toString()), {
           sort: s?.id,
           dir: s ? (s.desc ? "desc" : "asc") : undefined,
-          seite: searchParams.get("seite") ?? undefined,
+          // Server sortiert über alle Seiten: Neue Sortierung beginnt auf Seite 1.
+          seite: manualSorting ? undefined : (searchParams.get("seite") ?? undefined),
         }),
         { scroll: false },
       );
