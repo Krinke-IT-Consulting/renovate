@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   flexRender,
@@ -24,6 +24,11 @@ export type ColumnMeta = { align?: "left" | "right"; className?: string };
  *
  * Gefiltert wird auf dem Server (Adresse -> Abfrage); `rows` ist bereits gefiltert. Ohne
  * `sort` in der Adresse bleibt die Reihenfolge des Servers (Standardsortierung der Ansicht).
+ *
+ * Optional `renderExpanded`: liefert Zusatzinhalt (z. B. Log-Auszug) oder null. Der Inhalt steht
+ * in einer eigenen Zeile direkt unter der Zeile (über alle Spalten) bzw. unter der Karte. Der
+ * zweite Parameter nennt das Layout, damit IDs je Layout eindeutig bleiben (beide Layouts stehen
+ * im DOM, eines davon ist per CSS ausgeblendet). Ohne den Prop ändert sich nichts.
  */
 export function DataTable<T>({
   caption,
@@ -32,6 +37,7 @@ export function DataTable<T>({
   rowKey,
   renderCard,
   rowClassName,
+  renderExpanded,
 }: {
   caption: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +46,7 @@ export function DataTable<T>({
   rowKey: (row: T) => string;
   renderCard: (row: T) => React.ReactNode;
   rowClassName?: (row: T) => string | undefined;
+  renderExpanded?: (row: T, layout: "table" | "card") => React.ReactNode | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -132,31 +139,43 @@ export function DataTable<T>({
             ))}
           </thead>
           <tbody>
-            {sortedRows.map((row) => (
-              <tr
-                key={row.id}
-                className={cn(
-                  "h-10 border-b border-border/70 last:border-b-0 hover:bg-surface/70",
-                  rowClassName?.(row.original),
-                )}
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const meta = cell.column.columnDef.meta as ColumnMeta | undefined;
-                  return (
-                    <td
-                      key={cell.id}
-                      className={cn(
-                        "px-3 py-1.5 align-middle",
-                        meta?.align === "right" && "text-right",
-                        meta?.className,
-                      )}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {sortedRows.map((row) => {
+              const expanded = renderExpanded?.(row.original, "table") ?? null;
+              return (
+                <Fragment key={row.id}>
+                  <tr
+                    className={cn(
+                      "h-10 border-b border-border/70 last:border-b-0 hover:bg-surface/70",
+                      expanded && "border-b-0",
+                      rowClassName?.(row.original),
+                    )}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const meta = cell.column.columnDef.meta as ColumnMeta | undefined;
+                      return (
+                        <td
+                          key={cell.id}
+                          className={cn(
+                            "px-3 py-1.5 align-middle",
+                            meta?.align === "right" && "text-right",
+                            meta?.className,
+                          )}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  {expanded ? (
+                    <tr className="border-b border-border/70 last:border-b-0">
+                      <td colSpan={row.getVisibleCells().length} className="px-3 pt-0 pb-3">
+                        {expanded}
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -165,6 +184,7 @@ export function DataTable<T>({
         {sortedRows.map((row) => (
           <li key={row.id} className="rounded-xl bg-papier p-4 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]">
             {renderCard(row.original)}
+            {renderExpanded?.(row.original, "card") ?? null}
           </li>
         ))}
       </ul>
