@@ -219,7 +219,7 @@
   `first_seen_at > auto_onboarding_enabled_at`, mit höchstens fünf PRs pro Durchlauf. Ein
   geschlossener Auto-PR wird nicht wiederholt. Fertig, wenn Tests die Scenarios
   „Neues Repo bei eingeschaltetem Schalter“ und „Geschlossener Onboarding-PR“ abdecken.
-- [ ] 7.6 `reviewer` und `github-app-integration` prüfen die Phase. PR, Merge durch den Betreiber,
+- [x] 7.6 `reviewer` und `github-app-integration` prüfen die Phase. PR, Merge durch den Betreiber,
   Deployment nach Freigabe. Fertig, wenn ein Lauf für `Krinke-IT-Consulting/renovate` aus dem
   Dashboard gestartet und in der Job-Liste sichtbar ist.
 - [ ] 7.7 Erster echter Onboarding-PR in einem Repo, das der Betreiber benennt, nur nach dessen
