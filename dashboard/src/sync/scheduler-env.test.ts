@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const GLOBAL_KEY = Symbol.for("dashboard.syncLoops");
+const GLOBAL_KEYS = [
+  Symbol.for("dashboard.syncLoops"),
+  Symbol.for("dashboard.githubAdapter"),
+  Symbol.for("dashboard.rolloutService"),
+];
 
 describe("startSyncFromEnv: ungültiger GitHub-App-Schlüssel", () => {
   afterEach(() => {
-    delete (globalThis as { [GLOBAL_KEY]?: unknown })[GLOBAL_KEY];
+    for (const key of GLOBAL_KEYS) delete (globalThis as Record<symbol, unknown>)[key];
     vi.unstubAllEnvs();
-    vi.doUnmock("@/platform");
+    vi.doUnmock("@/platform/github/adapter");
     vi.resetModules();
     vi.restoreAllMocks();
   });
@@ -21,8 +25,9 @@ describe("startSyncFromEnv: ungültiger GitHub-App-Schlüssel", () => {
     vi.stubEnv("MEND_RNV_GITHUB_APP_KEY", secret);
     vi.stubEnv("AUTHELIA_INTERNAL_URL", "http://authelia.test:9091");
     vi.resetModules();
-    vi.doMock("@/platform", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("@/platform")>();
+    // Der Adapter kommt aus der gemeinsamen Fabrik (platform/github/runtime.ts).
+    vi.doMock("@/platform/github/adapter", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("@/platform/github/adapter")>();
       return {
         ...actual,
         GitHubAdapter: class {

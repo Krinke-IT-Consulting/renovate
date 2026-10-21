@@ -45,6 +45,10 @@ let behaviour: {
   trees?: () => Response;
   refs?: (attempt: number) => Response;
   pulls?: () => Response;
+  /** Antwort auf das Löschen des Rollout-Branches (Standard: 204). */
+  deleteRef?: () => Response;
+  /** Dateien, die live im Base-Commit liegen (Pfad -> Inhalt); alle anderen sind 404. */
+  existing?: Record<string, string>;
 };
 let refAttempts: number;
 
@@ -92,6 +96,12 @@ beforeEach(() => {
       record(request);
       return json({ sha: "basesha000", tree: { sha: "tree000" } });
     }),
+    http.get(`${base}/contents/*`, ({ request }) => {
+      record(request);
+      const filePath = decodeURIComponent(new URL(request.url).pathname.slice(`/repos/${REPO}/contents/`.length));
+      const content = behaviour.existing?.[filePath];
+      return content === undefined ? json({ message: "Not Found" }, 404) : json(fileBody(content));
+    }),
     http.post(`${base}/git/trees`, async ({ request }) => {
       record(request, await request.clone().json());
       return behaviour.trees?.() ?? json({ sha: "tree111" }, 201);
@@ -110,11 +120,11 @@ beforeEach(() => {
     }),
     http.delete(`${base}/git/refs/heads/${BRANCH_ONBOARDING}`, ({ request }) => {
       record(request);
-      return new HttpResponse(null, { status: 204 });
+      return behaviour.deleteRef?.() ?? new HttpResponse(null, { status: 204 });
     }),
     http.delete(`${base}/git/refs/heads/${BRANCH_BUILD_CHECK}`, ({ request }) => {
       record(request);
-      return new HttpResponse(null, { status: 204 });
+      return behaviour.deleteRef?.() ?? new HttpResponse(null, { status: 204 });
     }),
   );
 });
@@ -290,18 +300,37 @@ describe.skipIf(!adminUrl)("Rollout-Service (Postgres, GitHub gegen msw)", () =>
         "Der GitHub App fehlt in diesem Repo das Schreibrecht auf Workflows. Bitte in den App-Einstellungen ergänzen.";
       expect(outcome).toEqual({ status: "failed", message });
       expect(await actions()).toMatchObject([{ kind: "onboarding", status: "failed", error: message, prUrl: null }]);
-      expect(await audit()).toMatchObject([{ action: "rollout.onboarding", actor: "sascha" }]);
+      // Fehlschläge tragen eine eigene Aktion im AuditLog.
+      expect(await audit()).toMatchObject([{ action: "rollout.onboarding.failed", actor: "sascha", target: REPO }]);
       expect((await repoRow()).onboardingStatus).toBe("none");
       expect(count("POST", `/repos/${REPO}/pulls`)).toBe(0);
       expect(JSON.stringify(outcome)).not.toContain(TOKEN);
     });
 
-    it("Fehlende Rechte beim Anlegen des Trees (404) ergeben dieselbe Fehlerart", async () => {
+    it("Schreibzugriff mit 403 ohne Hinweis: fehlende Schreibrechte; mit 404: Repo nicht in der Installation", async () => {
+      await seed();
+      behaviour.trees = () => json({ message: "Resource not accessible by integration" }, 403);
+      expect(await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" })).toMatchObject({
+        status: "failed",
+        message: expect.stringContaining("Schreibrechte"),
+      });
+      expect((await actions())[0]!.status).toBe("failed");
+
       await seed();
       behaviour.trees = () => json({ message: "Not Found" }, 404);
-      const outcome = await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" });
-      expect(outcome).toMatchObject({ status: "failed", message: expect.stringContaining("Schreibrechte") });
-      expect((await actions())[0]!.status).toBe("failed");
+      expect(await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" })).toEqual({
+        status: "failed",
+        message: "Repo nicht gefunden oder nicht in der Installation.",
+      });
+    });
+
+    it("Branch-Regel (Ruleset) verhindert den Ref: eigene Meldung", async () => {
+      await seed();
+      behaviour.refs = () => json({ message: "Repository rule violations found\n\nCannot create ref due to creations being restricted." }, 403);
+      expect(await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" })).toEqual({
+        status: "failed",
+        message: "Eine Branch-Regel verhindert das Anlegen von `renovate-platform/…`.",
+      });
     });
 
     it("Aufräumen: scheitert die PR-Erstellung nach dem Ref, wird der Branch gelöscht", async () => {
@@ -397,6 +426,128 @@ describe.skipIf(!adminUrl)("Rollout-Service (Postgres, GitHub gegen msw)", () =>
         reason: "config_present",
       });
       expect((await actions())[0]!.status).toBe("merged");
+    });
+  });
+
+  describe("Review Phase 7: Dateien live prüfen, Aufräumen, Audit", () => {
+    const CONFIG = '{ "extends": ["github>Krinke-IT-Consulting/renovate"] }\n';
+    const CALLER = "name: build-check\n";
+
+    it("liest jede Datei live im Base-Commit (ref=<sha>)", async () => {
+      await seed();
+      await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" });
+      const reads = calls.filter((c) => c.method === "GET" && c.path.startsWith(`/repos/${REPO}/contents/`));
+      expect(reads.map((c) => decodeURIComponent(c.path.slice(`/repos/${REPO}/contents/`.length)))).toEqual(["renovate.json", ".github/workflows/build-check.yml"]);
+    });
+
+    it("gleicher Inhalt wird übersprungen: nur die fehlende Datei kommt in den Commit", async () => {
+      await seed();
+      behaviour.existing = { [CALLER_PATH]: CALLER };
+      const outcome = await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" });
+      expect(outcome.status).toBe("created");
+      expect(treePaths()).toEqual(["renovate.json"]);
+    });
+
+    it("alle Dateien schon identisch da: nicht nötig, ohne Aktion, ohne Audit, ohne Schreibaufruf", async () => {
+      await seed();
+      behaviour.existing = { "renovate.json": CONFIG, [CALLER_PATH]: CALLER };
+      expect(await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" })).toMatchObject({
+        status: "not_needed",
+        reason: "config_present",
+      });
+      expect(calls.filter((c) => c.method !== "GET")).toHaveLength(0);
+      expect(await actions()).toHaveLength(0);
+      expect(await audit()).toHaveLength(0);
+
+      await seed({ configPath: "renovate.json", onboardingStatus: "onboarded" });
+      behaviour.existing = { [CALLER_PATH]: CALLER };
+      expect(await service.run({ repositoryId: repoId, kind: "build_check", actor: "sascha" })).toMatchObject({
+        status: "not_needed",
+        reason: "build_check_present",
+      });
+      expect(await actions()).toHaveLength(0);
+    });
+
+    it("renovate.json mit eigenem Inhalt wird nie überschrieben: config_present", async () => {
+      await seed();
+      behaviour.existing = { "renovate.json": '{ "extends": ["config:best-practices"] }' };
+      expect(await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" })).toMatchObject({
+        status: "not_needed",
+        reason: "config_present",
+      });
+      expect(count("POST", `/repos/${REPO}/git/trees`)).toBe(0);
+      expect(await actions()).toHaveLength(0);
+    });
+
+    it("Aufrufdatei mit eigenem Inhalt: Abbruch mit Hinweis, Aktion failed, Audit .failed, nichts überschrieben", async () => {
+      await seed({ configPath: "renovate.json", onboardingStatus: "onboarded" });
+      behaviour.existing = { [CALLER_PATH]: "name: eigene CI\n" };
+      const outcome = await service.run({ repositoryId: repoId, kind: "build_check", actor: "sascha" });
+      const message =
+        ".github/workflows/build-check.yml existiert bereits mit eigenem Inhalt. Bitte von Hand anpassen oder das Repo als „eigene CI“ markieren.";
+      expect(outcome).toEqual({ status: "failed", message });
+      expect(count("POST", `/repos/${REPO}/git/trees`)).toBe(0);
+      expect(count("POST", `/repos/${REPO}/git/refs`)).toBe(0);
+      expect(await actions()).toMatchObject([{ kind: "build_check", status: "failed", error: message }]);
+      expect(await audit()).toMatchObject([{ action: "rollout.build_check.failed" }]);
+    });
+
+    it("scheitert das Löschen des Rest-Branches, nennt die Meldung den Branch", async () => {
+      await seed();
+      behaviour.pulls = () => json({ message: "Server-Geheimnis" }, 500);
+      behaviour.deleteRef = () => json({ message: "Geheimtext" }, 500);
+      const outcome = await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" });
+      expect(outcome).toMatchObject({
+        status: "failed",
+        message: expect.stringContaining(`Der Branch ${BRANCH_ONBOARDING} ist im Repo zurückgeblieben`),
+      });
+      expect(count("DELETE", `/repos/${REPO}/git/refs/heads/${BRANCH_ONBOARDING}`)).toBe(1);
+      expect((await actions())[0]).toMatchObject({ status: "failed", error: expect.stringContaining(BRANCH_ONBOARDING) });
+      expect(JSON.stringify(await actions())).not.toMatch(/Geheim/);
+    });
+
+    it("unklarer Fehler beim PR (500), aber der PR existiert: zurückgeben, Branch bleibt", async () => {
+      await seed();
+      behaviour.pulls = () => {
+        // Der PR ist trotz Fehlerantwort entstanden.
+        behaviour.openPulls = [
+          { number: 11, html_url: `https://example.test/${REPO}/pull/11`, head: { ref: BRANCH_ONBOARDING, sha: "x" } },
+        ];
+        return json({ message: "Bad gateway" }, 502);
+      };
+      const outcome = await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" });
+      expect(outcome).toMatchObject({ status: "created", prNumber: 11 });
+      expect(count("DELETE", `/repos/${REPO}/git/refs/heads/${BRANCH_ONBOARDING}`)).toBe(0);
+      expect(await actions()).toMatchObject([{ status: "pr_open", prNumber: 11 }]);
+    });
+
+    it("leeres Repo: eigener Text statt Status 409", async () => {
+      await seed();
+      server.use(http.get(`${API}/repos/${REPO}/commits/main`, () => json({ message: "Git Repository is empty." }, 409)));
+      const outcome = await service.run({ repositoryId: repoId, kind: "onboarding", actor: "sascha" });
+      expect(outcome).toEqual({
+        status: "failed",
+        message: "Das Repo hat noch keinen Commit; ein Onboarding-PR ist erst danach möglich.",
+      });
+    });
+
+    it("Kontingent-Pause mit Rest-Branch: keine Aktion, Meldung nennt den Branch", async () => {
+      await seed();
+      const limited = () =>
+        new HttpResponse(JSON.stringify({ message: "You have exceeded a secondary rate limit." }), {
+          status: 403,
+          headers: { "content-type": "application/json" },
+        });
+      behaviour.pulls = limited;
+      behaviour.deleteRef = limited;
+      const outcome = await makeService().run({ repositoryId: repoId, kind: "onboarding", actor: "auto" });
+      expect(outcome).toMatchObject({
+        status: "failed",
+        message: expect.stringContaining(BRANCH_ONBOARDING),
+      });
+      expect(count("DELETE", `/repos/${REPO}/git/refs/heads/${BRANCH_ONBOARDING}`)).toBe(1);
+      expect(await actions()).toHaveLength(0);
+      expect(await audit()).toHaveLength(0);
     });
   });
 

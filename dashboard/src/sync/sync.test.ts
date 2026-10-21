@@ -784,6 +784,66 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
       expect(new Set(adapter.changeRequests.map((c) => c.repo)).size).toBe(7);
     });
 
+    it("Fehlschläge vor pending verhungern nicht: failed-Aktion (einmal), Limit je Connection", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      adapter.addOwner("beta", 12, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await setAutoOnboarding(db, await connId("beta"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(...[1, 2, 3, 4, 5].map((i) => bare(i, `acme/kaputt${i}`)), bare(6, "acme/gut"));
+      adapter.repos.get("12")!.push(bare(7, "beta/gut"));
+      // Die Vorabfrage scheitert für fünf Repos von acme: es entsteht nie ein pending-Eintrag.
+      const find = adapter.findOpenChangeRequest.bind(adapter);
+      let lookups: string[] = [];
+      adapter.findOpenChangeRequest = async (c, ref, branch) => {
+        lookups.push(ref.fullName);
+        if (ref.fullName.startsWith("acme/kaputt")) throw new PlatformApiError(502, "GET", "/geheim");
+        return find(c, ref, branch);
+      };
+
+      const first = await sync(adapter);
+      expect(first.partialErrors.map((e) => e.repository).sort()).toEqual([1, 2, 3, 4, 5].map((i) => `acme/kaputt${i}`));
+      // beta kommt trotz der fünf Fehler bei acme dran (Limit je Connection).
+      expect(adapter.changeRequests.map((c) => c.repo)).toEqual(["beta/gut"]);
+      const failed = await db.select().from(schema.rolloutActions).where(eq(schema.rolloutActions.status, "failed"));
+      expect(failed).toHaveLength(5);
+      expect(failed[0]).toMatchObject({ kind: "onboarding", triggeredBy: "auto", error: "Die Plattform hat die Anfrage abgelehnt (Status 502)." });
+      const audit = await db.select().from(schema.auditLog);
+      expect(audit.filter((a) => a.action === "rollout.onboarding.failed")).toHaveLength(5);
+
+      // Nächster Durchlauf: die fünf werden nicht wiederholt (manueller Klick nötig), acme/gut kommt dran.
+      lookups = [];
+      const second = await sync(adapter);
+      expect(lookups.filter((n) => n.startsWith("acme/kaputt"))).toEqual([]);
+      expect(second.partialErrors).toEqual([]);
+      expect(adapter.changeRequests.map((c) => c.repo).sort()).toEqual(["acme/gut", "beta/gut"]);
+      expect(JSON.stringify(first.partialErrors)).not.toContain("geheim");
+    });
+
+    it("Kontingent-Pause vor pending bleibt ohne Spur: das Repo kommt später dran", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(bare(1, "acme/spaeter"));
+      const find = adapter.findOpenChangeRequest.bind(adapter);
+      let paused = true;
+      adapter.findOpenChangeRequest = async (c, ref, branch) => {
+        if (paused) throw new RateLimitPause(0, 5000, new Date(Date.now() + 60_000));
+        return find(c, ref, branch);
+      };
+      await sync(adapter);
+      expect(await db.select().from(schema.rolloutActions)).toHaveLength(0);
+      expect((await db.select().from(schema.auditLog)).filter((a) => a.action.startsWith("rollout."))).toHaveLength(0);
+
+      paused = false;
+      await sync(adapter);
+      expect(adapter.changeRequests.map((c) => c.repo)).toEqual(["acme/spaeter"]);
+    });
+
     it("überspringt archivierte Repos und solche mit Konfiguration; Fehler je Repo sind Teilfehler", async () => {
       const adapter = new FakeAdapter();
       adapter.addOwner("acme", 11, []);

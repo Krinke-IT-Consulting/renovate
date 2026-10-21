@@ -61,6 +61,9 @@ export default defineConfig({
         // GitHub-Variablen sind leer (und überstimmen Werte aus .env.local).
         RENOVATE_CE_API_URL: `http://127.0.0.1:${CE_PORT}`,
         MEND_RNV_API_SERVER_SECRET: CE_SECRET,
+        // Plattform-Ersatz für Rollout-PRs (src/rollout/e2e-fake-adapter.ts). Wirkt nur außerhalb von
+        // NODE_ENV=production und wird nirgends sonst gesetzt.
+        E2E_FAKE_PLATFORM: "1",
         MEND_RNV_GITHUB_APP_ID: "",
         MEND_RNV_GITHUB_APP_KEY: "",
       },

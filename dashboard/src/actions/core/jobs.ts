@@ -58,7 +58,13 @@ export async function triggerRepoRunCore(deps: JobDeps, repositoryId: string): P
   } catch (e) {
     throw ceFailure(e);
   }
-  await writeAudit(deps.db, { actor: deps.actor, action: "job.trigger", target: repo.fullName });
+  // Der Job steht in CE: Ein Fehler beim Protokollieren darf die Aktion nicht als "fehlgeschlagen"
+  // melden (der Nutzer würde sie wiederholen). Er wird ohne Werte geloggt, die Meldung bleibt Erfolg.
+  try {
+    await writeAudit(deps.db, { actor: deps.actor, action: "job.trigger", target: repo.fullName });
+  } catch {
+    console.error("Audit-Eintrag job.trigger konnte nicht geschrieben werden.");
+  }
 
   if (outcome === "unchanged") {
     return done("neutral", "Für dieses Repo wartet oder läuft bereits ein Lauf.", {
@@ -78,6 +84,10 @@ export async function triggerAllRunsCore(deps: JobDeps): Promise<ActionState> {
   const repos = await listRunnableRepos(deps.db);
   if (repos.length === 0) return done("neutral", "Es gibt keine onboardeten Repos, für die ein Lauf nötig wäre.");
 
+  // Zuerst protokollieren: Scheitert das AuditLog, startet kein einziger Lauf ohne Spur. Das Ziel
+  // nennt die Anzahl der angestoßenen Repos; das Ergebnis je Repo steht in der Meldung.
+  await writeAudit(deps.db, { actor: deps.actor, action: "job.trigger_all", target: `${repos.length} Repos angestoßen` });
+
   const counts = { inserted: 0, unchanged: 0, failed: 0 };
   const queue = [...repos];
   const worker = async () => {
@@ -90,9 +100,6 @@ export async function triggerAllRunsCore(deps: JobDeps): Promise<ActionState> {
     }
   };
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, repos.length) }, worker));
-
-  // Ziel ist die Anzahl der betrachteten Repos; das Ergebnis je Repo steht in der Meldung.
-  await writeAudit(deps.db, { actor: deps.actor, action: "job.trigger_all", target: `${repos.length} Repos` });
 
   if (counts.failed === repos.length) {
     return failed("Renovate CE ist nicht erreichbar oder hat alle Anfragen abgelehnt. Es wurde kein Lauf eingereiht.");

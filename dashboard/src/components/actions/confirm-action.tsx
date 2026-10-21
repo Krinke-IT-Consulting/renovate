@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ExternalLink } from "@/components/data/external-link";
 import { StatusText } from "@/components/status/status";
@@ -43,8 +43,31 @@ export type ConfirmActionProps = {
   layout?: "stack" | "row";
   /** Zustand des Schalters für Screenreader (aria-pressed), nur bei Schaltern. */
   pressed?: boolean;
+  /**
+   * Ergebnis unter diesem Schlüssel in den Ergebnisspeicher schreiben, statt es unter dem Knopf zu
+   * zeigen. Gedacht für Aktionen, nach denen der Knopf verschwindet (Seite wird neu gerendert,
+   * `ConfirmAction` hängt aus, der `useActionState`-Zustand ginge verloren). Die Meldung zeigt dann
+   * ein dauerhaft eingehängtes `ActionResult` mit demselben Schlüssel.
+   */
+  resultKey?: string;
   className?: string;
 };
+
+// Ergebnisspeicher im Modul: überlebt das Aushängen der Komponente. Geschrieben wird in der
+// Aktion selbst (nicht in einem Effekt), sonst käme die Meldung nach dem Neurendern zu spät.
+const results = new Map<string, ActionState>();
+const listeners = new Set<() => void>();
+
+function setResult(key: string, state: ActionState | null) {
+  if (state) results.set(key, state);
+  else results.delete(key);
+  for (const l of listeners) l();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => void listeners.delete(listener);
+}
 
 const BASE =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors aria-disabled:cursor-not-allowed aria-disabled:opacity-60";
@@ -91,6 +114,33 @@ function Message({ state, layout }: { state: ActionState; layout: "stack" | "row
 }
 
 /**
+ * Zeigt das Ergebnis der Aktionen mit `resultKey`. Bleibt eingehängt, auch wenn der Knopf nach dem
+ * Erfolg verschwindet. Die Region (`role="status"`) existiert immer, damit Screenreader die
+ * Meldung ansagen; beim Verlassen der Seite wird das Ergebnis verworfen.
+ */
+export function ActionResult({ resultKey, layout = "stack" }: { resultKey: string; layout?: "stack" | "row" }) {
+  const state = useSyncExternalStore(
+    subscribe,
+    () => results.get(resultKey) ?? IDLE,
+    () => IDLE,
+  );
+  useEffect(() => () => setResult(resultKey, null), [resultKey]);
+  const wide = layout === "row" ? "w-full" : undefined;
+  return (
+    <>
+      <div role="status" className={cn("text-sm", wide)}>
+        {state.status === "done" ? <Message state={state} layout={layout} /> : null}
+      </div>
+      {state.status === "error" ? (
+        <div className={cn("text-sm", wide)}>
+          <Message state={state} layout={layout} />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
  * Aktion mit Folgen (uebersicht-entwurf.md, Abschnitt 6): Knopf, Bestätigungsdialog mit Wirkung,
  * erst danach wird die Server Action aufgerufen. Abbrechen ruft nichts auf. Das Ergebnis steht
  * inline unter dem Knopf: `role="status"` bei Erfolg, `role="alert"` bei Fehlern.
@@ -108,9 +158,20 @@ export function ConfirmAction({
   wide = false,
   pressed,
   layout = "stack",
+  resultKey,
   className,
 }: ConfirmActionProps) {
-  const [state, formAction, pending] = useActionState(action, IDLE);
+  const [state, formAction, pending] = useActionState(
+    resultKey
+      ? async (prev: ActionState, formData: FormData) => {
+          setResult(resultKey, null);
+          const next = await action(prev, formData);
+          setResult(resultKey, next);
+          return next;
+        }
+      : action,
+    IDLE,
+  );
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -148,14 +209,18 @@ export function ConfirmAction({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div role="status" className={cn("text-sm", layout === "row" && "sm:order-last sm:basis-full")}>
-        {state.status === "done" ? <Message state={state} layout={layout} /> : null}
-      </div>
-      {state.status === "error" ? (
-        <div className={cn("text-sm", layout === "row" && "sm:order-last sm:basis-full")}>
-          <Message state={state} layout={layout} />
-        </div>
-      ) : null}
+      {resultKey ? null : (
+        <>
+          <div role="status" className={cn("text-sm", layout === "row" && "sm:order-last sm:basis-full")}>
+            {state.status === "done" ? <Message state={state} layout={layout} /> : null}
+          </div>
+          {state.status === "error" ? (
+            <div className={cn("text-sm", layout === "row" && "sm:order-last sm:basis-full")}>
+              <Message state={state} layout={layout} />
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

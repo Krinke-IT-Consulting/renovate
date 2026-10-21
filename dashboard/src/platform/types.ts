@@ -105,7 +105,7 @@ export interface PlatformAdapter {
    * Günstiger Abruf (bedingt, 304 kostet kein Kontingent). Grundlage der Head-SHA-Logik.
    * `null` bei einem leeren Repo (noch kein Commit auf dem Default-Branch).
    */
-  getHeadSha(conn: PlatformConnection, repo: RepositoryRef): Promise<string | null>;
+  getHeadSha(conn: ConnectionRef, repo: RepositoryRef): Promise<string | null>;
   /** Teuer (mehrere Abrufe): nur bei geändertem Head-SHA aufrufen, siehe refreshRepositoryState. */
   getRepositoryState(
     conn: PlatformConnection,
@@ -134,8 +134,15 @@ export interface PlatformAdapter {
   ): Promise<string | null>;
   /**
    * Legt einen Branch mit einem Commit (alle `files`) an und öffnet daraus einen Pull-/Merge-
-   * Request. Schlägt ein Schritt nach dem Anlegen des Branches fehl, löscht der Adapter ihn wieder.
-   * Wirft `PlatformPermissionError`, wenn die Rechte zum Schreiben fehlen.
+   * Request. Schlägt ein Schritt nach dem Anlegen des Branches fehl, löscht der Adapter ihn wieder
+   * (scheitert das, wirft er `PlatformLeftoverBranchError` mit dem Namen des Rest-Branches).
+   *
+   * Vor dem Anlegen prüft der Adapter jede Datei live im Base-Commit: gleicher Inhalt wird
+   * übersprungen; bei abweichendem Inhalt oder wenn nichts mehr zu schreiben bleibt, wirft er
+   * `PlatformFilesExistError` und legt nichts an. Gibt es für den Branch schon einen offenen
+   * Request, wird dieser zurückgegeben. Branches nur mit dem Rollout-Präfix.
+   * Wirft `PlatformPermissionError` bei fehlenden Schreibrechten und `PlatformRejectedError` bei
+   * erkennbaren Ablehnungen (leeres Repo, Repo nicht in der Verbindung, Branch-Regel).
    */
   createChangeRequest(
     conn: ConnectionRef,
@@ -148,7 +155,7 @@ export interface PlatformAdapter {
     repo: RepositoryRef,
     branch: string,
   ): Promise<ChangeRequestRef | null>;
-  /** Ein fehlender Branch ist kein Fehler. */
+  /** Nur Branches mit dem Rollout-Präfix; ein fehlender Branch ist kein Fehler. */
   deleteBranch(
     conn: ConnectionRef,
     repo: RepositoryRef,

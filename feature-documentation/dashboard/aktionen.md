@@ -1,8 +1,8 @@
 # Dashboard: Aktionen in der Oberfläche (Phase 7, Tasks 7.1, 7.2, 7.4 Markierung, 7.5 Schalter)
 
 Status: umgesetzt auf dem Branch `feat/dashboard-aktionen`. Spec: `openspec/changes/dashboard/specs/dashboard-actions/spec.md`,
-Entscheidung 10 in `design.md`. Die Rollout-Logik (Onboarding- und Build-Check-PRs, automatisches Onboarding im Abgleich)
-baut ein paralleler Strang gegen den Vertrag `dashboard/src/rollout/types.ts`.
+Entscheidung 10 in `design.md`. Die Rollout-Logik (Onboarding- und Build-Check-PRs, automatisches Onboarding im Abgleich) steht in
+`feature-documentation/dashboard/rollout.md` (Vertrag: `dashboard/src/rollout/types.ts`).
 
 ## 1. Ablauf einer Aktion
 
@@ -15,6 +15,14 @@ baut ein paralleler Strang gegen den Vertrag `dashboard/src/rollout/types.ts`.
    damit der Fokus nach dem Schließen des Dialogs nicht verloren geht).
 5. Das Ergebnis steht inline unter dem Knopf: `role="status"` bei Erfolg (mit Link auf den PR oder die Job-Ansicht),
    `role="alert"` bei Fehlern. Status ist nie nur Farbe (`StatusText` mit Symbol).
+6. **Meldung bleibt sichtbar (`resultKey`):** Nach einem Rollout-PR rendert `revalidatePath` die Seite mit Status
+   `pr_open` neu; der Knopf verschwindet, `ConfirmAction` hängt aus und sein `useActionState`-Zustand ginge verloren.
+   Deshalb schreiben die Rollout-Knöpfe im Repo-Detail ihr Ergebnis mit `resultKey` in einen Ergebnisspeicher im Modul
+   (`confirm-action.tsx`; geschrieben in der Aktion selbst, nicht in einem Effekt), und ein dauerhaft eingehängtes
+   `ActionResult` mit demselben Schlüssel (`onboarding:<repoId>`, `build_check:<repoId>`) in `RepoActions` zeigt die
+   Meldung. Der Onboarding-Knopf im Abschnitt „Was hier zu tun ist“ (`RepoSteps`) nutzt denselben Schlüssel. Beim
+   Verlassen der Seite wird das Ergebnis verworfen. Der Lagebericht (`step-list.tsx`) hält erledigte Schritte ohnehin
+   eingehängt (`Erledigt`), dort genügt der lokale Zustand; Playwright prüft beide Wege.
 
 Next prüft bei Server Actions selbst die Herkunft (Origin gegen Host); es gibt dafür keine eigene Konfiguration.
 Der Nutzer kommt ausschließlich aus dem Header `x-dashboard-user` (`src/actions/context.ts`, `requireActor`). Ohne
@@ -31,7 +39,7 @@ Nutzer wird die Aktion abgelehnt.
 | `src/actions/core/*.ts` | Reine Logik mit eingespritzter Datenbank und Client (`jobs`, `repos`, `settings`, `rollout`). Hier wird getestet. |
 | `src/actions/{jobs,repos,settings,rollout}.ts` | Server Actions (`"use server"`), dünne Hüllen: Nutzer lesen, Kern aufrufen, `revalidatePath("/", "layout")`. |
 | `src/rollout/registry.ts` | `getRolloutServiceForActions()`; die einzige Stelle, die entscheidet, welche Rollout-Implementierung dahinter steckt. |
-| `src/rollout/service.ts` | **Platzhalter**, liefert `failed` mit „Noch nicht verfügbar.“. Beim Merge gewinnt die echte `service.ts` des Rollout-Strangs. |
+| `src/rollout/service.ts` | Die echte Rollout-Logik (siehe `rollout.md`). |
 | `src/queries/runnable-repos.ts` | Onboardete, nicht archivierte, nicht entfernte Repos (Anzahl für den Dialog, Liste für den Sammellauf). |
 | `src/queries/connections.ts` | Owner mit Schalter für automatisches Onboarding. |
 
@@ -42,11 +50,11 @@ für `useActionState`; der bisherige Zustand und die Formulardaten, die React da
 
 | Signatur | Wirkung | AuditLog |
 |---|---|---|
-| `triggerRepoRun(repositoryId)` | CE `addJob(full_name)`. `inserted`: „Lauf eingereiht.“ mit Link auf `/jobs?repo=<full_name>`. `unchanged`: „Für dieses Repo wartet oder läuft bereits ein Lauf.“ Nur für onboardete, nicht archivierte, nicht entfernte Repos. | `job.trigger`, Ziel: Repo (auch bei `unchanged`: die Aktion wurde ausgeführt, es entsteht aber kein zweiter Job) |
-| `triggerAllRuns()` | `addJob` je Repo, vier gleichzeitig. Meldung nennt eingereihte, unveränderte und fehlgeschlagene Repos. Fehlschlag bei allen: Fehlermeldung. | `job.trigger_all`, Ziel: `<n> Repos` |
+| `triggerRepoRun(repositoryId)` | CE `addJob(full_name)`. `inserted`: „Lauf eingereiht.“ mit Link auf `/jobs?repo=<full_name>`. `unchanged`: „Für dieses Repo wartet oder läuft bereits ein Lauf.“ Nur für onboardete, nicht archivierte, nicht entfernte Repos. | `job.trigger`, Ziel: Repo (auch bei `unchanged`: die Aktion wurde ausgeführt, es entsteht aber kein zweiter Job). Der Eintrag entsteht **nach** `addJob`; scheitert er, wird das ohne Werte geloggt und der Lauf trotzdem als eingereiht gemeldet (der Job steht in CE, eine Fehlermeldung verleitete zum Wiederholen). |
+| `triggerAllRuns()` | `addJob` je Repo, vier gleichzeitig. Meldung nennt eingereihte, unveränderte und fehlgeschlagene Repos. Fehlschlag bei allen: Fehlermeldung. | `job.trigger_all`, Ziel: `<n> Repos angestoßen`; der Eintrag entsteht **vor** dem Start (scheitert das AuditLog, läuft kein Job ohne Spur), das Ergebnis je Repo steht in der Meldung |
 | `setOwnCi(repositoryId, value)` | Setzt `repositories.own_ci`, leitet `build_check_status` mit `deriveBuildCheckStatus` neu ab (`active` = Aufrufdatei liegt im Repo, offener Rollout = Zeile in `rollout_actions` oder Status `pr_open`). Beim Setzen: offenes `missing_build_check` bekommt `resolved_at`. Eine Transaktion. | `repo.own_ci`, Ziel: `<Repo>: eigene CI an` bzw. `aus` |
 | `setAutoOnboarding(connectionId, enabled)` | Setzt das Flag; beim Einschalten `auto_onboarding_enabled_at = now`, beim Ausschalten bleibt der Zeitpunkt. Gleicher Zustand: Hinweis, kein Eintrag. Nur Flag und Zeitpunkt, die Wirkung liegt im Abgleich (Rollout-Strang). | `settings.auto_onboarding`, Ziel: `<Owner>: an` bzw. `aus` |
-| `createOnboardingPr(repositoryId)`, `createBuildCheckPr(repositoryId)` | Rufen `getRolloutServiceForActions().run({ repositoryId, kind, actor })` und bilden das `RolloutOutcome` ab: `created` und `existing` mit PR-Link (extern, nur https), `not_needed` mit `message`, `failed` mit `message`. | legt die Rollout-Logik selbst an (zusammen mit der RolloutAction) |
+| `createOnboardingPr(repositoryId)`, `createBuildCheckPr(repositoryId)` | Rufen `getRolloutServiceForActions().run({ repositoryId, kind, actor })` und bilden das `RolloutOutcome` ab: `created` und `existing` mit PR-Link (extern, nur https), `not_needed` mit `message`, `failed` mit `message`. | legt die Rollout-Logik selbst an (zusammen mit der RolloutAction): `rollout.onboarding` / `rollout.build_check`, bei Fehlschlag `….failed` |
 
 Alle Eingaben (UUIDs) prüft zod. Fehlermeldungen nennen nie Werte aus Tokens oder Rohantworten: CE-Fehler erscheinen als
 „Renovate CE hat die Anfrage abgelehnt (Status 401).“ bzw. „Renovate CE ist nicht erreichbar.“.
@@ -81,4 +89,7 @@ Aufheben gilt der Build-Check wieder als `missing`; das Problem entsteht beim n�
 - Playwright `e2e/aktionen.spec.ts` gegen `e2e/fake-ce.mjs` (beantwortet `POST /system/v1/jobs/add` mit `inserted`, danach
   `unchanged`; prüft das Bearer-Secret; `/__reset` und `/__calls` für die Tests). Port über `E2E_CE_PORT` (Standard 9291).
   Das Secret `e2e-secret` ist erfunden und steht nur in `playwright.config.ts`. Der Abgleich startet im E2E nicht, weil
-  die GitHub-Variablen leer sind. Der Rollout ist im E2E der Platzhalter: getestet wird, dass dessen Meldung erscheint.
+  die GitHub-Variablen leer sind. Der Rollout läuft im E2E echt, nur der Plattform-Adapter ist ein Ersatz (`src/rollout/e2e-fake-adapter.ts`, über
+`E2E_FAKE_PLATFORM=1` aus `playwright.config.ts`, nur außerhalb von `NODE_ENV=production`; siehe `rollout.md`). Getestet
+wird der Erfolgspfad: Onboarding-PR anlegen, Meldung mit PR-Link bleibt sichtbar, Repo steht auf `pr_open`, AuditLog;
+ebenso Build-Check ausrollen und der Onboarding-Schritt im Lagebericht.

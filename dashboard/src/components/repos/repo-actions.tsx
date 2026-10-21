@@ -1,9 +1,13 @@
 import { triggerRepoRun } from "@/actions/jobs";
 import { setOwnCi } from "@/actions/repos";
 import { createBuildCheckPr } from "@/actions/rollout";
-import { ConfirmAction } from "@/components/actions/confirm-action";
+import { ActionResult, ConfirmAction } from "@/components/actions/confirm-action";
 import { OnboardingAction } from "@/components/actions/onboarding-action";
 import type { RepoDetail } from "@/queries/repo-detail";
+
+/** Schlüssel der Rollout-Meldungen eines Repos (Knopf hier und im Abschnitt "Was hier zu tun ist"). */
+export const onboardingResultKey = (repositoryId: string) => `onboarding:${repositoryId}`;
+export const buildCheckResultKey = (repositoryId: string) => `build_check:${repositoryId}`;
 
 /**
  * Aktionen eines Repos unter dem Kopf der Detailseite. Jede verlangt eine Bestätigung, die ihre
@@ -28,7 +32,12 @@ export function RepoActions({ repo }: { repo: RepoDetail }) {
           confirmLabel="Lauf starten"
         />
       ) : null}
-      {canOnboard ? <OnboardingAction repositoryId={repo.id} repoFullName={repo.fullName} layout="row" /> : null}
+      {canOnboard ? <OnboardingAction
+          repositoryId={repo.id}
+          repoFullName={repo.fullName}
+          layout="row"
+          resultKey={onboardingResultKey(repo.id)}
+        /> : null}
       {canBuildCheck ? (
         <ConfirmAction
           layout="row"
@@ -38,6 +47,7 @@ export function RepoActions({ repo }: { repo: RepoDetail }) {
           effect={`Das Dashboard legt für ${repo.fullName} einen Pull Request an, der nur die Build-Check-Aufrufdatei hinzufügt. Er wird erst durch Sie gemergt.`}
           confirmLabel="Build-Check-PR anlegen"
           variant="quiet"
+          resultKey={buildCheckResultKey(repo.id)}
         />
       ) : null}
       {repo.ownCi ? (
@@ -61,6 +71,11 @@ export function RepoActions({ repo }: { repo: RepoDetail }) {
           variant="quiet"
         />
       )}
+      {/* Nach dem Erfolg ist der Rollout-Knopf weg (Status pr_open): die Meldung mit dem PR-Link bleibt hier stehen. */}
+      <div className="basis-full">
+        <ActionResult resultKey={onboardingResultKey(repo.id)} />
+        <ActionResult resultKey={buildCheckResultKey(repo.id)} />
+      </div>
     </section>
   );
 }

@@ -3,7 +3,9 @@ import { queryE2e, seed } from "./db";
 
 /**
  * Aktionen in der Oberfläche (Phase 7): Bestätigung, Meldung, AuditLog. Renovate CE ist der
- * Fake aus e2e/fake-ce.mjs, die Rollout-Logik ohne GitHub-Konfiguration (feste Meldung "nicht konfiguriert").
+ * Fake aus e2e/fake-ce.mjs. Die Rollout-Logik läuft echt (Datenbank, RolloutAction, AuditLog), nur der
+ * Plattform-Adapter ist ein Ersatz (src/rollout/e2e-fake-adapter.ts, per E2E_FAKE_PLATFORM aus
+ * playwright.config.ts): kein Netz, PR-Nummern ab 100.
  */
 const CE_URL = `http://127.0.0.1:${process.env.E2E_CE_PORT ?? 9291}`;
 
@@ -91,7 +93,7 @@ test.describe("Läufe", () => {
     await expect(alle).toBeVisible();
     await expect(alle.getByRole("link", { name: "Läufe ansehen" })).toHaveAttribute("href", "/jobs");
     expect(await ceCalls()).toHaveLength(9);
-    expect(await audit()).toEqual([{ actor: "fixture", action: "job.trigger_all", target: "9 Repos" }]);
+    expect(await audit()).toEqual([{ actor: "fixture", action: "job.trigger_all", target: "9 Repos angestoßen" }]);
   });
 });
 
@@ -128,12 +130,58 @@ test.describe("Eigene CI", () => {
 });
 
 test.describe("Onboarding und Rollout", () => {
-  test("Repo-Detail: Onboarding-PR anlegen zeigt die Meldung der Rollout-Logik als Fehler", async ({ page }) => {
+  test("Repo-Detail: Onboarding-PR anlegen, die Meldung mit PR-Link bleibt trotz neuem Status sichtbar", async ({ page }) => {
     await page.goto("/repos/beispiel-firma/infra");
     const dialog = await openDialog(page, "Onboarding-PR anlegen");
     await expect(dialog).toContainText("Das Dashboard legt für beispiel-firma/infra einen Pull Request an");
     await dialog.getByRole("button", { name: "Onboarding-PR anlegen" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Die Verbindung zur Plattform ist nicht konfiguriert." })).toBeVisible();
+
+    const ok = status(page, /Onboarding-PR #\d+ angelegt\./);
+    await expect(ok).toBeVisible();
+    await expect(ok.getByRole("link", { name: /PR #\d+ auf GitHub ansehen/ })).toHaveAttribute(
+      "href",
+      /^https:\/\/github\.com\/beispiel-firma\/infra\/pull\/\d+$/,
+    );
+    // Die Seite wurde neu gerendert: Das Repo steht auf pr_open, die Knöpfe sind weg, die Meldung bleibt.
+    await expect(page.getByRole("button", { name: "Onboarding-PR anlegen" })).toHaveCount(0);
+    await expect(ok).toBeVisible();
+    const [row] = await queryE2e<{ onboarding_status: string }>(
+      "select onboarding_status from repositories where full_name = 'beispiel-firma/infra'",
+    );
+    expect(row?.onboarding_status).toBe("pr_open");
+    const [action] = await queryE2e<{ status: string; kind: string; pr_url: string }>(
+      "select a.status, a.kind, a.pr_url from rollout_actions a join repositories r on r.id = a.repository_id where r.full_name = 'beispiel-firma/infra'",
+    );
+    expect(action).toMatchObject({ status: "pr_open", kind: "onboarding" });
+    expect(await audit()).toEqual([{ actor: "fixture", action: "rollout.onboarding", target: "beispiel-firma/infra" }]);
+  });
+
+  test("Repo-Detail: Build-Check ausrollen, Meldung bleibt, Status pr_open", async ({ page }) => {
+    await page.goto("/repos/beispiel-firma/lager-sync");
+    const dialog = await openDialog(page, "Build-Check ausrollen");
+    await dialog.getByRole("button", { name: "Build-Check-PR anlegen" }).click();
+
+    const ok = status(page, /Build-Check-PR #\d+ angelegt\./);
+    await expect(ok).toBeVisible();
+    await expect(ok.getByRole("link", { name: /PR #\d+ auf GitHub ansehen/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Build-Check ausrollen" })).toHaveCount(0);
+    await expect(ok).toBeVisible();
+    const [row] = await queryE2e<{ build_check_status: string }>(
+      "select build_check_status from repositories where full_name = 'beispiel-firma/lager-sync'",
+    );
+    expect(row?.build_check_status).toBe("pr_open");
+    expect(await audit()).toEqual([{ actor: "fixture", action: "rollout.build_check", target: "beispiel-firma/lager-sync" }]);
+  });
+
+  test("Lagebericht: Onboarding-PR aus dem Schritt, die Meldung bleibt, auch wenn der Schritt erledigt ist", async ({ page }) => {
+    await page.goto("/");
+    const dialog = await openDialog(page, "Onboarding-PR anlegen");
+    await dialog.getByRole("button", { name: "Onboarding-PR anlegen" }).click();
+    const ok = status(page, /Onboarding-PR #\d+ angelegt\./);
+    await expect(ok).toBeVisible();
+    await expect(ok.getByRole("link", { name: /PR #\d+ auf GitHub ansehen/ })).toBeVisible();
+    await expect.poll(async () => (await queryE2e("select 1 from repositories where full_name = 'beispiel-firma/infra' and onboarding_status = 'pr_open'")).length).toBe(1);
+    await expect(ok).toBeVisible();
   });
 
   test("Repo-Detail zeigt nur die passenden Knöpfe", async ({ page }) => {

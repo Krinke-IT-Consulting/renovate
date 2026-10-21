@@ -8,7 +8,10 @@ import {
 } from "@/db/schema";
 import {
   PlatformApiError,
+  PlatformFilesExistError,
+  PlatformLeftoverBranchError,
   PlatformPermissionError,
+  PlatformRejectedError,
   RateLimitPause,
   ROLLOUT_BRANCHES,
   type ChangeRequestRef,
@@ -44,6 +47,11 @@ const AUDIT_ACTION: Record<RolloutKind, string> = {
   onboarding: "rollout.onboarding",
   build_check: "rollout.build_check",
 };
+/** Fehlschläge tragen eine eigene Aktion, damit das AuditLog Erfolg und Fehler unterscheidet. */
+const AUDIT_FAILED: Record<RolloutKind, string> = {
+  onboarding: "rollout.onboarding.failed",
+  build_check: "rollout.build_check.failed",
+};
 
 const RUNNING_MESSAGE = "Für dieses Repo läuft bereits ein Rollout. Bitte kurz warten.";
 
@@ -57,9 +65,17 @@ function isUniqueViolation(e: unknown): boolean {
   );
 }
 
+/** Ursache hinter einem Rest-Branch-Fehler (der Adapter verpackt den eigentlichen Fehler). */
+function rootCause(e: unknown): unknown {
+  return e instanceof PlatformLeftoverBranchError ? e.original : e;
+}
+
 /** Verständliche Meldung ohne Token, Header oder Rohantwort der Plattform. */
 function failureMessage(e: unknown): string {
-  if (e instanceof PlatformPermissionError) return e.userMessage;
+  if (e instanceof PlatformLeftoverBranchError) {
+    return `${failureMessage(e.original)} Der Branch ${e.branch} ist im Repo zurückgeblieben und wird beim nächsten Versuch ersetzt.`;
+  }
+  if (e instanceof PlatformPermissionError || e instanceof PlatformRejectedError) return e.userMessage;
   if (e instanceof RateLimitPause) {
     return "Das Kontingent der Plattform ist knapp. Bitte später erneut versuchen.";
   }
@@ -170,7 +186,7 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
           .where(eq(rolloutActions.id, actionId));
         await tx.insert(auditLog).values({
           actor: request.actor,
-          action: AUDIT_ACTION[request.kind],
+          action: AUDIT_FAILED[request.kind],
           target: repo.fullName,
         });
       });
@@ -178,6 +194,36 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
       // Datenbank nicht erreichbar: die Aktion bleibt pending und verfällt nach PENDING_TIMEOUT_MS.
       console.error("Rollout: Fehlschlag konnte nicht gespeichert werden.");
     }
+  }
+
+  /**
+   * Fehlschlag vor der `pending`-Aktion (Vorabfragen, fehlende Installation). Normalerweise bleibt er
+   * ohne Spur, damit ein Wiederholen möglich ist. Beim automatischen Onboarding (`recordEarlyFailure`)
+   * wird er als `failed`-Aktion festgehalten: Das Repo bleibt sonst ewig Kandidat und verdrängt andere;
+   * nach `failed` ist ein manueller Klick nötig. Kontingent-Pausen bleiben immer ohne Spur.
+   */
+  async function earlyFailure(request: RolloutRequest, repo: RepoRow, cause: unknown, message: string): Promise<RolloutOutcome> {
+    if (request.recordEarlyFailure && !(rootCause(cause) instanceof RateLimitPause)) {
+      try {
+        await db.transaction(async (tx) => {
+          await tx.insert(rolloutActions).values({
+            repositoryId: repo.id,
+            kind: request.kind,
+            triggeredBy: request.actor,
+            status: "failed",
+            error: message,
+          });
+          await tx.insert(auditLog).values({
+            actor: request.actor,
+            action: AUDIT_FAILED[request.kind],
+            target: repo.fullName,
+          });
+        });
+      } catch {
+        console.error("Rollout: Fehlschlag konnte nicht gespeichert werden.");
+      }
+    }
+    return { status: "failed", message };
   }
 
   /** Übernimmt einen vorhandenen offenen PR (Scenario „Wiederholter Klick“). */
@@ -191,9 +237,10 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
       await recordOpenPr(request, repo, open?.id ?? null, pr);
     } catch (e) {
       if (!isUniqueViolation(e)) throw e;
-      // Parallel wurde eine offene Aktion angelegt: diese übernehmen.
+      // Parallel wurde eine offene Aktion angelegt. Schließt ein anderer Klick sie gerade ab (oder
+      // hat er es getan), schreibt er den AuditLog-Eintrag: hier kein zweiter.
       const row = await openAction(repo.id, request.kind);
-      await recordOpenPr(request, repo, row?.id ?? null, pr);
+      if (!row) await recordOpenPr(request, repo, null, pr);
     }
     return { status: "existing", prUrl: pr.url, prNumber: pr.number };
   }
@@ -216,6 +263,37 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
     return { list, data };
   }
 
+  /**
+   * Der Adapter hat die Dateien live geprüft und nichts angelegt. Eigene `renovate.json` -> Konfiguration
+   * vorhanden; abweichende Aufrufdatei -> Fehler mit Hinweis (die Datei wird nie überschrieben);
+   * alles schon identisch da -> nichts zu tun. `not_needed` hinterlässt keine Aktion.
+   */
+  async function handleExistingFiles(
+    request: RolloutRequest,
+    repo: RepoRow,
+    actionId: string,
+    list: RolloutFile[],
+    e: PlatformFilesExistError,
+  ): Promise<RolloutOutcome> {
+    const configPath = list.find((f) => f.role === "config")?.path;
+    const callerPath = list.find((f) => f.role === "caller")?.path;
+    if (callerPath && e.differing.includes(callerPath) && !(configPath && e.differing.includes(configPath))) {
+      const message = `${callerPath} existiert bereits mit eigenem Inhalt. Bitte von Hand anpassen oder das Repo als „eigene CI“ markieren.`;
+      await recordFailure(request, repo, actionId, message);
+      return { status: "failed", message };
+    }
+    await db.delete(rolloutActions).where(eq(rolloutActions.id, actionId));
+    if (configPath && (e.differing.includes(configPath) || request.kind === "onboarding")) {
+      return notNeeded(
+        "config_present",
+        e.differing.includes(configPath)
+          ? "Das Repo hat bereits eine renovate.json mit eigenem Inhalt."
+          : "Die Renovate-Konfiguration ist bereits im Repo vorhanden.",
+      );
+    }
+    return notNeeded("build_check_present", "Die Build-Check-Aufrufdatei ist bereits im Repo vorhanden.");
+  }
+
   async function run(request: RolloutRequest): Promise<RolloutOutcome> {
     const [found] = await db
       .select({ repo: repositories, conn: platformConnections })
@@ -229,7 +307,7 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
     const skip = precheck(request.kind, repo);
     if (skip) return skip;
     if (conn.installationId === null) {
-      return { status: "failed", message: "Für diesen Owner ist keine Installation der App hinterlegt." };
+      return earlyFailure(request, repo, null, "Für diesen Owner ist keine Installation der App hinterlegt.");
     }
 
     const connRef: ConnectionRef = {
@@ -271,8 +349,8 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
           .where(eq(rolloutActions.id, open.id));
       }
     } catch (e) {
-      // Noch nichts angelegt: keine RolloutAction, damit ein Wiederholen (auch das automatische) möglich bleibt.
-      return { status: "failed", message: failureMessage(e) };
+      // Noch nichts angelegt: ohne Spur (Ausnahme: automatisches Onboarding, siehe earlyFailure).
+      return earlyFailure(request, repo, e, failureMessage(e));
     }
 
     // Zuerst pending: der partielle Unique-Index fängt parallele Doppelklicks ab.
@@ -298,8 +376,10 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
       return { status: "failed", message: RUNNING_MESSAGE };
     }
 
+    let fileList: RolloutFile[] = [];
     try {
       const { list, data } = await files(request.kind, repo);
+      fileList = list;
       const text = buildPullRequestText(request.kind, list);
       // Bei einem Fehler nach dem Anlegen des Branches löscht der Adapter ihn wieder.
       const pr = await adapter.createChangeRequest(connRef, ref, {
@@ -312,10 +392,18 @@ export function createRolloutService(deps: RolloutServiceDeps): RolloutService {
       await recordOpenPr(request, repo, actionId, pr);
       return { status: "created", prUrl: pr.url, prNumber: pr.number };
     } catch (e) {
-      if (e instanceof RateLimitPause) {
+      if (e instanceof PlatformFilesExistError) {
+        return handleExistingFiles(request, repo, actionId, fileList, e);
+      }
+      if (rootCause(e) instanceof RateLimitPause) {
         // Kein Fehlversuch des Repos: ohne Spur zurücknehmen, damit es später erneut drankommt.
         await db.delete(rolloutActions).where(eq(rolloutActions.id, actionId));
-        return { status: "failed", message: failureMessage(e) };
+        const message = failureMessage(e);
+        if (e instanceof PlatformLeftoverBranchError) {
+          // Ohne RolloutAction bleibt nur das Log (Repo und Branch, keine Werte).
+          console.error(`Rollout: Rest-Branch ${e.branch} in ${repo.fullName} nach Kontingent-Pause.`);
+        }
+        return { status: "failed", message };
       }
       const message = failureMessage(e);
       await recordFailure(request, repo, actionId, message);

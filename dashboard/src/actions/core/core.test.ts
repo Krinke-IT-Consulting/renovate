@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { CeApiError, type CeAddJobResult } from "@/ce";
 import type { Db } from "@/db/client";
 import { runMigrations } from "@/db/migrate";
@@ -138,6 +138,23 @@ describe.skipIf(!adminUrl)("Aktionen (Postgres)", () => {
       expect(await audit()).toEqual([]);
     });
 
+    it("ein Fehler beim Protokollieren nach erfolgreichem addJob wird nicht als Fehlschlag gemeldet", async () => {
+      const ce = fakeCe();
+      const brokenAudit = new Proxy(db, {
+        get(target, prop, receiver) {
+          if (prop === "insert") throw new Error("Datenbank-Geheimnis");
+          return Reflect.get(target, prop, receiver);
+        },
+      });
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const state = await triggerRepoRunCore({ db: brokenAudit, ce, actor: "sascha" }, ids.a!);
+      expect(state).toMatchObject({ status: "done", tone: "erfolg", message: "Lauf eingereiht." });
+      expect(ce.calls).toEqual(["o/a"]);
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(String(log.mock.calls[0]?.[0])).not.toContain("Geheimnis");
+      log.mockRestore();
+    });
+
     it("meldet einen CE-Fehler ohne Rohantwort und schreibt keinen AuditLog", async () => {
       const ce = fakeCe({ failFor: ["o/a"], status: 401 });
       await expect(triggerRepoRunCore({ db, ce, actor: "x" }, ids.a!)).rejects.toThrow(
@@ -155,7 +172,32 @@ describe.skipIf(!adminUrl)("Aktionen (Postgres)", () => {
       const state = await triggerAllRunsCore({ db, ce, actor: "sascha" });
       expect([...ce.calls].sort()).toEqual(["o/a", "o/b"]);
       expect(state).toMatchObject({ status: "done", tone: "erfolg", message: "2 Läufe eingereiht.", link: { href: "/jobs" } });
-      expect(await audit()).toMatchObject([{ actor: "sascha", action: "job.trigger_all", target: "2 Repos" }]);
+      expect(await audit()).toMatchObject([{ actor: "sascha", action: "job.trigger_all", target: "2 Repos angestoßen" }]);
+    });
+
+    it("schreibt den AuditLog vor dem Start des ersten Laufs", async () => {
+      const ce = fakeCe();
+      const seen: number[] = [];
+      const addJob = ce.addJob.bind(ce);
+      ce.addJob = async (fullName: string) => {
+        seen.push((await audit()).length);
+        return addJob(fullName);
+      };
+      await triggerAllRunsCore({ db, ce, actor: "sascha" });
+      // Bei jedem addJob steht der Eintrag schon da.
+      expect(seen).toEqual([1, 1]);
+    });
+
+    it("scheitert das AuditLog, startet kein Lauf", async () => {
+      const ce = fakeCe();
+      const brokenAudit = new Proxy(db, {
+        get(target, prop, receiver) {
+          if (prop === "insert") throw new Error("Datenbank down");
+          return Reflect.get(target, prop, receiver);
+        },
+      });
+      await expect(triggerAllRunsCore({ db: brokenAudit, ce, actor: "x" })).rejects.toThrow();
+      expect(ce.calls).toEqual([]);
     });
 
     it("zählt unveränderte und fehlgeschlagene Repos mit", async () => {

@@ -12,6 +12,12 @@ export type RolloutRequest = {
   kind: RolloutKind;
   /** Authelia-Nutzer (x-dashboard-user) oder "auto" beim automatischen Onboarding. */
   actor: string;
+  /**
+   * Nur beim automatischen Onboarding: Fehlschläge vor dem Anlegen der Aktion (Vorabfragen,
+   * fehlende Installation) werden als `failed`-Aktion festgehalten, damit das Repo nicht ewig
+   * Kandidat bleibt. Kontingent-Pausen bleiben ohne Spur.
+   */
+  recordEarlyFailure?: boolean;
 };
 
 export type NotNeededReason =
@@ -29,7 +35,7 @@ export type RolloutOutcome =
   | { status: "existing"; prUrl: string; prNumber: number }
   /** Nichts zu tun, etwa weil die Konfiguration schon da ist. */
   | { status: "not_needed"; reason: NotNeededReason; message: string }
-  /** Fehlgeschlagen; die RolloutAction trägt den Fehler, ein angelegter Branch ist wieder gelöscht. */
+  /** Fehlgeschlagen; die RolloutAction trägt den Fehler, ein angelegter Branch ist wieder gelöscht (sonst nennt die Meldung ihn). */
   | { status: "failed"; message: string };
 
 export interface RolloutService {

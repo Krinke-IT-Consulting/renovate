@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
 import { OnboardingAction } from "@/components/actions/onboarding-action";
+import { onboardingResultKey } from "@/components/repos/repo-actions";
 import { StatusText } from "@/components/status/status";
 import { GROUP_TONE, STEP_GROUPS, type Step } from "@/domain/report";
 import { safeExternalHref } from "@/lib/safe-external-href";
@@ -53,7 +54,11 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
                 </p>
               </div>
               {action.kind === "onboarding" ? (
-                <OnboardingAction repositoryId={action.repositoryId} repoFullName={action.repoFullName} />
+                <OnboardingAction
+                  repositoryId={action.repositoryId}
+                  repoFullName={action.repoFullName}
+                  resultKey={onboardingResultKey(action.repositoryId)}
+                />
               ) : link && showAction ? (
                 link.external ? (
                   externalHref ? (

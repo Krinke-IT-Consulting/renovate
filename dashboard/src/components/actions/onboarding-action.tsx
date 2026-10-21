@@ -10,12 +10,15 @@ export function OnboardingAction({
   variant = "primary",
   wide = false,
   layout,
+  resultKey,
 }: {
   repositoryId: string;
   repoFullName: string;
   variant?: "primary" | "quiet";
   wide?: boolean;
   layout?: "stack" | "row";
+  /** Siehe ConfirmAction: Meldung im dauerhaft eingehängten `ActionResult` zeigen. */
+  resultKey?: string;
 }) {
   return (
     <ConfirmAction
@@ -27,6 +30,7 @@ export function OnboardingAction({
       variant={variant}
       wide={wide}
       layout={layout}
+      resultKey={resultKey}
     />
   );
 }

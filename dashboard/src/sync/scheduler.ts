@@ -2,8 +2,11 @@ import type { Pool } from "pg";
 import { createCeClient } from "@/ce";
 import { getDb, getPool, type Db } from "@/db/client";
 import { EnvError, getEnv } from "@/env";
-import { DbHttpCache, GitHubAdapter, type PlatformAdapter } from "@/platform";
+import type { PlatformAdapter } from "@/platform";
+import { getGitHubAdapter } from "@/platform/github/runtime";
+import { getRolloutService } from "@/rollout/runtime";
 import { createRolloutService } from "@/rollout/service";
+import type { RolloutService } from "@/rollout/types";
 import { runCeSync, type CeSyncOptions } from "./ce-sync";
 import { runGithubSync } from "./github-sync";
 import { SYNC_LOCK_KEYS, withAdvisoryLock } from "./lock";
@@ -19,6 +22,8 @@ export type SyncLoopOptions = {
   pool: Pool;
   adapter: PlatformAdapter;
   ceClient: CeSyncOptions["client"];
+  /** Rollout-Service des Prozesses (teilt den Adapter mit den Server Actions); Standard: eigener um `adapter`. */
+  rollout?: RolloutService;
   intervals?: { githubMs: number; ceMs: number };
   firstRunDelayMs?: number;
 };
@@ -37,7 +42,7 @@ export type SyncLoops = {
 export function startSyncLoops(options: SyncLoopOptions): SyncLoops {
   const { db, pool, adapter, ceClient } = options;
   const intervals = options.intervals ?? { githubMs: GITHUB_INTERVAL_MS, ceMs: CE_INTERVAL_MS };
-  const rollout = createRolloutService({ db, adapter });
+  const rollout = options.rollout ?? createRolloutService({ db, adapter });
   const busy = new Set<SyncSource>();
   let stopped = false;
 
@@ -106,13 +111,13 @@ export function startSyncFromEnv(): SyncLoops | null {
     return null;
   }
   const db = getDb();
-  let adapter: GitHubAdapter;
+  let adapter: PlatformAdapter;
+  let rollout: RolloutService;
   try {
-    adapter = new GitHubAdapter({
-      appId: env.MEND_RNV_GITHUB_APP_ID,
-      privateKey: env.MEND_RNV_GITHUB_APP_KEY,
-      cache: new DbHttpCache(db),
-    });
+    // Dieselbe Adapter- und Rollout-Instanz wie in den Server Actions: gemeinsame Kontingent-Pause,
+    // gemeinsamer Vorlagen- und Token-Cache.
+    adapter = getGitHubAdapter();
+    rollout = getRolloutService();
   } catch {
     // Feste Meldung: die Rohmeldung der Bibliothek könnte Teile des Schlüssels enthalten.
     console.error(
@@ -124,6 +129,7 @@ export function startSyncFromEnv(): SyncLoops | null {
     db,
     pool: getPool(),
     adapter,
+    rollout,
     ceClient: createCeClient({
       baseUrl: env.RENOVATE_CE_API_URL,
       secret: env.MEND_RNV_API_SERVER_SECRET,
