@@ -14,7 +14,7 @@ Stand: 2026-10-20
 - Betriebs-Stack (Change `compose-stack`, archiviert; Specs `platform-deployment` und `access-protection`): Renovate CE, Postgres, Authelia (2FA) und Platzhalter laufen auf Coolify (`gentle-goose`), `renovate.krinke-it.cloud` hinter Login, Webhook unter `/webhook`; GitHub App „Krinke IT Renovate“ installiert für `Krinke-IT-Consulting/renovate` — Doku: `feature-documentation/betrieb-coolify.md`, `feature-documentation/secrets-register.md`
 
 - Build-Check (Change `build-check`, archiviert; Spec `build-check`): Reusable Workflow `.github/workflows/build-check.yml`, Aufruf-Vorlage `templates/build-check-caller.yml`, Selbsttest mit 11 Beispielen; Release `v1.1.0` (`v1` zeigt darauf) mit Erkennung des Docker-Build-Kontexts; Pilot `Hiwamashi/smoking-tracker` grün — Doku: `feature-documentation/build-check.md`
-- Dashboard Phase 6 „Ansichten“ (Tasks 6.3 bis 6.6, Branch `feat/dashboard-ansichten`): Seiten `/` (Lagebericht), `/repos`, `/repos/[owner]/[name]`, `/pull-requests`, `/jobs`, `/probleme`; Fixtures und Playwright-Smoke — Doku: `feature-documentation/dashboard/ansichten.md`, `lagebericht.md`, `bausteine.md`, `tests-und-fixtures.md`
+- Dashboard Phase 6 „Ansichten“ (Tasks 6.1 bis 6.7, PR #15, deployt am 2026-10-20 und vom Betreiber gesichtet): Seiten `/` (Lagebericht), `/repos`, `/repos/[owner]/[name]`, `/pull-requests`, `/jobs`, `/probleme`; Fixtures und Playwright-Smoke — Doku: `feature-documentation/dashboard/ansichten.md`, `lagebericht.md`, `bausteine.md`, `tests-und-fixtures.md`
 
 ## In Arbeit
 
@@ -25,7 +25,7 @@ Stand: 2026-10-20
 
 - GitHub App für weitere Repos installieren (über das Dashboard-Onboarding oder von Hand), Build-Check-Aufruf in weitere Repos ausrollen
 - npm 12: Freigabeliste für Install-Skripte (`allowScripts`) in den Node-Repos, offene Frage im Design von `build-check`
-- Dashboard Phase 6 („Ansichten“): Review und Deployment stehen aus
+- Dashboard Phase 7 („Aktionen“): Lauf anstoßen, Onboarding-PR, Build-Check-Rollout, eigene CI, Auto-Onboarding
 - OpenSpec-Changes: Dashboard (Datenmodell, Sync, Onboarding)
 - Graphify einrichten, sobald es Code gibt
 - `DESIGN.md` nach dem Bau der ersten Oberfläche
