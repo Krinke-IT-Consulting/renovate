@@ -3,7 +3,6 @@
  *
  * Hier stehen bewusst keine GitHub-Begriffe: Ein späterer GitLabAdapter muss alles erfüllen
  * können. "Connection" = Installation/Gruppe, "ChangeRequest" = Pull-/Merge-Request.
- * `createChangeRequest` fehlt absichtlich; es kommt mit den Aktionen (Phase 7).
  */
 
 import type { CiStatus } from "@/domain/pull-requests";
@@ -69,6 +68,36 @@ export interface ChangeStatus {
   ci: CiStatus;
 }
 
+/** Was die schreibenden Methoden zum Adressieren der Verbindung brauchen. */
+export type ConnectionRef = Pick<
+  PlatformConnection,
+  "externalConnectionId" | "ownerName"
+>;
+
+/** Vorlagen des Rollouts; der Inhalt liegt im Repo dieser Plattform (Entscheidung 10). */
+export type TemplateName = "renovate-config" | "build-check-caller";
+
+export interface TemplateFile {
+  /** Zielpfad der Datei im Repo, das den Rollout erhält. */
+  path: string;
+  content: string;
+}
+
+export interface NewChangeRequest {
+  /** Neuer Branch; er wird vom Stand des Default-Branches (`baseBranch`) aus angelegt. */
+  branch: string;
+  baseBranch: string;
+  title: string;
+  body: string;
+  /** Alle Dateien kommen in genau einem Commit. */
+  files: { path: string; content: string }[];
+}
+
+export interface ChangeRequestRef {
+  number: number;
+  url: string;
+}
+
 export interface PlatformAdapter {
   listConnections(): Promise<PlatformConnection[]>;
   listRepositories(conn: PlatformConnection): Promise<PlatformRepository[]>;
@@ -89,7 +118,7 @@ export interface PlatformAdapter {
     repo: RepositoryRef,
   ): Promise<UpdateChangeRequest[]>;
   getPullRequestState(
-    conn: PlatformConnection,
+    conn: ConnectionRef,
     repo: RepositoryRef,
     number: number,
   ): Promise<ChangeRequestState>;
@@ -103,4 +132,28 @@ export interface PlatformAdapter {
     conn: PlatformConnection,
     repo: RepositoryRef,
   ): Promise<string | null>;
+  /**
+   * Legt einen Branch mit einem Commit (alle `files`) an und öffnet daraus einen Pull-/Merge-
+   * Request. Schlägt ein Schritt nach dem Anlegen des Branches fehl, löscht der Adapter ihn wieder.
+   * Wirft `PlatformPermissionError`, wenn die Rechte zum Schreiben fehlen.
+   */
+  createChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    request: NewChangeRequest,
+  ): Promise<ChangeRequestRef>;
+  /** Offener Request mit diesem Head-Branch oder `null`. */
+  findOpenChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    branch: string,
+  ): Promise<ChangeRequestRef | null>;
+  /** Ein fehlender Branch ist kein Fehler. */
+  deleteBranch(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    branch: string,
+  ): Promise<void>;
+  /** Liest eine Rollout-Vorlage aus dem Vorlagen-Repo (Default-Branch); kein Eintrag im Image. */
+  readTemplate(name: TemplateName): Promise<TemplateFile>;
 }

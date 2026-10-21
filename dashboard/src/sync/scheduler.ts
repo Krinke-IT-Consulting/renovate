@@ -3,6 +3,7 @@ import { createCeClient } from "@/ce";
 import { getDb, getPool, type Db } from "@/db/client";
 import { EnvError, getEnv } from "@/env";
 import { DbHttpCache, GitHubAdapter, type PlatformAdapter } from "@/platform";
+import { createRolloutService } from "@/rollout/service";
 import { runCeSync, type CeSyncOptions } from "./ce-sync";
 import { runGithubSync } from "./github-sync";
 import { SYNC_LOCK_KEYS, withAdvisoryLock } from "./lock";
@@ -36,11 +37,12 @@ export type SyncLoops = {
 export function startSyncLoops(options: SyncLoopOptions): SyncLoops {
   const { db, pool, adapter, ceClient } = options;
   const intervals = options.intervals ?? { githubMs: GITHUB_INTERVAL_MS, ceMs: CE_INTERVAL_MS };
+  const rollout = createRolloutService({ db, adapter });
   const busy = new Set<SyncSource>();
   let stopped = false;
 
   const tasks: Record<SyncSource, () => Promise<unknown>> = {
-    github: () => runGithubSync({ db, adapter }),
+    github: () => runGithubSync({ db, adapter, rollout }),
     ce: () => runCeSync({ db, client: ceClient }),
   };
 

@@ -15,13 +15,21 @@ import {
   type PlatformConnection,
 } from "@/platform";
 import { syncProblems } from "./problems-sync";
-import { loadOpenRollouts, type OpenRollouts } from "./rollouts";
+import { runAutoOnboarding } from "@/rollout/auto-onboarding";
+import type { RolloutService } from "@/rollout/types";
+import { loadOpenRollouts, syncRolloutActions, type OpenRollouts } from "./rollouts";
 import { errorCategory, pauseOutcome, recordRun, type PartialError, type RunOutcome } from "./sync-state";
 
 /** ETag-Einträge, die so lange nicht mehr geschrieben wurden, werden am Ende eines Durchlaufs gelöscht. */
 export const HTTP_CACHE_MAX_AGE_MS = 7 * 86_400_000;
 
-export type GithubSyncOptions = { db: Db; adapter: PlatformAdapter; now?: () => Date };
+export type GithubSyncOptions = {
+  db: Db;
+  adapter: PlatformAdapter;
+  /** Ohne Service entfällt das automatische Onboarding. */
+  rollout?: RolloutService;
+  now?: () => Date;
+};
 
 export type GithubSyncSummary = RunOutcome & { connections: number; repositories: number };
 
@@ -400,6 +408,8 @@ export async function runGithubSync(options: GithubSyncOptions): Promise<GithubS
           ),
         )
         .orderBy(sql`${repositories.syncedAt} asc nulls first`);
+      // Zuerst offene Rollout-PRs nachziehen (gemergt/geschlossen), dann gilt der Status unten.
+      partialErrors.push(...(await syncRolloutActions(db, adapter, conn, rows, clock())));
       const openRollouts = await loadOpenRollouts(
         db,
         rows.map((r) => r.id),
@@ -413,6 +423,16 @@ export async function runGithubSync(options: GithubSyncOptions): Promise<GithubS
           if (e instanceof RateLimitPause) throw e;
           partialErrors.push({ repository: row.fullName, message: errorCategory(e) });
         }
+      }
+    }
+
+    // Nach dem Abgleich aller Repos sind Inhalt und Status frisch. Nicht bei einer Pause.
+    if (options.rollout) {
+      try {
+        const auto = await runAutoOnboarding({ db, rollout: options.rollout });
+        partialErrors.push(...auto.partialErrors);
+      } catch (e) {
+        partialErrors.push({ repository: "(Auto-Onboarding)", message: errorCategory(e) });
       }
     }
   } catch (e) {

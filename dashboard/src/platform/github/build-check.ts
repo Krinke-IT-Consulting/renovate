@@ -22,3 +22,12 @@ export function isBuildCheckSourceRepo(fullName: string): boolean {
 export function callsLocalBuildCheck(fileContent: string): boolean {
   return fileContent.includes(BUILD_CHECK_SELF_MARKER);
 }
+
+/** Vorlagen im Quell-Repo (Default-Branch); Zielpfad der Renovate-Konfiguration im Ziel-Repo. */
+export const TEMPLATE_SOURCES = {
+  "renovate-config": { source: "templates/renovate.json", target: "renovate.json" },
+  "build-check-caller": {
+    source: "templates/build-check-caller.yml",
+    target: BUILD_CHECK_CALLER_PATH,
+  },
+} as const;

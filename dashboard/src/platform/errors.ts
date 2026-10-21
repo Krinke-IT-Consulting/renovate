@@ -37,3 +37,17 @@ export class RateLimitPause extends Error {
     this.resetAt = resetAt;
   }
 }
+
+/**
+ * Dem Zugang fehlen Rechte zum Schreiben (etwa auf Workflow-Dateien). `userMessage` ist deutsch,
+ * für den Betreiber formuliert und enthält keine Werte aus der Antwort der Plattform.
+ */
+export class PlatformPermissionError extends Error {
+  readonly userMessage: string;
+
+  constructor(userMessage: string) {
+    super(userMessage);
+    this.name = "PlatformPermissionError";
+    this.userMessage = userMessage;
+  }
+}

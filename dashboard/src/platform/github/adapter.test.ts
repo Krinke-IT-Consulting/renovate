@@ -808,3 +808,108 @@ describe("Review Phase 5: Adapter-Verhalten", () => {
     await expect(big.listRepositories(conn)).rejects.toBeInstanceOf(RateLimitPause);
   });
 });
+
+describe("Rollout: Schreibzugriffe und Vorlagen", () => {
+  const base = `${API}/repos/${REPO.fullName}`;
+
+  it("findOpenChangeRequest filtert über den Head-Branch und liefert null ohne Treffer", async () => {
+    let head = "";
+    server.use(
+      http.get(`${base}/pulls`, ({ request }) => {
+        head = new URL(request.url).searchParams.get("head") ?? "";
+        return HttpResponse.json([
+          {
+            number: 4,
+            html_url: "https://example.test/pull/4",
+            head: { ref: "renovate-platform/onboarding", sha: "x" },
+          },
+        ]);
+      }),
+    );
+    const adapter = makeAdapter();
+    expect(
+      await adapter.findOpenChangeRequest(conn, REPO, "renovate-platform/onboarding"),
+    ).toEqual({ number: 4, url: "https://example.test/pull/4" });
+    expect(head).toBe("Krinke-IT-Consulting:renovate-platform/onboarding");
+    expect(await adapter.findOpenChangeRequest(conn, REPO, "anderer-branch")).toBeNull();
+  });
+
+  it("deleteBranch löscht den Ref; ein fehlender Branch (404 oder 422) ist kein Fehler", async () => {
+    let status = 204;
+    server.use(
+      http.delete(`${base}/git/refs/heads/renovate-platform/onboarding`, () =>
+        status === 204
+          ? new HttpResponse(null, { status })
+          : HttpResponse.json({ message: "Reference does not exist" }, { status }),
+      ),
+    );
+    const adapter = makeAdapter();
+    for (status of [204, 422, 404]) {
+      await expect(
+        adapter.deleteBranch(conn, REPO, "renovate-platform/onboarding"),
+      ).resolves.toBeUndefined();
+    }
+  });
+
+  it("deleteBranch lehnt unsichere Branchnamen ab, ohne etwas anzufragen", async () => {
+    await expect(
+      makeAdapter().deleteBranch(conn, REPO, "../../orgs/x"),
+    ).rejects.toBeInstanceOf(PlatformApiError);
+  });
+
+  it("readTemplate liest die Vorlage aus dem Quell-Repo (Default-Branch), mit kurzem Cache", async () => {
+    server.use(http.get(`${API}/app/installations`, () => HttpResponse.json(installations)));
+    let reads = 0;
+    let ref: string | null = "unset";
+    server.use(
+      http.get(
+        `${API}/repos/Krinke-IT-Consulting/renovate/contents/templates/renovate.json`,
+        ({ request }) => {
+          reads++;
+          ref = new URL(request.url).searchParams.get("ref");
+          return HttpResponse.json(fileBody('{"extends":[]}'));
+        },
+      ),
+    );
+    let now = 1_000_000;
+    const adapter = makeAdapter(() => now);
+    const file = await adapter.readTemplate("renovate-config");
+    expect(file).toEqual({ path: "renovate.json", content: '{"extends":[]}' });
+    expect(ref).toBeNull();
+    await adapter.readTemplate("renovate-config");
+    expect(reads).toBe(1);
+    now += 6 * 60 * 1000;
+    await adapter.readTemplate("renovate-config");
+    expect(reads).toBe(2);
+  });
+
+  it("readTemplate ohne Installation des Quell-Repos wirft einen Plattform-Fehler", async () => {
+    server.use(http.get(`${API}/app/installations`, () => HttpResponse.json([])));
+    await expect(makeAdapter().readTemplate("build-check-caller")).rejects.toBeInstanceOf(
+      PlatformApiError,
+    );
+  });
+
+  it("createChangeRequest: Fehlermeldungen tragen weder Token noch Antworttext", async () => {
+    server.use(
+      http.get(`${base}/commits/main`, () => new HttpResponse(HEAD_SHA)),
+      http.get(`${base}/git/commits/${HEAD_SHA}`, () =>
+        HttpResponse.json({ sha: HEAD_SHA, tree: { sha: "t0" } }),
+      ),
+      http.post(`${base}/git/trees`, () =>
+        HttpResponse.json({ message: "Geheimtext ghs_fixture_token" }, { status: 500 }),
+      ),
+    );
+    const err = await makeAdapter()
+      .createChangeRequest(conn, REPO, {
+        branch: "renovate-platform/onboarding",
+        baseBranch: "main",
+        title: "t",
+        body: "b",
+        files: [{ path: "renovate.json", content: "{}" }],
+      })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PlatformApiError);
+    expect(String((err as Error).message)).not.toMatch(/ghs_|Geheimtext/);
+  });
+});

@@ -1,6 +1,6 @@
 import { App } from "@octokit/app";
 import { parseUpdatePackages } from "@/domain/pull-requests";
-import { PlatformApiError, RateLimitPause } from "../errors";
+import { PlatformApiError, PlatformPermissionError, RateLimitPause } from "../errors";
 import type { HttpCache } from "../http-cache";
 import {
   DEPENDENCY_DASHBOARD_TITLE,
@@ -9,18 +9,25 @@ import {
   UPDATE_BRANCH_PREFIX,
 } from "../renovate-files";
 import type {
+  ChangeRequestRef,
   ChangeRequestState,
   ChangeStatus,
+  ConnectionRef,
+  NewChangeRequest,
   PlatformAdapter,
   PlatformConnection,
   PlatformRepository,
   RepositoryContentState,
   RepositoryRef,
+  TemplateFile,
+  TemplateName,
   UpdateChangeRequest,
 } from "../types";
 import {
   BUILD_CHECK_CALLER_PATH,
   BUILD_CHECK_SELF_PATH,
+  BUILD_CHECK_SOURCE_REPO,
+  TEMPLATE_SOURCES,
   callsCentralBuildCheck,
   callsLocalBuildCheck,
   isBuildCheckSourceRepo,
@@ -37,6 +44,13 @@ const PAGE_SIZE = 100;
 /** Ohne `x-ratelimit-reset` pausieren wir höchstens bis zum nächsten Durchlauf. */
 const FALLBACK_PAUSE_MS = 5 * 60 * 1000;
 const APP_SCOPE = "app";
+/** Vorlagen ändern sich selten; ein kurzer Cache im Prozess spart Anfragen bei Serien von Rollouts. */
+export const TEMPLATE_CACHE_MS = 5 * 60 * 1000;
+const WORKFLOW_PERMISSION_MESSAGE =
+  "Der GitHub App fehlt in diesem Repo das Schreibrecht auf Workflows. Bitte in den App-Einstellungen ergänzen.";
+const WRITE_PERMISSION_MESSAGE =
+  "Der GitHub App fehlen in diesem Repo Schreibrechte (Inhalte, Pull Requests oder Workflows). Bitte in den App-Einstellungen ergänzen.";
+const SAFE_BRANCH = /^[A-Za-z0-9._/-]+$/;
 
 export interface GitHubAdapterOptions {
   appId: string;
@@ -60,7 +74,8 @@ type HeaderBag = Record<string, string | number | undefined>;
 
 interface ErrorLike {
   status?: unknown;
-  response?: { headers?: HeaderBag };
+  message?: unknown;
+  response?: { headers?: HeaderBag; data?: { message?: unknown } };
 }
 
 // Ausschnitte der GitHub-Antworten, nur die genutzten Felder.
@@ -98,6 +113,13 @@ interface ApiPull {
   state: string;
   merged_at?: string | null;
 }
+interface ApiSha {
+  sha: string;
+}
+interface ApiCommit {
+  sha: string;
+  tree: { sha: string };
+}
 interface ApiIssue {
   title: string;
   html_url: string;
@@ -120,6 +142,8 @@ export class GitHubAdapter implements PlatformAdapter {
   private readonly now: () => number;
   private readonly rate = new Map<string, RateState>();
   private appSlug: string | undefined;
+  private templateScope: string | undefined;
+  private readonly templates = new Map<string, { at: number; file: TemplateFile }>();
 
   constructor(options: GitHubAdapterOptions) {
     // Env-Werte enthalten Zeilenumbrüche oft als "\n"-Text.
@@ -326,7 +350,7 @@ export class GitHubAdapter implements PlatformAdapter {
   }
 
   async getPullRequestState(
-    conn: PlatformConnection,
+    conn: ConnectionRef,
     repo: RepositoryRef,
     number: number,
   ): Promise<ChangeRequestState> {
@@ -405,6 +429,153 @@ export class GitHubAdapter implements PlatformAdapter {
     }
   }
 
+
+  async findOpenChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    branch: string,
+  ): Promise<ChangeRequestRef | null> {
+    const { owner, name } = split(repo.fullName);
+    const pulls = await this.get<ApiPull[]>(
+      conn.externalConnectionId,
+      "GET /repos/{owner}/{repo}/pulls",
+      { owner, repo: name, state: "open", head: `${owner}:${branch}`, per_page: PAGE_SIZE },
+    );
+    const hit = pulls.find((p) => p.head.ref === branch);
+    return hit ? { number: hit.number, url: hit.html_url } : null;
+  }
+
+  async deleteBranch(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    branch: string,
+  ): Promise<void> {
+    assertSafeBranch(branch);
+    const { owner, name } = split(repo.fullName);
+    // Der Branchname steht unkodiert im Pfad (Schrägstriche gehören dazu). GitHub meldet einen
+    // fehlenden Ref beim Löschen mit 422, teils 404: beides ist hier kein Fehler.
+    await this.write(
+      conn.externalConnectionId,
+      `DELETE /repos/{owner}/{repo}/git/refs/heads/${branch}`,
+      { owner, repo: name },
+      { tolerate: [404, 422] },
+    );
+  }
+
+  /**
+   * Ein Commit über die Git-Data-API: Tree auf dem Base-Commit (die Dateiinhalte gehen direkt in den
+   * Tree, GitHub legt die Blobs dabei selbst an, das spart je Datei eine Anfrage), Commit, Ref,
+   * danach der Pull Request. Scheitert ein Schritt nach dem Anlegen des Refs, wird der Branch
+   * gelöscht. Ein Rest-Branch eines früheren, abgebrochenen oder geschlossenen Rollouts (der Name
+   * ist eindeutig unserer) wird ersetzt.
+   */
+  async createChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    request: NewChangeRequest,
+  ): Promise<ChangeRequestRef> {
+    assertSafeBranch(request.branch);
+    const { owner, name } = split(repo.fullName);
+    const scope = conn.externalConnectionId;
+    const base = { owner, repo: name };
+
+    const baseSha = await this.getHeadSha(
+      { ...conn, ownerType: "organization" },
+      { fullName: repo.fullName, defaultBranch: request.baseBranch },
+    );
+    if (!baseSha) {
+      throw new PlatformApiError(409, "POST", `/repos/${repo.fullName}/git/commits`);
+    }
+    const baseCommit = await this.get<ApiCommit>(
+      scope,
+      "GET /repos/{owner}/{repo}/git/commits/{commit_sha}",
+      { ...base, commit_sha: baseSha },
+      { noCache: true },
+    );
+    const tree = await this.write<ApiSha>(scope, "POST /repos/{owner}/{repo}/git/trees", {
+      ...base,
+      base_tree: baseCommit.tree.sha,
+      tree: request.files.map((f) => ({
+        path: f.path,
+        mode: "100644",
+        type: "blob",
+        content: f.content,
+      })),
+    });
+    const commit = await this.write<ApiSha>(scope, "POST /repos/{owner}/{repo}/git/commits", {
+      ...base,
+      message: request.title,
+      tree: tree.sha,
+      parents: [baseSha],
+    });
+
+    const createRef = () =>
+      this.write<ApiSha>(scope, "POST /repos/{owner}/{repo}/git/refs", {
+        ...base,
+        ref: `refs/heads/${request.branch}`,
+        sha: commit.sha,
+      });
+    try {
+      await createRef();
+    } catch (e) {
+      if (!(e instanceof PlatformApiError) || e.status !== 422) throw e;
+      // Der Branch besteht schon (Rest eines früheren Rollouts): ersetzen und noch einmal anlegen.
+      await this.deleteBranch(conn, repo, request.branch);
+      await createRef();
+    }
+
+    try {
+      const pr = await this.write<ApiPull>(scope, "POST /repos/{owner}/{repo}/pulls", {
+        ...base,
+        title: request.title,
+        body: request.body,
+        head: request.branch,
+        base: request.baseBranch,
+      });
+      return { number: pr.number, url: pr.html_url };
+    } catch (e) {
+      try {
+        await this.deleteBranch(conn, repo, request.branch);
+      } catch {
+        // Der ursprüngliche Fehler zählt; ein Rest-Branch wird beim nächsten Rollout ersetzt.
+      }
+      throw e;
+    }
+  }
+
+  async readTemplate(name: TemplateName): Promise<TemplateFile> {
+    const entry = TEMPLATE_SOURCES[name];
+    const cached = this.templates.get(name);
+    if (cached && this.now() - cached.at < TEMPLATE_CACHE_MS) return cached.file;
+
+    const [owner = "", repoName = ""] = BUILD_CHECK_SOURCE_REPO.split("/");
+    const path = `/repos/${BUILD_CHECK_SOURCE_REPO}/contents/${entry.source}`;
+    if (!this.templateScope) {
+      const connections = await this.listConnections();
+      const hit = connections.find(
+        (c) => c.ownerName.toLowerCase() === owner.toLowerCase(),
+      );
+      // Ohne Installation, die das Vorlagen-Repo enthält, gibt es keine Vorlage.
+      if (!hit) throw new PlatformApiError(404, "GET", path);
+      this.templateScope = hit.externalConnectionId;
+    }
+    // Ohne `ref` liest GitHub den Default-Branch. Der Abruf ist bedingt (ETag).
+    const file = await this.get<ApiFile>(
+      this.templateScope,
+      "GET /repos/{owner}/{repo}/contents/{path}",
+      { owner, repo: repoName, path: entry.source },
+    );
+    if (!file.content || file.encoding !== "base64") {
+      throw new PlatformApiError(0, "GET", path);
+    }
+    const result: TemplateFile = {
+      path: entry.target,
+      content: Buffer.from(file.content, "base64").toString("utf8"),
+    };
+    this.templates.set(name, { at: this.now(), file: result });
+    return result;
+  }
+
   // ---------------------------------------------------------------------------------------------
 
   private async getAppSlug(): Promise<string> {
@@ -468,29 +639,7 @@ export class GitHubAdapter implements PlatformAdapter {
     };
     const method = route.split(" ")[0] ?? "GET";
 
-    // Token-Beschaffung außerhalb der Statustoleranz: Ein 404 beim Token-Austausch (Installation
-    // entfernt) ist immer ein Fehler und darf nie als "Datei fehlt" durchgehen.
-    // getInstallationOctokit ist träge: Das Token wird erst bei der ersten Anfrage geholt und ein
-    // Fehler käme als gewöhnlicher Status der Anfrage zurück. Deshalb vorab ausdrücklich
-    // authentifizieren (das Token wird zwischengespeichert, die Anfrage nutzt es danach).
-    let octokit: Pick<App["octokit"], "request">;
-    try {
-      if (scope === APP_SCOPE) {
-        octokit = this.app.octokit;
-      } else {
-        const installation = await this.app.getInstallationOctokit(Number(scope));
-        await installation.auth({ type: "installation" });
-        octokit = installation;
-      }
-    } catch (err) {
-      const status = (err as ErrorLike | null)?.status;
-      // Bewusst ohne Ursache, Header und Meldung des Originals (könnte Anmeldedaten enthalten).
-      throw new PlatformApiError(
-        typeof status === "number" ? status : 0,
-        method,
-        expandPath(route, rest),
-      );
-    }
+    const octokit = await this.authenticate(scope, method, route, rest);
 
     let data: unknown;
     let etag: string | undefined;
@@ -513,6 +662,74 @@ export class GitHubAdapter implements PlatformAdapter {
     }
     if (etag && !opts?.noCache) await this.cache.set(key, etag, data);
     return data as T;
+  }
+
+  /**
+   * Token-Beschaffung außerhalb der Statustoleranz: Ein 404 beim Token-Austausch (Installation
+   * entfernt) ist immer ein Fehler und darf nie als "Datei fehlt" durchgehen.
+   * getInstallationOctokit ist träge: Das Token wird erst bei der ersten Anfrage geholt und ein
+   * Fehler käme als gewöhnlicher Status der Anfrage zurück. Deshalb vorab ausdrücklich
+   * authentifizieren (das Token wird zwischengespeichert, die Anfrage nutzt es danach).
+   */
+  private async authenticate(
+    scope: string,
+    method: string,
+    route: string,
+    params: Params,
+  ): Promise<Pick<App["octokit"], "request">> {
+    try {
+      if (scope === APP_SCOPE) return this.app.octokit;
+      const installation = await this.app.getInstallationOctokit(Number(scope));
+      await installation.auth({ type: "installation" });
+      return installation;
+    } catch (err) {
+      const status = (err as ErrorLike | null)?.status;
+      // Bewusst ohne Ursache, Header und Meldung des Originals (könnte Anmeldedaten enthalten).
+      throw new PlatformApiError(
+        typeof status === "number" ? status : 0,
+        method,
+        expandPath(route, params),
+      );
+    }
+  }
+
+  /**
+   * Schreibende Anfrage (kein ETag, kein Cache). Fehlende Rechte (403 ohne Kontingent-Signal, 404,
+   * oder eine Meldung zu Workflows) werden zu `PlatformPermissionError`; sonst gilt wie beim Lesen:
+   * Fehler tragen nur Status, Methode und Pfad.
+   */
+  private async write<T>(
+    scope: string,
+    route: string,
+    params: Record<string, unknown>,
+    opts?: { tolerate?: readonly number[] },
+  ): Promise<T> {
+    this.assertNotPaused(scope);
+    const method = route.split(" ")[0] ?? "POST";
+    const pathParams = params as Params;
+    const octokit = await this.authenticate(scope, method, route, pathParams);
+    try {
+      const res = await octokit.request(route, params);
+      this.noteRateLimit(scope, res.headers as HeaderBag);
+      return res.data as T;
+    } catch (err) {
+      const e = err as ErrorLike;
+      const status = typeof e?.status === "number" ? e.status : 0;
+      const headers = e?.response?.headers;
+      if (headers) this.noteRateLimit(scope, headers);
+      if (opts?.tolerate?.includes(status)) return undefined as T;
+      if ((status === 403 || status === 429) && headers)
+        this.throwIfRateLimited(scope, headers);
+      // Die Meldung der Plattform wird nur ausgewertet, nie weitergegeben.
+      const text = `${String(e?.response?.data?.message ?? "")} ${String(e?.message ?? "")}`;
+      if (/workflow/i.test(text) && status >= 400 && status < 500) {
+        throw new PlatformPermissionError(WORKFLOW_PERMISSION_MESSAGE);
+      }
+      if (status === 403 || status === 404) {
+        throw new PlatformPermissionError(WRITE_PERMISSION_MESSAGE);
+      }
+      throw new PlatformApiError(status, method, expandPath(route, pathParams));
+    }
   }
 
   private noteRateLimit(scope: string, headers: HeaderBag): void {
@@ -567,6 +784,12 @@ export class GitHubAdapter implements PlatformAdapter {
 function header(headers: HeaderBag, name: string): string | undefined {
   const v = headers[name];
   return v === undefined ? undefined : String(v);
+}
+
+function assertSafeBranch(branch: string): void {
+  if (!SAFE_BRANCH.test(branch) || branch.includes("..")) {
+    throw new PlatformApiError(0, "POST", "/git/refs");
+  }
 }
 
 function split(fullName: string): { owner: string; name: string } {
