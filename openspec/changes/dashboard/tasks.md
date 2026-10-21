@@ -193,7 +193,7 @@
 - [x] 6.6 Lade-, Leer- und Fehlerzustände aller Seiten; Abgleich-Stempel mit Fehler und Uhrzeit;
   `router.refresh()` alle 60 s bei sichtbarem Tab. Fertig, wenn der Playwright-Smoke mit
   Fixture-Daten durchläuft, mit `sync_state` im Fehlerzustand.
-- [ ] 6.7 `reviewer` für die Phase, PR, Merge durch den Betreiber, Deployment nach Freigabe.
+- [x] 6.7 `reviewer` für die Phase, PR, Merge durch den Betreiber, Deployment nach Freigabe.
   Fertig, wenn der Betreiber die Ansichten mit echten Daten gesehen hat.
 
 ## 7. Aktionen
