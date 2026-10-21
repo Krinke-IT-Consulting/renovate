@@ -133,7 +133,7 @@
 
 ## 5. Abgleich
 
-- [ ] 5.1 CE-Client `src/ce/` mit Auth über das Server-Secret, Zeitlimits und Fehlern ohne
+- [x] 5.1 CE-Client `src/ce/` mit Auth über das Server-Secret, Zeitlimits und Fehlern ohne
   Secret. Mapping der Gründe und Status laut Entscheidung 7. Log-Auszug mit Level- und Feldfilter
   und Längengrenze. Fertig, wenn Vitest-Tests mit aufgezeichneten Antworten aus 1.2 Mapping und
   Filter abdecken, inklusive eines Logs mit einem Feld `token`.
@@ -147,7 +147,7 @@
   - Eine 304-Antwort führt zu keiner Änderung.
   - Ein unveränderter Head-SHA führt zu keinem Inhaltsabruf.
   - Unterhalb des Limits wird pausiert.
-- [ ] 5.3 Reine Ableitungen in `src/domain/`: Update-Typ, CI-Status, Onboarding- und
+- [x] 5.3 Reine Ableitungen in `src/domain/`: Update-Typ, CI-Status, Onboarding- und
   Build-Check-Status, Probleme laut Spec `dashboard-sync`. Fertig, wenn jedes Scenario der Spec
   einen Vitest-Test hat.
 - [x] 5.4 Abgleich-Schleifen in `instrumentation.ts`:
@@ -232,7 +232,7 @@
   wenn der Audit ohne offene kritische Befunde ist.
 - [ ] 8.2 `/impeccable document`: `DESIGN.md` aus der fertigen Oberfläche erzeugen. Fertig, wenn
   die Datei existiert und der Betreiber sie gesehen hat.
-- [ ] 8.3 Feature-Doku unter `feature-documentation/dashboard/`, je Funktion eine Datei:
+- [x] 8.3 Feature-Doku unter `feature-documentation/dashboard/`, je Funktion eine Datei:
   - Aufbau und Betrieb, Datenmodell, Abgleich, Ansichten, Aktionen
   - Versionen aus 1.1, Ergebnisse aus 1.2 und 4.6
 
