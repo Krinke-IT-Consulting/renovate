@@ -18,7 +18,7 @@ Stand: 2026-10-21
 
 ## In Arbeit
 
-- Dashboard Phase 7 „Aktionen“ (Tasks 7.1 bis 7.6, PR #17 und Fix #18, deployt am 2026-10-21): Bestätigungsdialog, Server Actions und AuditLog; Läufe für ein Repo und alle; Onboarding- und Build-Check-PRs über die Git-Data-API mit Idempotenz und Aufräumen; Markierung „eigene CI“; automatisches Onboarding je Owner. Abnahme 7.6: Lauf für `Krinke-IT-Consulting/renovate` aus dem Dashboard gestartet, in AuditLog und Job-Liste sichtbar. Dabei behoben: laufende Jobs der CE-Historie galten als fehlgeschlagen — Doku: `feature-documentation/dashboard/aktionen.md`, `rollout.md`
+- Dashboard Phase 7 „Aktionen“ (Tasks 7.1 bis 7.6, PR #17 und Fix #18, deployt am 2026-10-21): Bestätigungsdialog, Server Actions und AuditLog; Läufe für ein Repo und alle; Onboarding- und Build-Check-PRs über die Git-Data-API mit Idempotenz und Aufräumen; Markierung „eigene CI“; automatisches Onboarding je Owner. Abnahme 7.6: Lauf für `Krinke-IT-Consulting/renovate` aus dem Dashboard gestartet, in AuditLog und Job-Liste sichtbar. Dabei behoben: laufende Jobs der CE-Historie galten als fehlgeschlagen. Task 7.7: erster echter Onboarding-PR `Hiwamashi/lector#1` am 2026-10-21 aus dem Dashboard angelegt und gemergt; der Build-Check lief (Docker und Compose grün, Python rot durch einen eigenen Testfehler in lector) — Doku: `feature-documentation/dashboard/aktionen.md`, `rollout.md`
 
 - Change `renovate-konfiguration`: offen 5.1 (kein Automerge ohne Checks, braucht ein Repo ohne CI) und 5.2 (Limits bei Sicherheits-PRs, braucht einen echten Sicherheitsfall)
 
@@ -26,7 +26,6 @@ Stand: 2026-10-21
 
 - GitHub App für weitere Repos installieren (über das Dashboard-Onboarding oder von Hand), Build-Check-Aufruf in weitere Repos ausrollen
 - npm 12: Freigabeliste für Install-Skripte (`allowScripts`) in den Node-Repos, offene Frage im Design von `build-check`
-- Dashboard Task 7.7: erster echter Onboarding-PR in einem Repo, das der Betreiber benennt (nach dessen Freigabe)
 - OpenSpec-Changes: Dashboard (Datenmodell, Sync, Onboarding)
 - Graphify einrichten, sobald es Code gibt
 - `DESIGN.md` nach dem Bau der ersten Oberfläche

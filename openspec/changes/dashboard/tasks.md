@@ -222,7 +222,7 @@
 - [x] 7.6 `reviewer` und `github-app-integration` prüfen die Phase. PR, Merge durch den Betreiber,
   Deployment nach Freigabe. Fertig, wenn ein Lauf für `Krinke-IT-Consulting/renovate` aus dem
   Dashboard gestartet und in der Job-Liste sichtbar ist.
-- [ ] 7.7 Erster echter Onboarding-PR in einem Repo, das der Betreiber benennt, nur nach dessen
+- [x] 7.7 Erster echter Onboarding-PR in einem Repo, das der Betreiber benennt, nur nach dessen
   Freigabe. Fertig, wenn der PR existiert, im Dashboard verlinkt ist und der Build-Check darin
   läuft.
 
