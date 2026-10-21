@@ -68,7 +68,7 @@ function ActionLink({ step, wide = false }: { step: ShownStep; wide?: boolean })
   const cls = cn(
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors",
     step.done
-      ? "text-ink-soft ring-1 ring-rheinblau-tief/15 ring-inset hover:text-rheinblau"
+      ? "text-ink-soft ring-1 ring-rheinblau-tief/55 ring-inset hover:text-rheinblau hover:ring-rheinblau"
       : "bg-olive text-papier hover:bg-rheinblau",
     wide && "w-full",
   );

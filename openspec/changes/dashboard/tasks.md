@@ -228,7 +228,7 @@
 
 ## 8. Abschluss
 
-- [ ] 8.1 `/impeccable audit`: Zugänglichkeit, Responsive, Performance. Befunde beheben. Fertig,
+- [x] 8.1 `/impeccable audit`: Zugänglichkeit, Responsive, Performance. Befunde beheben. Fertig,
   wenn der Audit ohne offene kritische Befunde ist.
 - [ ] 8.2 `/impeccable document`: `DESIGN.md` aus der fertigen Oberfläche erzeugen. Fertig, wenn
   die Datei existiert und der Betreiber sie gesehen hat.
