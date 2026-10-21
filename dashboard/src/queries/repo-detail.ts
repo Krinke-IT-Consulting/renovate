@@ -47,7 +47,7 @@ export type RepoDetail = {
 
 /** Schritte dieses Repos im Format des Lageberichts (gleiche Reihenfolge, gleiche Bausteine). */
 export function repoSteps(
-  repo: { fullName: string; onboarding: OnboardingStatus; archived: boolean; removed: boolean },
+  repo: { id?: string; fullName: string; onboarding: OnboardingStatus; archived: boolean; removed: boolean },
   openPrs: PullRequestRow[],
   openProblems: ProblemRow[],
   now: Date,
@@ -56,7 +56,7 @@ export function repoSteps(
   const input: ReportInput = {
     now,
     // Archivierte und entfernte Repos haben keine Aufgaben (wie im Lagebericht).
-    repos: [{ fullName: repo.fullName, onboarding: repo.onboarding, archived: repo.archived || repo.removed }],
+    repos: [{ id: repo.id, fullName: repo.fullName, onboarding: repo.onboarding, archived: repo.archived || repo.removed }],
     openPrs: openPrs.map((p) => ({
       id: p.id,
       number: p.number,
@@ -149,7 +149,7 @@ export async function loadRepoDetail(db: Db, fullName: string, now = new Date())
       jobActive: active.length > 0,
     }),
     steps: repoSteps(
-      { fullName: repo.fullName, onboarding: repo.onboardingStatus, archived: repo.archived, removed },
+      { id: repo.id, fullName: repo.fullName, onboarding: repo.onboardingStatus, archived: repo.archived, removed },
       openPrs,
       openProblems,
       now,

@@ -198,9 +198,9 @@
 
 ## 7. Aktionen
 
-- [ ] 7.1 Bestätigungsdialog, Server Actions, AuditLog in derselben Transaktion, Meldung mit Link
+- [x] 7.1 Bestätigungsdialog, Server Actions, AuditLog in derselben Transaktion, Meldung mit Link
   oder Fehler. Fertig, wenn ein Test „Abgebrochene Bestätigung“ ohne AuditLog-Eintrag zeigt.
-- [ ] 7.2 Läufe anstoßen, für ein Repo und für alle, über `POST /system/v1/jobs/add`. Fertig, wenn
+- [x] 7.2 Läufe anstoßen, für ein Repo und für alle, über `POST /system/v1/jobs/add`. Fertig, wenn
   Tests mit aufgezeichneten Antworten Einzel- und Sammellauf abdecken und `unchanged` keinen
   zweiten Eintrag erzeugt.
 - [ ] 7.3 Onboarding-PR laut Entscheidung 10:
