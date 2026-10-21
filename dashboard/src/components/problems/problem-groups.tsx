@@ -82,7 +82,7 @@ export function ProblemGroups({
         const headingId = `problem-gruppe-${kind}`;
         return (
           <section key={kind} aria-labelledby={headingId}>
-            <Heading id={headingId} className={headingLevel === 3 ? "mb-2 flex items-center gap-2 text-base font-semibold" : "mb-2 flex items-center gap-2 text-lg font-semibold"}>
+            <Heading id={headingId} className={headingLevel === 3 ? "mb-2 flex flex-wrap items-center gap-x-2 text-base font-semibold [overflow-wrap:anywhere]" : "mb-2 flex flex-wrap items-center gap-x-2 text-lg font-semibold [overflow-wrap:anywhere]"}>
               <StatusIcon tone={PROBLEM_KIND_TONE[kind]} className="size-5" />
               {PROBLEM_KIND_LABEL[kind]}
               <span className="font-sans text-base font-medium text-ink-soft tabular-nums">
@@ -90,7 +90,7 @@ export function ProblemGroups({
                 {items.length}
               </span>
             </Heading>
-            <div className="overflow-hidden rounded-xl bg-papier shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]">
+            <div className="overflow-hidden rounded-xl bg-papier shadow-karte">
               <ul className="divide-y divide-border/70 py-1">
                 {visible.map((p) => (
                   <ProblemEntry key={p.id} problem={p} showRepo={showRepo} state={state} />

@@ -29,7 +29,7 @@ export function FilterChips<T extends string>({
   single?: boolean;
 }) {
   return (
-    <div role="group" aria-label={label} className="flex shrink-0 items-center gap-1.5">
+    <div role="group" aria-label={label} className="flex shrink-0 items-center gap-1.5 lg:min-w-0 lg:shrink lg:flex-wrap lg:gap-y-3">
       <span className="mr-1 hidden text-xs font-medium text-ink-soft sm:inline">{label}</span>
       {options.map((o) => {
         const active = selected.includes(o.value);
@@ -46,7 +46,7 @@ export function FilterChips<T extends string>({
               "after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']",
               active
                 ? "bg-rheinblau text-papier ring-rheinblau hover:bg-rheinblau-hell"
-                : "bg-papier text-ink ring-rheinblau-tief/20 hover:text-rheinblau hover:ring-rheinblau/50",
+                : "bg-papier text-ink ring-rheinblau-tief/55 hover:text-rheinblau hover:ring-rheinblau",
             )}
           >
             {active ? <CheckIcon aria-hidden="true" className="size-3.5" /> : null}
@@ -73,7 +73,8 @@ export function FilterBar({
 }) {
   return (
     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-      <div className="-mx-4 flex items-center gap-4 overflow-x-auto px-4 pb-1 [scrollbar-width:thin] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0">
+      {/* Vertikaler Innenabstand: Das Pseudo-Element der Chips (44 px) wird vom Scrollcontainer sonst abgeschnitten. */}
+      <div className="-mx-4 flex items-center gap-4 overflow-x-auto px-4 py-1.5 [scrollbar-width:thin] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:py-0">
         {children}
       </div>
       {resetHref ? (

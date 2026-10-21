@@ -47,9 +47,9 @@ export function StatusText({
   className?: string;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 text-sm font-medium", TEXT[tone], className)}>
+    <span className={cn("inline-flex max-w-full items-center gap-1.5 text-sm font-medium", TEXT[tone], className)}>
       <StatusIcon tone={tone} />
-      <span>{children}</span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </span>
   );
 }
@@ -75,7 +75,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ring-1 ring-inset",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset max-md:max-w-full md:whitespace-nowrap",
         BADGE_BG[tone],
         TEXT[tone],
         className,

@@ -24,6 +24,28 @@ test.describe("Jobs", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("ERESOLVE");
   });
 
+  test("Fokus bleibt beim Aufklappen auf dem Knopf", async ({ page }, info) => {
+    test.skip(info.project.name === "mobil", "Tabellenzelle nur auf dem Desktop");
+    await page.goto("/jobs?status=failed");
+    const toggle = page.getByRole("button", { name: /Log anzeigen.*beispiel-firma\/kasse/ }).locator("visible=true");
+    // Handle vor dem Klick: Der Name des Knopfs wechselt zu "Log ausblenden", ein Locator fände ihn nicht mehr.
+    const button = await toggle.elementHandle();
+    expect(button).not.toBeNull();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: /Log ausblenden.*beispiel-firma\/kasse/ }).locator("visible=true")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    // Derselbe Knoten, nicht ein neu gemounteter: Der Fokus fällt sonst auf body.
+    const state = await button!.evaluate((el) => ({
+      same: el === document.activeElement,
+      connected: el.isConnected,
+      expanded: el.getAttribute("aria-expanded"),
+    }));
+    expect(state).toEqual({ same: true, connected: true, expanded: "true" });
+  });
+
   test("bereinigter Job zeigt, dass der Log fehlt", async ({ page }) => {
     await page.goto("/jobs?status=failed&repo=beispiel-firma/shop-api");
     // Tabelle und Karte stehen beide im DOM; je Layout ist eines ausgeblendet.

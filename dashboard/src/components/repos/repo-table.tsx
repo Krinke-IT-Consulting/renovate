@@ -15,6 +15,7 @@ import {
 } from "@/domain/status-tone";
 import { formatRelative } from "@/lib/format";
 import { repoDetailHref } from "@/lib/repo-detail-href";
+import { TOUCH_TARGET } from "@/lib/touch-target";
 import type { RepoRow } from "@/queries/repos";
 
 const RESULT_TONE: Record<RepoRow["lastJobResult"], StatusTone> = {
@@ -31,14 +32,11 @@ const RESULT_LABEL: Record<RepoRow["lastJobResult"], string> = {
   unknown: "Ergebnis unbekannt",
 };
 
-/** Trefferfläche von 44 px auch in der kompakten Zeile (Pseudo-Element wie bei den Filter-Chips). */
-const TARGET = "relative after:absolute after:-inset-y-2.5 after:-inset-x-1 after:content-['']";
-
 function RepoLink({ row }: { row: RepoRow }) {
   return (
     <Link
       href={repoDetailHref(row.fullName)}
-      className="font-medium text-rheinblau underline decoration-rheinblau/30 underline-offset-4 [overflow-wrap:anywhere] hover:decoration-rheinblau"
+      className={`${TOUCH_TARGET} font-medium text-rheinblau underline decoration-rheinblau/30 underline-offset-4 [overflow-wrap:anywhere] hover:decoration-rheinblau`}
     >
       {row.fullName}
     </Link>
@@ -59,7 +57,7 @@ function PartialError({ message }: { message: string }) {
 function LastJob({ row, now }: { row: RepoRow; now: Date }) {
   if (!row.lastJobAt) return <span className="text-sm text-ink-soft">Noch kein Lauf</span>;
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm whitespace-nowrap">
+    <span className="inline-flex flex-wrap items-center gap-1.5 text-sm md:whitespace-nowrap">
       <StatusIcon tone={RESULT_TONE[row.lastJobResult]} />
       <span className="sr-only">{RESULT_LABEL[row.lastJobResult]}, </span>
       <time dateTime={row.lastJobAt.toISOString()}>{formatRelative(row.lastJobAt, now)}</time>
@@ -72,7 +70,7 @@ function Count({ value, href, tone }: { value: number; href: string; tone?: Stat
   return (
     <Link
       href={href}
-      className={`${TARGET} inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 tabular-nums hover:text-rheinblau`}
+      className={`${TOUCH_TARGET} inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 tabular-nums hover:text-rheinblau`}
     >
       {tone ? <StatusIcon tone={tone} /> : null}
       {value}

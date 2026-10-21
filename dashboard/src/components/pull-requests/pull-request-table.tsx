@@ -13,6 +13,7 @@ import {
   UPDATE_TYPE_TONE,
 } from "@/domain/status-tone";
 import { ageInDays } from "@/lib/format";
+import { TOUCH_TARGET } from "@/lib/touch-target";
 import type { PullRequestRow } from "@/queries/pull-requests";
 import { PR_COMPARE, UPDATE_TYPE_RANK, ageLabel, isStale, versionJump } from "./pull-request-format";
 
@@ -20,7 +21,7 @@ function Title({ row }: { row: PullRequestRow }) {
   const jump = versionJump(row.title);
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2">
-      <ExternalLink href={row.url}>
+      <ExternalLink href={row.url} className={TOUCH_TARGET}>
         <span className="min-w-0 break-words">{row.title}</span>
       </ExternalLink>
       {jump ? <span className="font-mono text-xs text-ink-soft">{jump}</span> : null}
@@ -42,13 +43,13 @@ function Age({ row, now }: { row: PullRequestRow; now: Date }) {
   const label = ageLabel(days);
   if (isStale(row.updateType, days)) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-sm font-medium whitespace-nowrap text-status-warnung">
+      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-status-warnung md:whitespace-nowrap">
         <TriangleAlertIcon aria-hidden="true" strokeWidth={2.25} className="size-4 shrink-0" />
         {label}, hängt
       </span>
     );
   }
-  return <span className="text-sm whitespace-nowrap text-ink-soft">{label}</span>;
+  return <span className="text-sm text-ink-soft md:whitespace-nowrap">{label}</span>;
 }
 
 /**

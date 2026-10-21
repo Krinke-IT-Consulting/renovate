@@ -23,7 +23,7 @@ export function AutoOnboarding({ owners }: { owners: OwnerSetting[] }) {
         {owners.map((o) => (
           <li
             key={o.connectionId}
-            className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 rounded-xl bg-papier px-4 py-3 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]"
+            className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2 rounded-xl bg-papier px-4 py-3 shadow-karte"
           >
             <div className="min-w-0">
               <p className="font-semibold [overflow-wrap:anywhere]">{o.owner}</p>

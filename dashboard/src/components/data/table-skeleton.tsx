@@ -8,7 +8,7 @@ export function TableSkeleton({ rows = 8, label = "Liste wird geladen" }: { rows
           <div key={i} className="h-8 animate-pulse rounded-full bg-rheinblau-tief/8" style={{ width: w }} />
         ))}
       </div>
-      <div aria-hidden="true" className="overflow-hidden rounded-xl bg-papier shadow-[0_1px_2px_rgb(26_39_68/0.06)]">
+      <div aria-hidden="true" className="overflow-hidden rounded-xl bg-papier shadow-karte-flach">
         <div className="h-10 border-b border-border" />
         {Array.from({ length: rows }, (_, i) => (
           <div key={i} className="flex h-10 items-center gap-6 border-b border-border/70 px-3 last:border-b-0">

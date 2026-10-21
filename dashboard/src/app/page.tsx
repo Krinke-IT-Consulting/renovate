@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 function ReportParagraph({ segments }: { segments: ReportSegment[] }) {
   return (
-    <p className="max-w-[60ch] text-xl leading-relaxed text-ink text-pretty sm:text-2xl sm:leading-relaxed">
+    <p className="max-w-[60ch] text-xl break-words leading-relaxed text-ink text-pretty sm:text-2xl sm:leading-relaxed">
       {segments.map((s, i) =>
         "href" in s ? (
           <Link

@@ -6,6 +6,7 @@ import { ArrowRightIcon, CheckIcon, ExternalLinkIcon } from "lucide-react";
 import { OnboardingAction } from "@/components/actions/onboarding-action";
 import { StatusText } from "@/components/status/status";
 import { cn } from "@/lib/utils";
+import { TOUCH_TARGET } from "@/lib/touch-target";
 import { GROUP_TONE, STEP_GROUP_TITLE, STEP_GROUPS, mergeSteps, shortName, type Step, type StepGroup } from "@/domain/report";
 import { repoDetailHref } from "@/lib/repo-detail-href";
 import { safeExternalHref } from "@/lib/safe-external-href";
@@ -67,7 +68,7 @@ function ActionLink({ step, wide = false }: { step: ShownStep; wide?: boolean })
   const cls = cn(
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors",
     step.done
-      ? "text-ink-soft ring-1 ring-rheinblau-tief/15 ring-inset hover:text-rheinblau"
+      ? "text-ink-soft ring-1 ring-rheinblau-tief/55 ring-inset hover:text-rheinblau hover:ring-rheinblau"
       : "bg-olive text-papier hover:bg-rheinblau",
     wide && "w-full",
   );
@@ -101,11 +102,19 @@ function ActionLink({ step, wide = false }: { step: ShownStep; wide?: boolean })
 
 function StepBody({ step }: { step: ShownStep }) {
   return (
-    <div className={cn("min-w-0", step.done && "opacity-60")}>
-      <p className="text-base font-semibold text-ink">
+    <div className="min-w-0">
+      {/* Erledigt: keine Gruppen-Opacity, die Farben sind direkt gewählt (je Text mindestens 4,5:1). */}
+      <p className={cn("text-base font-semibold", step.done ? "text-ink-soft" : "text-ink")}>
         <span className="break-words">{step.title}</span>
         {step.version ? (
-          <span className="ml-2 font-mono text-sm font-medium text-rheinblau whitespace-nowrap">{step.version}</span>
+          <span
+            className={cn(
+              "ml-2 font-mono text-sm font-medium whitespace-nowrap",
+              step.done ? "text-ink-soft" : "text-rheinblau",
+            )}
+          >
+            {step.version}
+          </span>
         ) : null}
         {step.done ? <span className="ml-2 text-sm font-medium text-olive">Erledigt</span> : null}
       </p>
@@ -114,7 +123,11 @@ function StepBody({ step }: { step: ShownStep }) {
         <span aria-hidden="true">·</span>
         <Link
           href={repoDetailHref(step.repoFullName)}
-          className="font-medium text-ink underline decoration-rheinblau-tief/20 underline-offset-4 hover:text-rheinblau hover:decoration-rheinblau"
+          className={cn(
+            TOUCH_TARGET,
+            "font-medium underline decoration-rheinblau-tief/20 underline-offset-4 hover:text-rheinblau hover:decoration-rheinblau",
+            step.done ? "text-ink-soft" : "text-ink",
+          )}
         >
           {shortName(step.repoFullName)}
         </Link>
@@ -160,7 +173,7 @@ function GroupedSteps({ shown }: { shown: ShownStep[] }) {
                   <span className="pt-3">
                     <Node step={s} />
                   </span>
-                  <div className="flex min-w-0 flex-1 items-center gap-4 rounded-xl bg-papier px-4 py-3 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]">
+                  <div className="flex min-w-0 flex-1 items-center gap-4 rounded-xl bg-papier px-4 py-3 shadow-karte">
                     <div className="min-w-0 flex-1">
                       <span className="sr-only">Schritt {s.no}: </span>
                       <StepBody step={s} />
@@ -200,11 +213,11 @@ function SwipeSteps({ shown }: { shown: ShownStep[] }) {
         {shown.map((s) => (
           <li
             key={s.id}
-            className="relative flex min-h-72 w-[calc(100vw-3rem)] max-w-md shrink-0 snap-start flex-col rounded-xl bg-papier p-5 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]"
+            className="relative flex min-h-72 w-[calc(100vw-3rem)] max-w-md shrink-0 snap-start flex-col rounded-xl bg-papier p-5 shadow-karte"
           >
             <div className="flex items-center gap-3">
               <Node step={s} />
-              <span className="text-sm font-medium text-ink-soft">
+              <span className="min-w-0 text-sm font-medium text-ink-soft">
                 Schritt {s.no} von {shown.length} · {STEP_GROUP_TITLE[s.group]}
               </span>
             </div>

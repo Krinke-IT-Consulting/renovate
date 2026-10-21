@@ -74,7 +74,7 @@ const BASE =
 
 const VARIANT = {
   primary: "bg-olive text-papier hover:bg-rheinblau aria-disabled:hover:bg-olive",
-  quiet: "text-ink ring-1 ring-rheinblau-tief/25 ring-inset hover:text-rheinblau",
+  quiet: "text-ink ring-1 ring-rheinblau-tief/55 ring-inset hover:text-rheinblau hover:ring-rheinblau",
 } as const;
 
 function Message({ state, layout }: { state: ActionState; layout: "stack" | "row" }) {

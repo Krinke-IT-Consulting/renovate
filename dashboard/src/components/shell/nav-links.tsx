@@ -18,7 +18,7 @@ export function NavLinks({
 }) {
   const pathname = usePathname();
   return (
-    <ul className={cn("flex gap-1", orientation === "vertical" ? "flex-col" : "items-center")}>
+    <ul className={cn("flex gap-1", orientation === "vertical" ? "flex-col" : "flex-wrap items-center")}>
       {navItems.map((item) => {
         const active = isActive(pathname, item.href);
         return (
