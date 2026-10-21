@@ -997,6 +997,28 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
       expect(jobs.find((j) => j.ceJobId === "q-run")?.status).toBe("success");
     });
 
+    it("ein laufender Job in der Historie bleibt laufend und erzeugt kein Problem", async () => {
+      await seedGithub();
+      const history: CeJobReport[] = [
+        { jobId: "h-ok", reason: "hourly", status: "success", startedAt: "2026-10-15T06:00:00Z", completedAt: "2026-10-15T06:01:00Z" },
+        // CE führt einen gerade gestarteten Lauf bereits in der Historie, noch ohne Ende.
+        { jobId: "h-run", reason: "api-request", status: "running", startedAt: "2026-10-15T07:00:00Z" },
+      ];
+      const { client, getJobLog } = fakeCe({ history, repos: [{ name: "a", fullName: "acme/a", status: "onboarded" }] });
+      await runCeSync({ db, client });
+
+      const run = (await db.select().from(schema.renovateJobs)).find((j) => j.ceJobId === "h-run");
+      expect(run).toMatchObject({ status: "running", statusRaw: "running", trigger: "manual" });
+      expect(getJobLog).not.toHaveBeenCalled();
+
+      const [repo] = await db.select().from(schema.repositories);
+      expect(repo).toMatchObject({ lastJobResult: "success" });
+      expect(repo?.lastJobAt?.toISOString()).toBe("2026-10-15T06:01:00.000Z");
+
+      const open = (await db.select().from(schema.problems)).filter((p) => p.resolvedAt === null);
+      expect(open.map((p) => p.kind)).not.toContain("job_failed");
+    });
+
     it("vermerkt einen Repo-Fehler als Teilfehler und macht mit dem Rest weiter", async () => {
       const adapter = new FakeAdapter();
       adapter.addOwner("acme", 11, [makeRepo(1, "acme/a"), makeRepo(2, "acme/b")]);

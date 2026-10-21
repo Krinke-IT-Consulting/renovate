@@ -4,6 +4,7 @@ import { platformConnections, renovateJobs, repositories } from "@/db/schema";
 import {
   CeApiError,
   extractLogExcerpt,
+  isFinished,
   mapJobStatus,
   mapReasonToTrigger,
   type CeClient,
@@ -90,6 +91,8 @@ async function markVanishedJobs(
   now: Date,
   queueJobIds: ReadonlySet<string>,
   historyReadRepoIds: ReadonlySet<string>,
+  /** Jobs, die die Historie selbst noch als laufend oder wartend führt: nicht verschwunden. */
+  historyOpenJobIds: ReadonlySet<string>,
 ): Promise<void> {
   const open = await db
     .select({
@@ -105,7 +108,7 @@ async function markVanishedJobs(
     .innerJoin(repositories, eq(repositories.id, renovateJobs.repositoryId))
     .where(inArray(renovateJobs.status, ["queued", "running"]));
   const vanished = open.filter((j) => {
-    if (queueJobIds.has(j.ceJobId)) return false;
+    if (queueJobIds.has(j.ceJobId) || historyOpenJobIds.has(j.ceJobId)) return false;
     if (j.archived || j.removedAt !== null) return true;
     const since = (j.startedAt ?? j.createdAt).getTime();
     return historyReadRepoIds.has(j.repositoryId) && now.getTime() - since > VANISHED_JOB_AGE_MS;
@@ -237,11 +240,13 @@ export async function runCeSync(options: CeSyncOptions): Promise<CeSyncSummary> 
 
   // 3. Job-Historie je bekanntem, nicht archiviertem Repo (ohne mehrdeutige Namen).
   const historyReadRepoIds = new Set<string>();
+  const historyOpenJobIds = new Set<string>();
   for (const row of byFullName.values()) {
     if (row.archived) continue;
     try {
       const history = await client.listRepoJobs(row.fullName, JOB_HISTORY_LIMIT);
       for (const job of history) {
+        if (!isFinished(mapJobStatus(job.status))) historyOpenJobIds.add(job.jobId);
         const values = {
           trigger: mapReasonToTrigger(job.reason),
           reason: job.reason ?? null,
@@ -306,7 +311,7 @@ export async function runCeSync(options: CeSyncOptions): Promise<CeSyncSummary> 
       const finished = history
         .filter((j) => j.status !== "purged")
         .map((j) => ({ at: toDate(j.completedAt) ?? toDate(j.startedAt), status: mapJobStatus(j.status) }))
-        .filter((j): j is { at: Date; status: "success" | "failed" } => j.at !== null)
+        .filter((j): j is { at: Date; status: "success" | "failed" } => j.at !== null && isFinished(j.status))
         .sort((a, b) => b.at.getTime() - a.at.getTime())[0];
       if (finished) {
         await db
@@ -322,7 +327,7 @@ export async function runCeSync(options: CeSyncOptions): Promise<CeSyncSummary> 
   // 4. Verschwundene Jobs; nur mit vollständig gelesener Queue.
   if (queueJobIds) {
     try {
-      await markVanishedJobs(db, clock(), queueJobIds, historyReadRepoIds);
+      await markVanishedJobs(db, clock(), queueJobIds, historyReadRepoIds, historyOpenJobIds);
     } catch (e) {
       partialErrors.push({ repository: "(Verschwundene Jobs)", message: errorCategory(e) });
     }

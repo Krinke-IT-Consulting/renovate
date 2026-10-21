@@ -24,6 +24,12 @@ describe("mapReasonToTrigger", () => {
 describe("mapJobStatus", () => {
   it("success bleibt success", () => expect(mapJobStatus("success")).toBe("success"));
   it.each([
+    ["running", "running"],
+    ["processing", "running"],
+    ["queued", "queued"],
+    ["pending", "queued"],
+  ])("laufender bzw. wartender Job %s -> %s, nicht failed", (raw, state) => expect(mapJobStatus(raw)).toBe(state));
+  it.each([
     "cli-error", "unknown-error", "timeout", "worker-failure",
     "error-fetching-new-job", "access-token-error", "purged", "etwas-neues",
   ])("%s -> failed", (s) => expect(mapJobStatus(s)).toBe("failed"));
