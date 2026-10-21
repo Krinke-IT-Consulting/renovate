@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { createCeClient } from "./client";
+import { createCeClient, MAX_LOG_BYTES } from "./client";
 import { CeApiError } from "./errors";
 
 const fixture = JSON.parse(
@@ -68,6 +68,24 @@ describe("CE-Client", () => {
         : json({ orgs: [{ name: "A" }] }, { headers: { link: '<http://ce/api/v1/orgs?limit=100&cursor=n1>; rel="next"' } }),
     );
     expect((await client(fetchFn).listOrgs()).map((o) => o.name)).toEqual(["A", "B"]);
+  });
+
+  it("begrenzt das Log auf das Ende (2 MB) und verwirft die angeschnittene erste Zeile", async () => {
+    const lineText = `${"a".repeat(99)}\n`;
+    const count = Math.ceil((MAX_LOG_BYTES * 3) / lineText.length);
+    const big = `ANFANG\n${lineText.repeat(count)}ENDE`;
+    const { fetchFn } = mock(() => new Response(big, { status: 200 }));
+    const text = await client(fetchFn).getJobLog("big");
+    expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(MAX_LOG_BYTES);
+    expect(text.endsWith("ENDE")).toBe(true);
+    expect(text).not.toContain("ANFANG");
+    // Erste Zeile ist vollständig, nicht angeschnitten.
+    expect(text.split("\n")[0]).toHaveLength(99);
+  });
+
+  it("liefert ein kleines Log unverändert", async () => {
+    const { fetchFn } = mock(() => new Response("kurz\nlog", { status: 200 }));
+    expect(await client(fetchFn).getJobLog("k")).toBe("kurz\nlog");
   });
 
   it("liefert das Log als Text", async () => {

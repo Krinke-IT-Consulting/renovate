@@ -239,6 +239,12 @@ wird `getJobLog(ceJobId)` aufgerufen (`GET /system/v1/jobs/logs/{jobId}`). Begre
 - Antwort `404` oder `410`: Der Auszug wird leer gesetzt (`""`) und nicht erneut versucht. Ein leerer Auszug heißt:
   abgerufen, nichts Verwertbares.
 - Anderer Fehler: Ein Teilfehler je Repo (`Log: <Kategorie>`), der Versuch wird im nächsten Durchlauf wiederholt.
+  Nach 3 Fehlversuchen je Job (`MAX_LOG_ATTEMPTS`) wird endgültig aufgegeben: `log_excerpt = ""` und der Teilfehler
+  `Log aufgegeben nach 3 Fehlversuchen: <Kategorie>`. Die Zähler liegen nur im Prozess (`Map` in `ce-sync.ts`), das Schema
+  bleibt unverändert; nach einem Neustart beginnt die Zählung von vorn. Ein erfolgreicher Abruf löscht den Zähler.
+- **Größengrenze beim Abruf** (`getJobLog`, `src/ce/client.ts`): Der Body wird über den Stream-Reader gelesen und auf
+  höchstens 2 MB begrenzt (`MAX_LOG_BYTES`). Ist das Log größer, bleibt das **Ende**, weil der Auszug ohnehin die letzten
+  Zeilen nimmt und der Fehlergrund am Schluss des Laufs steht. Die angeschnittene erste Zeile entfällt.
 
 Aufbereitung (`src/ce/log-excerpt.ts`, `extractLogExcerpt`):
 
@@ -247,6 +253,12 @@ Aufbereitung (`src/ce/log-excerpt.ts`, `extractLogExcerpt`):
 - Je Zeile bleiben `time` (als `HH:MM:SS` in UTC), das Level als `WARN`, `ERROR` oder `FATAL`, `msg`, sowie `err.name` und `err.message`.
 - Felder, deren Name `token`, `password`, `secret` oder `key` enthält (ohne Beachtung der Groß- und Kleinschreibung), werden
   rekursiv entfernt.
+- **Maskierung im Text** (`maskSecrets`): In `msg`, `err.name` und `err.message` werden gängige Muster durch `***` ersetzt:
+  GitHub-Tokens (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`), `x-access-token:<…>@`, Zugangsdaten in URLs
+  (`//user:pass@`), `Bearer <token>`, `Authorization: token <token>` und private Schlüsselblöcke (`-----BEGIN … PRIVATE KEY-----`
+  bis `END`, ohne `END` bis zum Ende der Meldung). Die Maskierung läuft vor der Kürzung.
+- **Kürzung je Zeile**: Jede Ausgabezeile wird auf 2000 Zeichen gekürzt (`LOG_MAX_LINE_CHARS`), mit `…` am Ende. So kann eine
+  einzelne lange Zeile den Auszug nicht leeren: Gibt es verwertbare Zeilen, ist das Ergebnis nie leer.
 - Es bleiben höchstens die letzten 200 Zeilen und höchstens 16 KB, von hinten aufgefüllt.
 
 **Letzter Lauf.** `lastJobAt` und `lastJobResult` kommen aus dem jüngsten beendeten Lauf der Historie (`success` oder
@@ -382,7 +394,7 @@ Der Stempel steht im Layout (`src/app/layout.tsx`, Daten über `loadSyncStamp`).
 - `src/sync/sync.test.ts`: Integrationstests gegen Postgres (ohne `DATABASE_URL` übersprungen). Sie decken Sperren,
   Teilfehler, Head-SHA-Gating, Pause, Rollout-Nachzug, Auto-Onboarding, CE-Historie, Log-Auszug und verschwundene Läufe ab.
 - `src/platform/github/adapter.test.ts` (mit msw), `src/platform/refresh.test.ts`: Head-SHA, ETag, Kontingent.
-- `src/ce/*.test.ts`: Mapping, Log-Auszug und Client gegen aufgezeichnete Antworten (`src/ce/__fixtures__/recorded-2026-10-15.json`).
+- `src/ce/*.test.ts`: Mapping, Log-Auszug (Kürzung, Maskierung) und Client (Größengrenze) gegen aufgezeichnete Antworten (`src/ce/__fixtures__/recorded-2026-10-15.json`).
 - `src/domain/*.test.ts`: Ableitungen und Probleme.
 
 Details zu Fixtures und Befehlen stehen in `tests-und-fixtures.md`.
