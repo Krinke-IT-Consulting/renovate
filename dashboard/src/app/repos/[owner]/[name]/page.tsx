@@ -4,6 +4,7 @@ import { ExternalLink } from "@/components/data/external-link";
 import { JobTable } from "@/components/jobs/job-table";
 import { ProblemGroups } from "@/components/problems/problem-groups";
 import { PullRequestTable } from "@/components/pull-requests/pull-request-table";
+import { RepoActions } from "@/components/repos/repo-actions";
 import { RepoSteps } from "@/components/repos/repo-steps";
 import { RolloutTable } from "@/components/repos/rollout-table";
 import { StatusBadge, StatusIcon, StatusText } from "@/components/status/status";
@@ -178,6 +179,8 @@ export default async function Page({
             )}
           </Fact>
         </dl>
+
+        <RepoActions repo={repo} />
       </header>
 
       <Section id="zu-tun" title="Was hier zu tun ist" count={repo.steps.length || undefined}>

@@ -117,7 +117,7 @@ export async function loadOverview(db: Db, now = new Date()): Promise<OverviewDa
       }),
     }));
 
-  const repos: ReportRepo[] = repoRows.map((r) => ({ fullName: r.fullName, onboarding: r.onboarding, archived: r.archived }));
+  const repos: ReportRepo[] = repoRows.map((r) => ({ id: r.id, fullName: r.fullName, onboarding: r.onboarding, archived: r.archived }));
   const activeRepos = repoRows.filter((r) => !r.archived);
 
   return {

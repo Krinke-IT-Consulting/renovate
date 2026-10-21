@@ -40,3 +40,14 @@ export async function seed(options: SeedOptions = {}): Promise<void> {
     await pool.end();
   }
 }
+
+/** Einzelne Abfrage gegen die Wegwerf-Datenbank (Prüfung von audit_log und Problemen in den Tests). */
+export async function queryE2e<T extends Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
+  const client = new Client({ connectionString: e2eDatabaseUrl() });
+  await client.connect();
+  try {
+    return (await client.query(text, params)).rows as T[];
+  } finally {
+    await client.end();
+  }
+}

@@ -198,12 +198,12 @@
 
 ## 7. Aktionen
 
-- [ ] 7.1 Bestätigungsdialog, Server Actions, AuditLog in derselben Transaktion, Meldung mit Link
+- [x] 7.1 Bestätigungsdialog, Server Actions, AuditLog in derselben Transaktion, Meldung mit Link
   oder Fehler. Fertig, wenn ein Test „Abgebrochene Bestätigung“ ohne AuditLog-Eintrag zeigt.
-- [ ] 7.2 Läufe anstoßen, für ein Repo und für alle, über `POST /system/v1/jobs/add`. Fertig, wenn
+- [x] 7.2 Läufe anstoßen, für ein Repo und für alle, über `POST /system/v1/jobs/add`. Fertig, wenn
   Tests mit aufgezeichneten Antworten Einzel- und Sammellauf abdecken und `unchanged` keinen
   zweiten Eintrag erzeugt.
-- [ ] 7.3 Onboarding-PR laut Entscheidung 10:
+- [x] 7.3 Onboarding-PR laut Entscheidung 10:
   - Vorlagen aus diesem Repo
   - ein Commit über die Git-Data-API, Branch `renovate-platform/onboarding`
   - Idempotenz, Aufräumen im Fehlerfall
@@ -212,10 +212,10 @@
 
   Fertig, wenn msw-Tests vier Fälle abdecken: Erfolg, „Wiederholter Klick“, „Fehlende Rechte“ und
   Aufräumen des Branches.
-- [ ] 7.4 Build-Check nachträglich ausrollen (Branch `renovate-platform/build-check`) und
+- [x] 7.4 Build-Check nachträglich ausrollen (Branch `renovate-platform/build-check`) und
   Markierung „eigene CI“ setzen bzw. aufheben. Fertig, wenn Tests Rollout und Markierung abdecken
   und `missing_build_check` bei „eigene CI“ verschwindet.
-- [ ] 7.5 Schalter für automatisches Onboarding je Owner, Standard aus. Er wirkt nur für Repos mit
+- [x] 7.5 Schalter für automatisches Onboarding je Owner, Standard aus. Er wirkt nur für Repos mit
   `first_seen_at > auto_onboarding_enabled_at`, mit höchstens fünf PRs pro Durchlauf. Ein
   geschlossener Auto-PR wird nicht wiederholt. Fertig, wenn Tests die Scenarios
   „Neues Repo bei eingeschaltetem Schalter“ und „Geschlossener Onboarding-PR“ abdecken.

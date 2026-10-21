@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, CheckIcon, ExternalLinkIcon } from "lucide-react";
+import { OnboardingAction } from "@/components/actions/onboarding-action";
 import { StatusText } from "@/components/status/status";
 import { cn } from "@/lib/utils";
 import { GROUP_TONE, STEP_GROUP_TITLE, STEP_GROUPS, mergeSteps, shortName, type Step, type StepGroup } from "@/domain/report";
@@ -53,6 +54,16 @@ function Node({ step }: { step: ShownStep }) {
 
 function ActionLink({ step, wide = false }: { step: ShownStep; wide?: boolean }) {
   const { action } = step;
+  if (action.kind === "onboarding") {
+    return (
+      <OnboardingAction
+        repositoryId={action.repositoryId}
+        repoFullName={action.repoFullName}
+        variant={step.done ? "quiet" : "primary"}
+        wide={wide}
+      />
+    );
+  }
   const cls = cn(
     "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors",
     step.done

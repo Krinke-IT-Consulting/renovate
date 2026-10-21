@@ -10,7 +10,14 @@ import {
   expect,
   it,
 } from "vitest";
-import { PlatformApiError, RateLimitPause } from "../errors";
+import {
+  PlatformApiError,
+  PlatformFilesExistError,
+  PlatformLeftoverBranchError,
+  PlatformPermissionError,
+  PlatformRejectedError,
+  RateLimitPause,
+} from "../errors";
 import {
   API,
   APP_SLUG,
@@ -806,5 +813,464 @@ describe("Review Phase 5: Adapter-Verhalten", () => {
     const big = makeAdapter();
     await big.listRepositories(conn);
     await expect(big.listRepositories(conn)).rejects.toBeInstanceOf(RateLimitPause);
+  });
+});
+
+describe("Rollout: Schreibzugriffe und Vorlagen", () => {
+  const base = `${API}/repos/${REPO.fullName}`;
+
+  it("findOpenChangeRequest filtert über den Head-Branch und liefert null ohne Treffer", async () => {
+    let head = "";
+    server.use(
+      http.get(`${base}/pulls`, ({ request }) => {
+        head = new URL(request.url).searchParams.get("head") ?? "";
+        return HttpResponse.json([
+          {
+            number: 4,
+            html_url: "https://example.test/pull/4",
+            head: { ref: "renovate-platform/onboarding", sha: "x" },
+          },
+        ]);
+      }),
+    );
+    const adapter = makeAdapter();
+    expect(
+      await adapter.findOpenChangeRequest(conn, REPO, "renovate-platform/onboarding"),
+    ).toEqual({ number: 4, url: "https://example.test/pull/4" });
+    expect(head).toBe("Krinke-IT-Consulting:renovate-platform/onboarding");
+    expect(await adapter.findOpenChangeRequest(conn, REPO, "anderer-branch")).toBeNull();
+  });
+
+  it("deleteBranch löscht den Ref; ein fehlender Branch (404 oder 422) ist kein Fehler", async () => {
+    let status = 204;
+    server.use(
+      http.delete(`${base}/git/refs/heads/renovate-platform/onboarding`, () =>
+        status === 204
+          ? new HttpResponse(null, { status })
+          : HttpResponse.json({ message: "Reference does not exist" }, { status }),
+      ),
+    );
+    const adapter = makeAdapter();
+    for (status of [204, 422, 404]) {
+      await expect(
+        adapter.deleteBranch(conn, REPO, "renovate-platform/onboarding"),
+      ).resolves.toBeUndefined();
+    }
+  });
+
+  it("deleteBranch lehnt unsichere Branchnamen ab, ohne etwas anzufragen", async () => {
+    await expect(
+      makeAdapter().deleteBranch(conn, REPO, "../../orgs/x"),
+    ).rejects.toBeInstanceOf(PlatformApiError);
+  });
+
+  it("readTemplate liest die Vorlage aus dem Quell-Repo (Default-Branch), mit kurzem Cache", async () => {
+    server.use(http.get(`${API}/app/installations`, () => HttpResponse.json(installations)));
+    let reads = 0;
+    let ref: string | null = "unset";
+    server.use(
+      http.get(
+        `${API}/repos/Krinke-IT-Consulting/renovate/contents/templates/renovate.json`,
+        ({ request }) => {
+          reads++;
+          ref = new URL(request.url).searchParams.get("ref");
+          return HttpResponse.json(fileBody('{"extends":[]}'));
+        },
+      ),
+    );
+    let now = 1_000_000;
+    const adapter = makeAdapter(() => now);
+    const file = await adapter.readTemplate("renovate-config");
+    expect(file).toEqual({ path: "renovate.json", content: '{"extends":[]}' });
+    expect(ref).toBeNull();
+    await adapter.readTemplate("renovate-config");
+    expect(reads).toBe(1);
+    now += 6 * 60 * 1000;
+    await adapter.readTemplate("renovate-config");
+    expect(reads).toBe(2);
+  });
+
+  it("readTemplate ohne Installation des Quell-Repos wirft einen Plattform-Fehler", async () => {
+    server.use(http.get(`${API}/app/installations`, () => HttpResponse.json([])));
+    await expect(makeAdapter().readTemplate("build-check-caller")).rejects.toMatchObject({
+      name: "PlatformRejectedError",
+      userMessage: "Das Vorlagen-Repo Krinke-IT-Consulting/renovate ist für die GitHub App nicht lesbar.",
+    });
+  });
+
+  it("createChangeRequest: Fehlermeldungen tragen weder Token noch Antworttext", async () => {
+    server.use(
+      http.get(`${base}/commits/main`, () => new HttpResponse(HEAD_SHA)),
+      http.get(`${base}/git/commits/${HEAD_SHA}`, () =>
+        HttpResponse.json({ sha: HEAD_SHA, tree: { sha: "t0" } }),
+      ),
+      http.get(`${base}/contents/*`, () => HttpResponse.json({ message: "Not Found" }, { status: 404 })),
+      http.post(`${base}/git/trees`, () =>
+        HttpResponse.json({ message: "Geheimtext ghs_fixture_token" }, { status: 500 }),
+      ),
+    );
+    const err = await makeAdapter()
+      .createChangeRequest(conn, REPO, {
+        branch: "renovate-platform/onboarding",
+        baseBranch: "main",
+        title: "t",
+        body: "b",
+        files: [{ path: "renovate.json", content: "{}" }],
+      })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PlatformApiError);
+    expect(String((err as Error).message)).not.toMatch(/ghs_|Geheimtext/);
+  });
+});
+
+describe("Review Phase 7: Rollout-Adapter", () => {
+  const base = `${API}/repos/${REPO.fullName}`;
+  const BRANCH = "renovate-platform/onboarding";
+  const request = {
+    branch: BRANCH,
+    baseBranch: "main",
+    title: "t",
+    body: "b",
+    files: [
+      { path: "renovate.json", content: "{}" },
+      { path: ".github/workflows/build-check.yml", content: "name: x\n" },
+    ],
+  };
+
+  type Hooks = {
+    existing?: Record<string, string>;
+    refStatuses?: number[];
+    openPulls?: () => { number: number; html_url: string; head: { ref: string; sha: string } }[];
+    pr?: () => Response;
+    deleteRef?: () => Response;
+    commitsMain?: () => Response;
+    tree?: () => Response;
+  };
+  let seen: string[];
+  let contentRefs: string[];
+  let refCalls: number;
+
+  function setup(h: Hooks = {}) {
+    seen = [];
+    contentRefs = [];
+    refCalls = 0;
+    const note = (r: Request) => seen.push(`${r.method} ${decodeURIComponent(new URL(r.url).pathname).slice(`/repos/${REPO.fullName}`.length)}`);
+    server.use(
+      http.get(`${base}/commits/main`, ({ request: r }) => {
+        note(r);
+        return h.commitsMain?.() ?? new HttpResponse(HEAD_SHA);
+      }),
+      http.get(`${base}/git/commits/${HEAD_SHA}`, () => HttpResponse.json({ sha: HEAD_SHA, tree: { sha: "t0" } })),
+      http.get(`${base}/contents/*`, ({ request: r }) => {
+        note(r);
+        contentRefs.push(new URL(r.url).searchParams.get("ref") ?? "");
+        const path = decodeURIComponent(new URL(r.url).pathname.slice(`/repos/${REPO.fullName}/contents/`.length));
+        const content = h.existing?.[path];
+        return content === undefined
+          ? HttpResponse.json({ message: "Not Found" }, { status: 404 })
+          : HttpResponse.json(fileBody(content));
+      }),
+      http.post(`${base}/git/trees`, ({ request: r }) => {
+        note(r);
+        return h.tree?.() ?? HttpResponse.json({ sha: "t1" }, { status: 201 });
+      }),
+      http.post(`${base}/git/commits`, () => HttpResponse.json({ sha: "c1" }, { status: 201 })),
+      http.post(`${base}/git/refs`, ({ request: r }) => {
+        note(r);
+        const status = h.refStatuses?.[refCalls++] ?? 201;
+        return HttpResponse.json(status === 201 ? { ref: "x" } : { message: "Reference already exists" }, { status });
+      }),
+      http.get(`${base}/pulls`, ({ request: r }) => {
+        note(r);
+        return HttpResponse.json(h.openPulls?.() ?? []);
+      }),
+      http.post(`${base}/pulls`, ({ request: r }) => {
+        note(r);
+        return h.pr?.() ?? HttpResponse.json({ number: 9, html_url: "https://example.test/pull/9" }, { status: 201 });
+      }),
+      http.delete(`${base}/git/refs/heads/${BRANCH}`, ({ request: r }) => {
+        note(r);
+        return h.deleteRef?.() ?? new HttpResponse(null, { status: 204 });
+      }),
+    );
+  }
+  const count = (entry: string) => seen.filter((x) => x === entry).length;
+  const openPull = (n: number) => [{ number: n, html_url: `https://example.test/pull/${n}`, head: { ref: BRANCH, sha: "x" } }];
+
+  describe("G1: sekundäres Rate-Limit", () => {
+    const secondary = () =>
+      HttpResponse.json({ message: "You have exceeded a secondary rate limit. Please wait a few minutes." }, { status: 403 });
+
+    it("403 mit Rate-Limit-Text ohne Retry-After ist eine Pause von mindestens 60 s, kein Rechtefehler", async () => {
+      server.use(http.get(`${API}/installation/repositories`, secondary));
+      let now = 5_000_000;
+      const adapter = makeAdapter(() => now);
+      const err = await adapter.listRepositories(conn).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(RateLimitPause);
+      expect((err as RateLimitPause).resetAt!.getTime()).toBeGreaterThanOrEqual(now + 60_000);
+      // Folgeaufrufe pausieren, bis die Zeit um ist.
+      await expect(adapter.listRepositories(conn)).rejects.toBeInstanceOf(RateLimitPause);
+      now += 61_000;
+      server.use(http.get(`${API}/installation/repositories`, () => HttpResponse.json(installationRepositories)));
+      await expect(adapter.listRepositories(conn)).resolves.toHaveLength(2);
+    });
+
+    it("auch 429 und auch beim Schreiben (kein PlatformPermissionError)", async () => {
+      setup({ tree: () => HttpResponse.json({ message: "You have exceeded a secondary rate limit" }, { status: 429 }) });
+      await expect(makeAdapter().createChangeRequest(conn, REPO, request)).rejects.toBeInstanceOf(RateLimitPause);
+    });
+
+    it("403 ohne Rate-Limit-Text bleibt ein Rechtefehler", async () => {
+      setup({ tree: () => HttpResponse.json({ message: "Resource not accessible by integration" }, { status: 403 }) });
+      await expect(makeAdapter().createChangeRequest(conn, REPO, request)).rejects.toBeInstanceOf(PlatformPermissionError);
+    });
+  });
+
+  describe("G2: Aufräumen nach dem Ref", () => {
+    it("der Cleanup läuft an der Kontingent-Pause vorbei, genau ein Aufruf", async () => {
+      // Die Antwort des PR-Aufrufs meldet fast leeres Kontingent: Lesen pausiert danach, das Aufräumen nicht.
+      setup({
+        pr: () =>
+          HttpResponse.json(
+            { message: "Resource not accessible by integration" },
+            {
+              status: 403,
+              headers: { "x-ratelimit-remaining": "5", "x-ratelimit-limit": "5000", "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 3600) },
+            },
+          ),
+      });
+      const adapter = makeAdapter();
+      await expect(adapter.createChangeRequest(conn, REPO, request)).rejects.toBeInstanceOf(PlatformPermissionError);
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(1);
+      // Der Adapter pausiert weiterhin für normale Aufrufe.
+      await expect(adapter.findOpenChangeRequest(conn, REPO, BRANCH)).rejects.toBeInstanceOf(RateLimitPause);
+    });
+
+    it("scheitert das Löschen, nennt der Fehler den Rest-Branch und trägt die Ursache", async () => {
+      setup({
+        pr: () => HttpResponse.json({ message: "Resource not accessible by integration" }, { status: 403 }),
+        deleteRef: () => HttpResponse.json({ message: "Geheimtext ghs_fixture_token" }, { status: 500 }),
+      });
+      const err = await makeAdapter().createChangeRequest(conn, REPO, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformLeftoverBranchError);
+      expect((err as PlatformLeftoverBranchError).branch).toBe(BRANCH);
+      expect((err as PlatformLeftoverBranchError).original).toBeInstanceOf(PlatformPermissionError);
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(1);
+      expect(String((err as Error).message)).not.toMatch(/ghs_|Geheimtext/);
+    });
+  });
+
+  describe("G3: nur Rollout-Branches", () => {
+    it("deleteBranch und createChangeRequest lehnen fremde Branches ab, ohne etwas anzufragen", async () => {
+      setup();
+      const adapter = makeAdapter();
+      for (const branch of ["main", "renovate/lodash-4.x", "feature/x", "renovate-platform/", "renovate-platform/../main"]) {
+        await expect(adapter.deleteBranch(conn, REPO, branch)).rejects.toBeInstanceOf(PlatformApiError);
+        await expect(adapter.createChangeRequest(conn, REPO, { ...request, branch })).rejects.toBeInstanceOf(PlatformApiError);
+      }
+      expect(seen).toEqual([]);
+    });
+
+    it("Ref-422 mit offenem PR: PR zurückgeben, Branch nicht löschen", async () => {
+      setup({ refStatuses: [422], openPulls: () => openPull(5) });
+      const pr = await makeAdapter().createChangeRequest(conn, REPO, request);
+      expect(pr).toEqual({ number: 5, url: "https://example.test/pull/5" });
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(0);
+      expect(count("POST /pulls")).toBe(0);
+    });
+
+    it("Ref-422 ohne offenen PR: Rest ersetzen (löschen, neu anlegen, PR)", async () => {
+      setup({ refStatuses: [422, 201] });
+      const pr = await makeAdapter().createChangeRequest(conn, REPO, request);
+      expect(pr.number).toBe(9);
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(1);
+      expect(count("POST /git/refs")).toBe(2);
+    });
+  });
+
+  describe("G4: mehrdeutiger Fehler beim PR-Anlegen", () => {
+    for (const status of [500, 502, 422]) {
+      it(`Status ${status}: gibt es den PR trotzdem, wird er zurückgegeben und der Branch nicht gelöscht`, async () => {
+        let created = false;
+        setup({
+          pr: () => {
+            created = true;
+            return HttpResponse.json({ message: "x" }, { status });
+          },
+          openPulls: () => (created ? openPull(12) : []),
+        });
+        expect(await makeAdapter().createChangeRequest(conn, REPO, request)).toEqual({
+          number: 12,
+          url: "https://example.test/pull/12",
+        });
+        expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(0);
+      });
+    }
+
+    it("ohne PR: genau eine Suche, dann Cleanup und der ursprüngliche Fehler", async () => {
+      setup({ pr: () => HttpResponse.json({ message: "x" }, { status: 500 }) });
+      const err = await makeAdapter().createChangeRequest(conn, REPO, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformApiError);
+      expect((err as PlatformApiError).status).toBe(500);
+      expect(count("GET /pulls")).toBe(1);
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(1);
+    });
+
+    it("scheitert die Suche selbst, bleibt der Branch (Zustand unklar) und der Fehler nennt ihn", async () => {
+      let posted = false;
+      setup({ pr: () => ((posted = true), HttpResponse.json({ message: "x" }, { status: 500 })) });
+      server.use(http.get(`${base}/pulls`, () => HttpResponse.json({ message: "x" }, { status: 500 })));
+      const err = await makeAdapter().createChangeRequest(conn, REPO, request).catch((e: unknown) => e);
+      expect(posted).toBe(true);
+      expect(err).toBeInstanceOf(PlatformLeftoverBranchError);
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(0);
+    });
+
+    it("eindeutige Ablehnung (403): keine Suche, direkt Cleanup", async () => {
+      setup({ pr: () => HttpResponse.json({ message: "Resource not accessible by integration" }, { status: 403 }) });
+      await expect(makeAdapter().createChangeRequest(conn, REPO, request)).rejects.toBeInstanceOf(PlatformPermissionError);
+      expect(count("GET /pulls")).toBe(0);
+      expect(count(`DELETE /git/refs/heads/${BRANCH}`)).toBe(1);
+    });
+  });
+
+  describe("G5: vorhandene Dateien live prüfen", () => {
+    it("liest jede Datei zum Base-Commit (404 zulässig) und schreibt alles, wenn nichts da ist", async () => {
+      setup();
+      await makeAdapter().createChangeRequest(conn, REPO, request);
+      expect(contentRefs).toEqual([HEAD_SHA, HEAD_SHA]);
+      expect(seen.filter((x) => x.startsWith("GET /contents/"))).toEqual([
+        "GET /contents/renovate.json",
+        "GET /contents/.github/workflows/build-check.yml",
+      ]);
+    });
+
+    it("gleicher Inhalt wird übersprungen", async () => {
+      let treeBody: { tree: { path: string }[] } | undefined;
+      setup({ existing: { "renovate.json": "{}" } });
+      server.use(
+        http.post(`${base}/git/trees`, async ({ request: r }) => {
+          treeBody = (await r.clone().json()) as { tree: { path: string }[] };
+          return HttpResponse.json({ sha: "t1" }, { status: 201 });
+        }),
+      );
+      await makeAdapter().createChangeRequest(conn, REPO, request);
+      expect(treeBody!.tree.map((t) => t.path)).toEqual([".github/workflows/build-check.yml"]);
+    });
+
+    it("alles schon gleich: PlatformFilesExistError ohne Schreibaufruf", async () => {
+      setup({ existing: { "renovate.json": "{}", ".github/workflows/build-check.yml": "name: x\n" } });
+      const err = await makeAdapter().createChangeRequest(conn, REPO, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformFilesExistError);
+      expect(err).toMatchObject({ identical: ["renovate.json", ".github/workflows/build-check.yml"], differing: [] });
+      expect(seen.filter((x) => x.startsWith("POST"))).toEqual([]);
+    });
+
+    it("abweichender Inhalt: PlatformFilesExistError, nichts wird überschrieben", async () => {
+      setup({ existing: { ".github/workflows/build-check.yml": "name: eigene CI\n" } });
+      const err = await makeAdapter().createChangeRequest(conn, REPO, request).catch((e: unknown) => e);
+      expect(err).toMatchObject({ identical: [], differing: [".github/workflows/build-check.yml"] });
+      expect(seen.filter((x) => x.startsWith("POST"))).toEqual([]);
+    });
+  });
+
+  describe("G6: Vorlagen", () => {
+    const templatePath = `${API}/repos/Krinke-IT-Consulting/renovate/contents/templates/renovate.json`;
+    const message = "Das Vorlagen-Repo Krinke-IT-Consulting/renovate ist für die GitHub App nicht lesbar.";
+
+    it("404 mit gemerkter Installation: Scope verwerfen und einmal neu auflösen", async () => {
+      let listings = 0;
+      let reads = 0;
+      server.use(
+        http.get(`${API}/app/installations`, () => {
+          listings++;
+          return HttpResponse.json(installations);
+        }),
+        // Zweiter Abruf: 404 (die gemerkte Installation enthält das Repo nicht mehr), danach wieder lesbar.
+        http.get(templatePath, () =>
+          ++reads === 2 ? HttpResponse.json({ message: "Not Found" }, { status: 404 }) : HttpResponse.json(fileBody("{}")),
+        ),
+      );
+      let now = 1_000_000;
+      const adapter = makeAdapter(() => now);
+      await adapter.readTemplate("renovate-config");
+      expect(listings).toBe(1);
+      now += 6 * 60_000;
+      await expect(adapter.readTemplate("renovate-config")).resolves.toEqual({ path: "renovate.json", content: "{}" });
+      expect(listings).toBe(2);
+      expect(reads).toBe(3);
+    });
+
+    it("bleibt es bei 404, gibt es den eigenen Text und genau eine neue Auflösung", async () => {
+      let listings = 0;
+      server.use(
+        http.get(`${API}/app/installations`, () => {
+          listings++;
+          return HttpResponse.json(installations);
+        }),
+        http.get(templatePath, () => HttpResponse.json({ message: "Not Found" }, { status: 404 })),
+      );
+      const adapter = makeAdapter();
+      await expect(adapter.readTemplate("renovate-config")).rejects.toMatchObject({ userMessage: message });
+      expect(listings).toBe(1);
+      await expect(adapter.readTemplate("renovate-config")).rejects.toBeInstanceOf(PlatformRejectedError);
+      expect(listings).toBe(2);
+    });
+
+    it("gemerkter Scope, Repo plötzlich 404: einmal neu auflösen, dann der eigene Text", async () => {
+      let listings = 0;
+      let readable = true;
+      server.use(
+        http.get(`${API}/app/installations`, () => {
+          listings++;
+          return HttpResponse.json(installations);
+        }),
+        http.get(templatePath, () => (readable ? HttpResponse.json(fileBody("{}")) : HttpResponse.json({ message: "Not Found" }, { status: 404 }))),
+      );
+      let now = 1_000_000;
+      const adapter = makeAdapter(() => now);
+      await adapter.readTemplate("renovate-config");
+      readable = false;
+      now += 6 * 60_000;
+      await expect(adapter.readTemplate("renovate-config")).rejects.toMatchObject({ userMessage: message });
+      expect(listings).toBe(2);
+    });
+  });
+
+  describe("G8: Meldungen", () => {
+    it("leeres Repo: eigener Text statt Status 409", async () => {
+      setup({ commitsMain: () => HttpResponse.json({ message: "Git Repository is empty." }, { status: 409 }) });
+      await expect(makeAdapter().createChangeRequest(conn, REPO, request)).rejects.toMatchObject({
+        name: "PlatformRejectedError",
+        userMessage: "Das Repo hat noch keinen Commit; ein Onboarding-PR ist erst danach möglich.",
+      });
+    });
+
+    it("404 beim Schreiben: Repo nicht gefunden oder nicht in der Installation, kein Rechtefehler", async () => {
+      setup({ tree: () => HttpResponse.json({ message: "Not Found" }, { status: 404 }) });
+      const err = await makeAdapter().createChangeRequest(conn, REPO, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformRejectedError);
+      expect(err).not.toBeInstanceOf(PlatformPermissionError);
+      expect((err as PlatformRejectedError).userMessage).toBe("Repo nicht gefunden oder nicht in der Installation.");
+    });
+
+    it("403 mit Ruleset- oder Branch-Schutz-Text: Meldung zur Branch-Regel", async () => {
+      for (const text of [
+        "Repository rule violations found\n\nCannot create ref due to creations being restricted.",
+        "Protected branch update failed",
+      ]) {
+        setup({ refStatuses: [403], tree: undefined });
+        server.use(http.post(`${base}/git/refs`, () => HttpResponse.json({ message: text }, { status: 403 })));
+        await expect(makeAdapter().createChangeRequest(conn, REPO, request)).rejects.toMatchObject({
+          userMessage: "Eine Branch-Regel verhindert das Anlegen von `renovate-platform/…`.",
+        });
+      }
+    });
+
+    it("akzeptiert eine ConnectionRef (ohne Owner-Typ) für getHeadSha", async () => {
+      setup();
+      const ref = { externalConnectionId: String(INSTALLATION_ID), ownerName: "Krinke-IT-Consulting" };
+      await expect(makeAdapter().getHeadSha(ref, REPO)).resolves.toBe(HEAD_SHA);
+    });
   });
 });

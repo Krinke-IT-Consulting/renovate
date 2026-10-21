@@ -114,8 +114,9 @@ test.describe("Repo-Detail", () => {
     for (const name of ["Offene PRs", "Letzte Jobs", "Probleme", "Rollout-Aktionen"]) {
       await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^${name}`) })).toBeVisible();
     }
-    // Keine Aktions-Knöpfe vor Phase 7.
-    await expect(page.getByRole("button", { name: /Lauf starten|Onboarding|ausrollen/ })).toHaveCount(0);
+    // kasse ist onboardet und hat den Build-Check: nur "Lauf starten", kein Onboarding- oder Rollout-Knopf.
+    await expect(page.getByRole("button", { name: "Lauf starten" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Onboarding|ausrollen/ })).toHaveCount(0);
   });
 
   test("leeres-repo: Noch kein Lauf, Nichts zu tun", async ({ page }) => {

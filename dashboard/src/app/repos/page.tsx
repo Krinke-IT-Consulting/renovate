@@ -1,3 +1,4 @@
+import { AutoOnboarding } from "@/components/repos/auto-onboarding";
 import { FilterBar, FilterChips, type ChipOption } from "@/components/data/filter-chips";
 import { SearchBox } from "@/components/data/search-box";
 import { RepoTable } from "@/components/repos/repo-table";
@@ -8,6 +9,7 @@ import type { OnboardingStatus } from "@/domain/repo-status";
 import { ONBOARDING_LABEL, type StatusTone } from "@/domain/status-tone";
 import { parseFlag, parseList, parseText, withParams, type RawSearchParams } from "@/lib/search-params";
 import { summarizeRepos } from "@/lib/repo-list";
+import { listOwnerSettings } from "@/queries/connections";
 import { listRepoOwners, listRepos } from "@/queries/repos";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +56,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
     dir: undefined,
   });
 
+  const ownerSettings = await listOwnerSettings(db);
   const rows = await listRepos(db, {
     owners,
     tones,
@@ -137,6 +140,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
           )}
         </>
       )}
+
+      <AutoOnboarding owners={ownerSettings} />
     </>
   );
 }

@@ -25,4 +25,8 @@ export const NON_UPDATE_BRANCHES = ["renovate/configure"] as const;
  * `renovate/`, damit der Update-PR-Filter diese PRs nie als Updates zählt.
  */
 export const ROLLOUT_BRANCH_PREFIX = "renovate-platform/";
+export const ROLLOUT_BRANCHES = {
+  onboarding: `${ROLLOUT_BRANCH_PREFIX}onboarding`,
+  build_check: `${ROLLOUT_BRANCH_PREFIX}build-check`,
+} as const;
 export const DEPENDENCY_DASHBOARD_TITLE = "Dependency Dashboard";

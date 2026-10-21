@@ -11,13 +11,17 @@ import * as schema from "@/db/schema";
 import {
   PlatformApiError,
   RateLimitPause,
+  type ChangeRequestRef,
   type ChangeRequestState,
   type ChangeStatus,
+  type NewChangeRequest,
+  type TemplateName,
   type PlatformAdapter,
   type PlatformConnection,
   type PlatformRepository,
   type UpdateChangeRequest,
 } from "@/platform";
+import { createRolloutService, setAutoOnboarding } from "@/rollout";
 import { runCeSync } from "./ce-sync";
 import { runGithubSync } from "./github-sync";
 import { SYNC_LOCK_KEYS, withAdvisoryLock } from "./lock";
@@ -144,6 +148,26 @@ class FakeAdapter implements PlatformAdapter {
     if (dashboardFail) throw dashboardFail;
     return `https://example.test/${ref.fullName}/issues/1`;
   }
+
+  /** Rollout: angelegte PRs und offene PRs je "repo|branch". */
+  changeRequests: { repo: string; request: NewChangeRequest; number: number }[] = [];
+  openChangeRequests = new Map<string, ChangeRequestRef>();
+  async readTemplate(name: TemplateName) {
+    return name === "renovate-config"
+      ? { path: "renovate.json", content: "{}" }
+      : { path: ".github/workflows/build-check.yml", content: "name: x" };
+  }
+  async findOpenChangeRequest(_c: unknown, ref: { fullName: string }, branch: string) {
+    return this.openChangeRequests.get(`${ref.fullName}|${branch}`) ?? null;
+  }
+  async createChangeRequest(_c: unknown, ref: { fullName: string }, request: NewChangeRequest) {
+    const number = 100 + this.changeRequests.length;
+    this.changeRequests.push({ repo: ref.fullName, request, number });
+    const pr = { number, url: `https://example.test/${ref.fullName}/pull/${number}` };
+    this.openChangeRequests.set(`${ref.fullName}|${request.branch}`, pr);
+    return pr;
+  }
+  async deleteBranch() {}
 }
 
 const failing: ChangeStatus = { ci: "failure" };
@@ -182,7 +206,7 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
   });
 
   beforeEach(async () => {
-    await pool.query("truncate platform_connections, sync_state, http_cache cascade");
+    await pool.query("truncate platform_connections, sync_state, http_cache, audit_log cascade");
   });
 
   const githubState = async () =>
@@ -673,6 +697,198 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
       await runGithubSync({ db, adapter });
       const keys = (await db.select().from(schema.httpCache)).map((c) => c.key);
       expect(keys).toEqual(["neu"]);
+    });
+  });
+
+  describe("Automatisches Onboarding", () => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const bare = (id: number, name: string) => makeRepo(id, name, { config: null, caller: false });
+    const connId = async (owner: string) =>
+      (await db.select().from(schema.platformConnections).where(eq(schema.platformConnections.ownerName, owner)))[0]!.id;
+    const sync = (adapter: FakeAdapter) =>
+      runGithubSync({ db, adapter, rollout: createRolloutService({ db, adapter }) });
+    const repoOf = async (fullName: string) =>
+      (await db.select().from(schema.repositories).where(eq(schema.repositories.fullName, fullName)))[0]!;
+
+    it("Neues Repo bei eingeschaltetem Schalter: PR beim nächsten Abgleich, Repos davor nicht", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, [bare(1, "acme/alt")]);
+      await sync(adapter);
+      await sleep(10);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await sleep(10);
+
+      adapter.repos.get("11")!.push(bare(2, "acme/neu"));
+      const summary = await sync(adapter);
+
+      expect(summary.partialErrors).toEqual([]);
+      expect(adapter.changeRequests.map((c) => c.repo)).toEqual(["acme/neu"]);
+      expect(adapter.changeRequests[0]!.request.branch).toBe("renovate-platform/onboarding");
+      expect((await repoOf("acme/neu")).onboardingStatus).toBe("pr_open");
+      expect((await repoOf("acme/alt")).onboardingStatus).toBe("none");
+      const actions = await db.select().from(schema.rolloutActions);
+      expect(actions).toHaveLength(1);
+      expect(actions[0]).toMatchObject({ kind: "onboarding", triggeredBy: "auto", status: "pr_open" });
+      const audit = await db.select().from(schema.auditLog);
+      expect(audit.map((a) => [a.actor, a.action])).toEqual(
+        expect.arrayContaining([["auto", "rollout.onboarding"], ["tester", "settings.auto_onboarding"]]),
+      );
+    });
+
+    it("Geschlossener Onboarding-PR: kein neuer automatischer PR", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(bare(1, "acme/neu"));
+      await sync(adapter);
+      expect(adapter.changeRequests).toHaveLength(1);
+
+      // Betreiber schließt den PR ungemergt.
+      const number = adapter.changeRequests[0]!.number;
+      adapter.prStates.set(number, { state: "closed", mergedAt: null });
+      adapter.openChangeRequests.clear();
+      await sync(adapter);
+      await sync(adapter);
+
+      expect(adapter.changeRequests).toHaveLength(1);
+      const [action] = await db.select().from(schema.rolloutActions);
+      expect(action?.status).toBe("closed");
+      expect((await repoOf("acme/neu")).onboardingStatus).toBe("none");
+    });
+
+    it("ist standardmäßig aus und legt bei ausgeschaltetem Schalter nichts an", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      adapter.repos.get("11")!.push(bare(1, "acme/neu"));
+      await sync(adapter);
+      expect(adapter.changeRequests).toHaveLength(0);
+      const [conn] = await db.select().from(schema.platformConnections);
+      expect(conn).toMatchObject({ autoOnboarding: false, autoOnboardingEnabledAt: null });
+    });
+
+    it("legt höchstens 5 PRs je Durchlauf an und holt den Rest im nächsten", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(...[1, 2, 3, 4, 5, 6, 7].map((i) => bare(i, `acme/r${i}`)));
+
+      await sync(adapter);
+      expect(adapter.changeRequests).toHaveLength(5);
+      await sync(adapter);
+      expect(adapter.changeRequests).toHaveLength(7);
+      expect(new Set(adapter.changeRequests.map((c) => c.repo)).size).toBe(7);
+    });
+
+    it("Fehlschläge vor pending verhungern nicht: failed-Aktion (einmal), Limit je Connection", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      adapter.addOwner("beta", 12, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await setAutoOnboarding(db, await connId("beta"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(...[1, 2, 3, 4, 5].map((i) => bare(i, `acme/kaputt${i}`)), bare(6, "acme/gut"));
+      adapter.repos.get("12")!.push(bare(7, "beta/gut"));
+      // Die Vorabfrage scheitert für fünf Repos von acme: es entsteht nie ein pending-Eintrag.
+      const find = adapter.findOpenChangeRequest.bind(adapter);
+      let lookups: string[] = [];
+      adapter.findOpenChangeRequest = async (c, ref, branch) => {
+        lookups.push(ref.fullName);
+        if (ref.fullName.startsWith("acme/kaputt")) throw new PlatformApiError(502, "GET", "/geheim");
+        return find(c, ref, branch);
+      };
+
+      const first = await sync(adapter);
+      expect(first.partialErrors.map((e) => e.repository).sort()).toEqual([1, 2, 3, 4, 5].map((i) => `acme/kaputt${i}`));
+      // beta kommt trotz der fünf Fehler bei acme dran (Limit je Connection).
+      expect(adapter.changeRequests.map((c) => c.repo)).toEqual(["beta/gut"]);
+      const failed = await db.select().from(schema.rolloutActions).where(eq(schema.rolloutActions.status, "failed"));
+      expect(failed).toHaveLength(5);
+      expect(failed[0]).toMatchObject({ kind: "onboarding", triggeredBy: "auto", error: "Die Plattform hat die Anfrage abgelehnt (Status 502)." });
+      const audit = await db.select().from(schema.auditLog);
+      expect(audit.filter((a) => a.action === "rollout.onboarding.failed")).toHaveLength(5);
+
+      // Nächster Durchlauf: die fünf werden nicht wiederholt (manueller Klick nötig), acme/gut kommt dran.
+      lookups = [];
+      const second = await sync(adapter);
+      expect(lookups.filter((n) => n.startsWith("acme/kaputt"))).toEqual([]);
+      expect(second.partialErrors).toEqual([]);
+      expect(adapter.changeRequests.map((c) => c.repo).sort()).toEqual(["acme/gut", "beta/gut"]);
+      expect(JSON.stringify(first.partialErrors)).not.toContain("geheim");
+    });
+
+    it("Kontingent-Pause vor pending bleibt ohne Spur: das Repo kommt später dran", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(bare(1, "acme/spaeter"));
+      const find = adapter.findOpenChangeRequest.bind(adapter);
+      let paused = true;
+      adapter.findOpenChangeRequest = async (c, ref, branch) => {
+        if (paused) throw new RateLimitPause(0, 5000, new Date(Date.now() + 60_000));
+        return find(c, ref, branch);
+      };
+      await sync(adapter);
+      expect(await db.select().from(schema.rolloutActions)).toHaveLength(0);
+      expect((await db.select().from(schema.auditLog)).filter((a) => a.action.startsWith("rollout."))).toHaveLength(0);
+
+      paused = false;
+      await sync(adapter);
+      expect(adapter.changeRequests.map((c) => c.repo)).toEqual(["acme/spaeter"]);
+    });
+
+    it("überspringt archivierte Repos und solche mit Konfiguration; Fehler je Repo sind Teilfehler", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      await setAutoOnboarding(db, await connId("acme"), true, "tester", new Date());
+      await sleep(10);
+      adapter.repos.get("11")!.push(
+        { ...bare(1, "acme/archiv"), archived: true },
+        makeRepo(2, "acme/mit-config"),
+        bare(3, "acme/kaputt"),
+        bare(4, "acme/gut"),
+      );
+      const create = adapter.createChangeRequest.bind(adapter);
+      adapter.createChangeRequest = async (c, ref, req) => {
+        if (ref.fullName === "acme/kaputt") throw new PlatformApiError(500, "POST", "/geheim");
+        return create(c, ref, req);
+      };
+      const summary = await sync(adapter);
+      expect(adapter.changeRequests.map((c) => c.repo)).toEqual(["acme/gut"]);
+      expect(summary.partialErrors).toEqual([
+        {
+          repository: "acme/kaputt",
+          message: "Automatisches Onboarding: Die Plattform hat die Anfrage abgelehnt (Status 500).",
+        },
+      ]);
+      expect(JSON.stringify(summary.partialErrors)).not.toContain("geheim");
+    });
+
+    it("setAutoOnboarding: Zeitpunkt beim Einschalten, bleibt beim Ausschalten; wiederholtes Einschalten ändert nichts", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, []);
+      await sync(adapter);
+      const id = await connId("acme");
+      const t1 = new Date("2026-05-01T10:00:00Z");
+      expect(await setAutoOnboarding(db, id, true, "tester", t1)).toBe(true);
+      expect(await setAutoOnboarding(db, id, true, "tester", new Date("2026-06-01T10:00:00Z"))).toBe(false);
+      expect(await setAutoOnboarding(db, id, false, "tester", new Date("2026-07-01T10:00:00Z"))).toBe(true);
+      const [conn] = await db.select().from(schema.platformConnections);
+      expect(conn).toMatchObject({ autoOnboarding: false, autoOnboardingEnabledAt: t1 });
+      const audit = await db.select().from(schema.auditLog);
+      expect(audit.map((a) => [a.action, a.target])).toEqual([
+        ["settings.auto_onboarding", "acme: an"],
+        ["settings.auto_onboarding", "acme: aus"],
+      ]);
+      await expect(setAutoOnboarding(db, "00000000-0000-0000-0000-000000000000", true, "t")).rejects.toThrow();
     });
   });
 

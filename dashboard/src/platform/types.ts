@@ -3,7 +3,6 @@
  *
  * Hier stehen bewusst keine GitHub-Begriffe: Ein späterer GitLabAdapter muss alles erfüllen
  * können. "Connection" = Installation/Gruppe, "ChangeRequest" = Pull-/Merge-Request.
- * `createChangeRequest` fehlt absichtlich; es kommt mit den Aktionen (Phase 7).
  */
 
 import type { CiStatus } from "@/domain/pull-requests";
@@ -69,6 +68,36 @@ export interface ChangeStatus {
   ci: CiStatus;
 }
 
+/** Was die schreibenden Methoden zum Adressieren der Verbindung brauchen. */
+export type ConnectionRef = Pick<
+  PlatformConnection,
+  "externalConnectionId" | "ownerName"
+>;
+
+/** Vorlagen des Rollouts; der Inhalt liegt im Repo dieser Plattform (Entscheidung 10). */
+export type TemplateName = "renovate-config" | "build-check-caller";
+
+export interface TemplateFile {
+  /** Zielpfad der Datei im Repo, das den Rollout erhält. */
+  path: string;
+  content: string;
+}
+
+export interface NewChangeRequest {
+  /** Neuer Branch; er wird vom Stand des Default-Branches (`baseBranch`) aus angelegt. */
+  branch: string;
+  baseBranch: string;
+  title: string;
+  body: string;
+  /** Alle Dateien kommen in genau einem Commit. */
+  files: { path: string; content: string }[];
+}
+
+export interface ChangeRequestRef {
+  number: number;
+  url: string;
+}
+
 export interface PlatformAdapter {
   listConnections(): Promise<PlatformConnection[]>;
   listRepositories(conn: PlatformConnection): Promise<PlatformRepository[]>;
@@ -76,7 +105,7 @@ export interface PlatformAdapter {
    * Günstiger Abruf (bedingt, 304 kostet kein Kontingent). Grundlage der Head-SHA-Logik.
    * `null` bei einem leeren Repo (noch kein Commit auf dem Default-Branch).
    */
-  getHeadSha(conn: PlatformConnection, repo: RepositoryRef): Promise<string | null>;
+  getHeadSha(conn: ConnectionRef, repo: RepositoryRef): Promise<string | null>;
   /** Teuer (mehrere Abrufe): nur bei geändertem Head-SHA aufrufen, siehe refreshRepositoryState. */
   getRepositoryState(
     conn: PlatformConnection,
@@ -89,7 +118,7 @@ export interface PlatformAdapter {
     repo: RepositoryRef,
   ): Promise<UpdateChangeRequest[]>;
   getPullRequestState(
-    conn: PlatformConnection,
+    conn: ConnectionRef,
     repo: RepositoryRef,
     number: number,
   ): Promise<ChangeRequestState>;
@@ -103,4 +132,35 @@ export interface PlatformAdapter {
     conn: PlatformConnection,
     repo: RepositoryRef,
   ): Promise<string | null>;
+  /**
+   * Legt einen Branch mit einem Commit (alle `files`) an und öffnet daraus einen Pull-/Merge-
+   * Request. Schlägt ein Schritt nach dem Anlegen des Branches fehl, löscht der Adapter ihn wieder
+   * (scheitert das, wirft er `PlatformLeftoverBranchError` mit dem Namen des Rest-Branches).
+   *
+   * Vor dem Anlegen prüft der Adapter jede Datei live im Base-Commit: gleicher Inhalt wird
+   * übersprungen; bei abweichendem Inhalt oder wenn nichts mehr zu schreiben bleibt, wirft er
+   * `PlatformFilesExistError` und legt nichts an. Gibt es für den Branch schon einen offenen
+   * Request, wird dieser zurückgegeben. Branches nur mit dem Rollout-Präfix.
+   * Wirft `PlatformPermissionError` bei fehlenden Schreibrechten und `PlatformRejectedError` bei
+   * erkennbaren Ablehnungen (leeres Repo, Repo nicht in der Verbindung, Branch-Regel).
+   */
+  createChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    request: NewChangeRequest,
+  ): Promise<ChangeRequestRef>;
+  /** Offener Request mit diesem Head-Branch oder `null`. */
+  findOpenChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    branch: string,
+  ): Promise<ChangeRequestRef | null>;
+  /** Nur Branches mit dem Rollout-Präfix; ein fehlender Branch ist kein Fehler. */
+  deleteBranch(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    branch: string,
+  ): Promise<void>;
+  /** Liest eine Rollout-Vorlage aus dem Vorlagen-Repo (Default-Branch); kein Eintrag im Image. */
+  readTemplate(name: TemplateName): Promise<TemplateFile>;
 }
