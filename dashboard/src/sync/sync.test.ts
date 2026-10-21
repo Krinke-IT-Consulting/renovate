@@ -22,7 +22,7 @@ import {
   type UpdateChangeRequest,
 } from "@/platform";
 import { createRolloutService, setAutoOnboarding } from "@/rollout";
-import { runCeSync } from "./ce-sync";
+import { resetLogFailures, runCeSync } from "./ce-sync";
 import { runGithubSync } from "./github-sync";
 import { SYNC_LOCK_KEYS, withAdvisoryLock } from "./lock";
 import { syncProblems } from "./problems-sync";
@@ -1081,6 +1081,37 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
       expect((await jobsOf("bad"))[0]?.logExcerpt).toContain("boom");
       [repo] = await db.select().from(schema.repositories);
       expect(repo?.lastJobResult).toBe("failed");
+    });
+
+    it("gibt das Log nach 3 Fehlversuchen endgültig auf", async () => {
+      resetLogFailures();
+      await seedGithub();
+      const history: CeJobReport[] = [
+        { jobId: "bad", reason: "hourly", status: "cli-error", startedAt: "2026-10-15T07:00:00Z", completedAt: "2026-10-15T07:01:00Z", error: { name: "Error", message: "x" } },
+      ];
+      const log = async () => {
+        throw new CeApiError("roh geheim", "/logs", 500);
+      };
+      const { client, getJobLog } = fakeCe({ history, log });
+
+      const first = await runCeSync({ db, client });
+      const second = await runCeSync({ db, client });
+      expect(first.partialErrors).toEqual([{ repository: "acme/a", message: "Log: CE-Fehler (Status 500)" }]);
+      expect(second.partialErrors).toEqual([{ repository: "acme/a", message: "Log: CE-Fehler (Status 500)" }]);
+      expect((await jobsOf("bad"))[0]?.logExcerpt).toBeNull();
+
+      const third = await runCeSync({ db, client });
+      expect(third.partialErrors).toEqual([
+        { repository: "acme/a", message: "Log aufgegeben nach 3 Fehlversuchen: CE-Fehler (Status 500)" },
+      ]);
+      expect((await jobsOf("bad"))[0]?.logExcerpt).toBe("");
+      expect(JSON.stringify(third)).not.toContain("geheim");
+
+      // Danach kein weiterer Abruf.
+      const fourth = await runCeSync({ db, client });
+      expect(fourth.partialErrors).toEqual([]);
+      expect(getJobLog).toHaveBeenCalledTimes(3);
+      resetLogFailures();
     });
 
     it("ignoriert purged-Jobs: kein job_failed, kein Log-Abruf, letzter Job ist der davor", async () => {

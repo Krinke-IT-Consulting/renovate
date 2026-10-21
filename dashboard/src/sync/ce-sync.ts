@@ -29,6 +29,17 @@ export type CeSyncSummary = RunOutcome & { repositories: number; logsFetched: nu
 
 /** Höchstens so viele Log-Abrufe je Durchlauf; der Rest folgt im nächsten. */
 export const MAX_LOG_FETCHES_PER_RUN = 10;
+/** Nach so vielen Fehlversuchen (kein 404/410) wird das Log eines Jobs endgültig aufgegeben. */
+export const MAX_LOG_ATTEMPTS = 3;
+
+// Fehlversuche je CE-Job-ID, nur im Prozess (Schema bleibt unverändert). Nach einem Neustart
+// beginnt die Zählung von vorn; das ist unkritisch, weil es nur um die Wiederholungen geht.
+const logFailures = new Map<string, number>();
+
+/** Nur für Tests. */
+export function resetLogFailures() {
+  logFailures.clear();
+}
 const JOB_HISTORY_LIMIT = 20;
 const ERROR_MESSAGE_MAX = 300;
 /** Ein als queued/running geführter Job, der nirgends mehr auftaucht, gilt nach so langer Zeit als verschwunden. */
@@ -296,14 +307,31 @@ export async function runCeSync(options: CeSyncOptions): Promise<CeSyncSummary> 
         try {
           const excerpt = extractLogExcerpt(await client.getJobLog(job.ceJobId));
           await db.update(renovateJobs).set({ logExcerpt: excerpt }).where(eq(renovateJobs.id, job.id));
+          logFailures.delete(job.ceJobId);
         } catch (e) {
           // Log gelöscht: endgültig leer markieren. Sonst Teilfehler (einmal je Repo) und im
           // nächsten Durchlauf erneut versuchen; der Rest des Repos wird trotzdem abgeglichen.
           if (e instanceof CeApiError && (e.status === 404 || e.status === 410)) {
             await db.update(renovateJobs).set({ logExcerpt: "" }).where(eq(renovateJobs.id, job.id));
-          } else if (!logFailed) {
-            logFailed = true;
-            partialErrors.push({ repository: row.fullName, message: `Log: ${errorCategory(e)}` });
+            logFailures.delete(job.ceJobId);
+          } else {
+            const attempts = (logFailures.get(job.ceJobId) ?? 0) + 1;
+            if (attempts >= MAX_LOG_ATTEMPTS) {
+              // Aufgeben: "" heißt abgerufen, nichts Verwertbares; sonst würde der Job das
+              // Kontingent der Abrufe jede Minute erneut belegen.
+              logFailures.delete(job.ceJobId);
+              await db.update(renovateJobs).set({ logExcerpt: "" }).where(eq(renovateJobs.id, job.id));
+              partialErrors.push({
+                repository: row.fullName,
+                message: `Log aufgegeben nach ${MAX_LOG_ATTEMPTS} Fehlversuchen: ${errorCategory(e)}`,
+              });
+            } else {
+              logFailures.set(job.ceJobId, attempts);
+              if (!logFailed) {
+                logFailed = true;
+                partialErrors.push({ repository: row.fullName, message: `Log: ${errorCategory(e)}` });
+              }
+            }
           }
         }
       }

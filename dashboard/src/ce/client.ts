@@ -11,6 +11,8 @@ import type {
 export const DEFAULT_TIMEOUT_MS = 10_000;
 const PAGE_LIMIT = 100;
 const MAX_PAGES = 50;
+/** Höchstens so viele Bytes eines Job-Logs werden behalten (das Ende). */
+export const MAX_LOG_BYTES = 2 * 1024 * 1024;
 
 export type CeClientOptions = {
   baseUrl: string;
@@ -35,6 +37,53 @@ function asArray<T>(body: unknown, ...keys: string[]): T[] {
     }
   }
   return [];
+}
+
+/**
+ * Liest den Body über den Stream-Reader und behält höchstens `maxBytes`. Ist das Log größer, bleibt
+ * das Ende: Der Log-Auszug nimmt ohnehin die letzten Zeilen, und der Fehlergrund steht am Schluss
+ * des Laufs. Die angeschnittene erste Zeile wird verworfen. So liegt nie mehr als ~2 x maxBytes
+ * im Speicher.
+ */
+async function readTail(res: Response, maxBytes: number, logPath: string): Promise<string> {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  let chunks: Uint8Array[] = [];
+  let total = 0;
+  let truncated = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+      // Vordere Chunks verwerfen, solange der Rest die Grenze noch erfüllt.
+      while (chunks.length > 1 && total - chunks[0]!.length >= maxBytes) {
+        total -= chunks.shift()!.length;
+        truncated = true;
+      }
+    }
+  } catch {
+    throw new CeApiError(`CE-Antwort von ${logPath} konnte nicht gelesen werden`, logPath, res.status);
+  }
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    all.set(c, offset);
+    offset += c.length;
+  }
+  chunks = [];
+  let bytes = all;
+  if (bytes.length > maxBytes) {
+    bytes = bytes.subarray(bytes.length - maxBytes);
+    truncated = true;
+  }
+  let text = new TextDecoder().decode(bytes);
+  if (truncated) {
+    const nl = text.indexOf("\n");
+    text = nl === -1 ? "" : text.slice(nl + 1);
+  }
+  return text;
 }
 
 export function createCeClient(options: CeClientOptions) {
@@ -146,7 +195,7 @@ export function createCeClient(options: CeClientOptions) {
 
     async getJobLog(jobId: string): Promise<string> {
       const res = await request(`/system/v1/jobs/logs/${encodeURIComponent(jobId)}`);
-      return res.text();
+      return readTail(res, MAX_LOG_BYTES, `/system/v1/jobs/logs/${encodeURIComponent(jobId)}`);
     },
 
     async addJob(fullName: string): Promise<CeAddJobResult> {
