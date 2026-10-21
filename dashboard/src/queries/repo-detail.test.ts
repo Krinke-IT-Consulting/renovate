@@ -46,7 +46,7 @@ describe("repoSteps", () => {
     expect(steps.map((s) => s.group)).toEqual(["security", "failure", "failure", "major"]);
     // Rote CI verlinkt auf den offenen PR.
     const ciRed = steps.find((s) => s.typeLabel === "CI rot");
-    expect(ciRed?.action.href).toBe("https://example.test/pull/1");
+    expect(ciRed?.action).toMatchObject({ kind: "link", href: "https://example.test/pull/1" });
   });
 
   it("ohne Probleme und Entscheidungs-PRs gibt es nichts zu tun", () => {

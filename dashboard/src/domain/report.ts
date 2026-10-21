@@ -70,6 +70,8 @@ export type ReportProblem = {
 };
 
 export type ReportRepo = {
+  /** Repo-ID; mit ihr ist der Onboarding-Schritt eine Aktion, ohne sie führt er zum Repo. */
+  id?: string;
   fullName: string;
   onboarding: "none" | "pr_open" | "onboarded" | "disabled";
   archived: boolean;
@@ -86,7 +88,13 @@ export type ReportInput = {
   nextRunAt?: Date | null;
 };
 
-export type StepAction = { label: string; href: string; external: boolean };
+/**
+ * Hauptaktion eines Schritts: ein Link (intern oder extern) oder eine Aktion mit Bestätigung. Die
+ * Oberfläche rendert "onboarding" als Bestätigungsdialog, der den Onboarding-PR anlegt.
+ */
+export type StepAction =
+  | { kind: "link"; label: string; href: string; external: boolean }
+  | { kind: "onboarding"; label: string; repositoryId: string; repoFullName: string };
 
 export type Step = {
   id: string;
@@ -155,7 +163,7 @@ export function buildSteps(input: ReportInput): Step[] {
       version: versionJump(pr.title),
       repoFullName: pr.repoFullName,
       detail: [CI_STATUS_LABEL[pr.ciStatus], ageText(pr.createdAt, now) + (stale ? ", hängt" : "")],
-      action: { label: "Auf GitHub mergen", href: pr.url, external: true },
+      action: { kind: "link", label: "Auf GitHub mergen", href: pr.url, external: true },
     });
   }
 
@@ -176,8 +184,9 @@ export function buildSteps(input: ReportInput): Step[] {
       repoFullName: p.repoFullName,
       detail: [p.message, `seit ${formatDays(days(p.firstSeenAt, now))}`],
       action: prAction
-        ? { label: "PR ansehen", href: p.prUrl!, external: true }
+        ? { kind: "link", label: "PR ansehen", href: p.prUrl!, external: true }
         : {
+            kind: "link",
             label: "Log ansehen",
             href: `/jobs?repo=${encodeURIComponent(p.repoFullName)}${p.kind === "lockfile_failure" ? "" : "&status=failed"}`,
             external: false,
@@ -195,7 +204,7 @@ export function buildSteps(input: ReportInput): Step[] {
       version: versionJump(pr.title),
       repoFullName: pr.repoFullName,
       detail: [CI_STATUS_LABEL[pr.ciStatus], ageText(pr.createdAt, now)],
-      action: { label: "Freigeben", href: pr.url, external: true },
+      action: { kind: "link", label: "Freigeben", href: pr.url, external: true },
     });
   }
 
@@ -211,8 +220,10 @@ export function buildSteps(input: ReportInput): Step[] {
       version: null,
       repoFullName: r.fullName,
       detail: ["Noch keine Renovate-Konfiguration"],
-      // Die Aktion "Onboarding-PR anlegen" kommt mit Phase 7; bis dahin führt der Schritt zum Repo.
-      action: { label: "Zum Repo", href: repoDetailHref(r.fullName), external: false },
+      // Mit Repo-ID legt der Schritt den Onboarding-PR an (nach Bestätigung); sonst führt er zum Repo.
+      action: r.id
+        ? { kind: "onboarding", label: "Onboarding-PR anlegen", repositoryId: r.id, repoFullName: r.fullName }
+        : { kind: "link", label: "Zum Repo", href: repoDetailHref(r.fullName), external: false },
     });
   }
 
@@ -228,8 +239,8 @@ export function buildSteps(input: ReportInput): Step[] {
       repoFullName: p.repoFullName,
       detail: [p.message, `älter als ${STALE_PR_DAYS} Tage`],
       action: p.prUrl
-        ? { label: "Auf GitHub öffnen", href: p.prUrl, external: true }
-        : { label: "Zum Repo", href: repoDetailHref(p.repoFullName), external: false },
+        ? { kind: "link", label: "Auf GitHub öffnen", href: p.prUrl, external: true }
+        : { kind: "link", label: "Zum Repo", href: repoDetailHref(p.repoFullName), external: false },
     });
   }
 

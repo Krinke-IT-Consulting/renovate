@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
+import { OnboardingAction } from "@/components/actions/onboarding-action";
 import { StatusText } from "@/components/status/status";
 import { GROUP_TONE, STEP_GROUPS, type Step } from "@/domain/report";
 import { safeExternalHref } from "@/lib/safe-external-href";
@@ -9,8 +10,8 @@ const ACTION =
 
 /**
  * "Was hier zu tun ist" für ein Repo: dieselben Schritte wie im Lagebericht, auf einer Leiterbahn
- * wie im Logo. Ein Schritt, dessen Ziel die Seite selbst wäre (Onboarding), zeigt keinen Knopf; die
- * Aktion dafür kommt mit Phase 7.
+ * wie im Logo. Der Onboarding-Schritt trägt die Aktion "Onboarding-PR anlegen" mit Bestätigung; ein
+ * Link auf die Seite selbst (Ziel unter /repos/) zeigt keinen Knopf.
  */
 export function RepoSteps({ steps }: { steps: Step[] }) {
   const ordered = STEP_GROUPS.flatMap((g) => steps.filter((s) => s.group === g));
@@ -19,10 +20,11 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
       <span aria-hidden="true" className="absolute top-4 bottom-4 left-[15px] w-0.5 rounded-full bg-rheinblau/25" />
       {ordered.map((s, i) => {
         const { action } = s;
+        const link = action.kind === "link" ? action : null;
         // Interne Ziele unter /repos/ wären diese Seite selbst.
-        const showAction = action.external || !action.href.startsWith("/repos/");
+        const showAction = link ? link.external || !link.href.startsWith("/repos/") : true;
         // Nur https-Adressen werden verlinkt; sonst steht der Text ohne Link da.
-        const externalHref = action.external ? safeExternalHref(action.href) : null;
+        const externalHref = link?.external ? safeExternalHref(link.href) : null;
         return (
           <li key={s.id} className="flex items-start gap-4">
             <span
@@ -50,20 +52,22 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
                   ))}
                 </p>
               </div>
-              {showAction ? (
-                action.external ? (
+              {action.kind === "onboarding" ? (
+                <OnboardingAction repositoryId={action.repositoryId} repoFullName={action.repoFullName} />
+              ) : link && showAction ? (
+                link.external ? (
                   externalHref ? (
                     <a href={externalHref} target="_blank" rel="noopener noreferrer" className={ACTION}>
-                      {action.label}
+                      {link.label}
                       <ExternalLinkIcon aria-hidden="true" className="size-4" />
                       <span className="sr-only"> (öffnet in neuem Tab)</span>
                     </a>
                   ) : (
-                    <span className="shrink-0 text-sm text-ink-soft">{action.label}</span>
+                    <span className="shrink-0 text-sm text-ink-soft">{link.label}</span>
                   )
                 ) : (
-                  <Link href={action.href} className={ACTION}>
-                    {action.label}
+                  <Link href={link.href} className={ACTION}>
+                    {link.label}
                     <ArrowRightIcon aria-hidden="true" className="size-4" />
                   </Link>
                 )

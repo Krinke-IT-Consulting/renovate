@@ -50,7 +50,7 @@ describe("Lagebericht", () => {
       ["security", "Krinke-IT-Consulting/lector"],
       ["security", "Hiwamashi/seatmagic"],
     ]);
-    expect(steps[0].action).toEqual({ label: "Auf GitHub mergen", href: expect.stringContaining("/pull/"), external: true });
+    expect(steps[0].action).toEqual({ kind: "link", label: "Auf GitHub mergen", href: expect.stringContaining("/pull/"), external: true });
   });
 
   it("Scenario: Alles erledigt", () => {
@@ -95,7 +95,7 @@ describe("Lagebericht", () => {
     const steps = buildSteps(input);
     expect(steps.map((s) => s.group)).toEqual(["security", "failure", "major", "onboarding", "stale"]);
     expect(steps[0].detail[1]).toContain("hängt");
-    expect(steps[1].action).toEqual({ label: "Log ansehen", href: "/jobs?repo=o%2Fa&status=failed", external: false });
+    expect(steps[1].action).toEqual({ kind: "link", label: "Log ansehen", href: "/jobs?repo=o%2Fa&status=failed", external: false });
     expect(steps[2].version).toBe("→ v16");
     expect(text(input).plain).toBe(
       "Fünf Punkte brauchen Ihre Entscheidung: 1 Sicherheitsupdate in b, 1 roter Build oder fehlgeschlagener Lauf in a, 1 Major-Update zur Freigabe in a, 1 Repo ohne Onboarding (neu) und 2 hängende PRs in a und b.",
@@ -177,7 +177,23 @@ describe("Zahlen und Links im Lagebericht", () => {
       openProblems: [],
       hasAnyJob: true,
     };
-    expect(buildSteps(input)[0].action.href).toBe("/repos/o/a%20b");
+    expect(buildSteps(input)[0].action).toMatchObject({ kind: "link", href: "/repos/o/a%20b" });
+  });
+
+  it("Der Onboarding-Schritt legt mit Repo-ID den Onboarding-PR an (Aktion statt Link)", () => {
+    const input: ReportInput = {
+      now,
+      repos: [{ id: "r-1", fullName: "o/neu", onboarding: "none", archived: false }],
+      openPrs: [],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    expect(buildSteps(input)[0].action).toEqual({
+      kind: "onboarding",
+      label: "Onboarding-PR anlegen",
+      repositoryId: "r-1",
+      repoFullName: "o/neu",
+    });
   });
 });
 
@@ -190,7 +206,7 @@ describe("mergeSteps", () => {
     version: null,
     repoFullName: "o/r",
     detail: ["CI grün", "seit 1 Tag offen"],
-    action: { label: "Auf GitHub mergen", href: "https://github.com/o/r/pull/1", external: true },
+    action: { kind: "link", label: "Auf GitHub mergen", href: "https://github.com/o/r/pull/1", external: true },
     ...over,
   });
 

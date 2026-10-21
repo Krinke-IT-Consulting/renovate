@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { triggerAllRuns } from "@/actions/jobs";
+import { ConfirmAction } from "@/components/actions/confirm-action";
 import { FilterBar, FilterChips, type ChipOption } from "@/components/data/filter-chips";
 import { Pagination } from "@/components/data/pagination";
 import { SearchBox } from "@/components/data/search-box";
@@ -9,6 +11,7 @@ import { getDb } from "@/db/client";
 import { JOB_STATUS_LABEL, type JobStatus } from "@/domain/status-tone";
 import { plural } from "@/lib/format";
 import { parseList, parsePage, parseSort, parseText, withParams, type RawSearchParams } from "@/lib/search-params";
+import { countRunnableRepos } from "@/queries/runnable-repos";
 import { JOBS_PAGE_SIZE, JOB_SORT_KEYS, listJobRepos, listJobs, summarizeJobs } from "@/queries/jobs";
 
 export const dynamic = "force-dynamic";
@@ -36,9 +39,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   // Genau ein Repo: der ganze Verlauf, wie im Repo-Detail ("Log ansehen" darf nicht ins Leere laufen).
   const singleRepo = repos.length === 1;
 
-  const [{ rows, total }, summary] = await Promise.all([
+  const [{ rows, total }, summary, runnable] = await Promise.all([
     listJobs(db, { repos, status, q, page, sort: sort ?? undefined, includeRemoved: repos.length > 0, allTime: singleRepo }),
     summarizeJobs(db),
+    countRunnableRepos(db),
   ]);
 
   const pageCount = Math.max(1, Math.ceil(total / JOBS_PAGE_SIZE));
@@ -63,7 +67,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
 
   return (
     <>
-      <PageHeader title="Jobs" description={description} />
+      <PageHeader
+        title="Jobs"
+        description={description}
+        action={
+          runnable > 0 ? (
+            <ConfirmAction
+              action={triggerAllRuns}
+              label="Alle Repos laufen lassen"
+              title="Alle Repos laufen lassen?"
+              effect={`Renovate CE reiht für ${plural(runnable, "onboardetes Repo", "onboardete Repos")} je einen Lauf ein. Wartet oder läuft für ein Repo schon einer, entsteht dort kein zweiter.`}
+              confirmLabel="Alle Läufe einreihen"
+            />
+          ) : undefined
+        }
+      />
 
       <FilterBar resetHref={filtered ? resetHref : undefined}>
         <FilterChips label="Status" param="status" options={statusOptions} selected={status} pathname="/jobs" searchParams={sp} />
