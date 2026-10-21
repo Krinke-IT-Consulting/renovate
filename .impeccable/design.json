@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T22:50:45Z",
+  "title": "Design System: Krinke-IT - Update Zentrale",
+  "extensions": {
+    "colorMeta": {
+      "rheinblau": {
+        "role": "primary",
+        "displayName": "Rheinblau",
+        "canonical": "#2b4c9b",
+        "tonalRamp": [
+          "#020043",
+          "#031965",
+          "#1c3b88",
+          "#3a5cad",
+          "#597fd3",
+          "#7aa2f9",
+          "#a4c8ff",
+          "#ddefff"
+        ]
+      },
+      "rheinblau-tief": {
+        "role": "primary",
+        "displayName": "Rheinblau tief",
+        "canonical": "#1a2744",
+        "tonalRamp": [
+          "#020823",
+          "#172441",
+          "#334160",
+          "#516182",
+          "#7182a5",
+          "#94a5ca",
+          "#bac9ea",
+          "#e7effe"
+        ]
+      },
+      "rheinblau-hell": {
+        "role": "primary",
+        "displayName": "Rheinblau hell",
+        "canonical": "#3d62b5",
+        "tonalRamp": [
+          "#020044",
+          "#021866",
+          "#1a3b8a",
+          "#385caf",
+          "#577fd4",
+          "#79a2fb",
+          "#a2c8ff",
+          "#dcefff"
+        ]
+      },
+      "signal-olive": {
+        "role": "secondary",
+        "displayName": "Signal-Olive",
+        "canonical": "#55711c",
+        "tonalRamp": [
+          "#021000",
+          "#172d00",
+          "#324c00",
+          "#516c16",
+          "#718e3d",
+          "#93b260",
+          "#b9d58f",
+          "#e7f5d4"
+        ]
+      },
+      "logo-gruen": {
+        "role": "secondary",
+        "displayName": "Logo-Grün",
+        "canonical": "#6b8e23",
+        "tonalRamp": [
+          "#001100",
+          "#132e00",
+          "#2f4d00",
+          "#4d6e00",
+          "#6d9026",
+          "#8fb44e",
+          "#b6d781",
+          "#e5f6ce"
+        ]
+      },
+      "fassholz": {
+        "role": "tertiary",
+        "displayName": "Fassholz",
+        "canonical": "#8b5e3c",
+        "tonalRamp": [
+          "#200000",
+          "#3f1800",
+          "#603613",
+          "#825634",
+          "#a57754",
+          "#ca9976",
+          "#ebbfa0",
+          "#ffeadb"
+        ]
+      },
+      "papier": {
+        "role": "neutral",
+        "displayName": "Papier",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#f8f9fa",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242526",
+          "#414243",
+          "#606162",
+          "#818283",
+          "#a4a5a6",
+          "#c8c9ca",
+          "#eeeeef"
+        ]
+      },
+      "tinte-weich": {
+        "role": "neutral",
+        "displayName": "Tinte weich",
+        "canonical": "#525866",
+        "tonalRamp": [
+          "#070b15",
+          "#202531",
+          "#3c424f",
+          "#5b616f",
+          "#7c8291",
+          "#9ea5b5",
+          "#c3c9d7",
+          "#ebeef5"
+        ]
+      },
+      "ziegelrot": {
+        "role": "status",
+        "displayName": "Ziegelrot",
+        "canonical": "#a63a2b",
+        "tonalRamp": [
+          "#330000",
+          "#580000",
+          "#7d0e03",
+          "#a43829",
+          "#ca5b4a",
+          "#f27f6c",
+          "#ffaa98",
+          "#ffe1d7"
+        ]
+      },
+      "bernstein": {
+        "role": "status",
+        "displayName": "Bernstein",
+        "canonical": "#8a5f10",
+        "tonalRamp": [
+          "#210000",
+          "#401900",
+          "#603800",
+          "#825801",
+          "#a57932",
+          "#ca9c57",
+          "#ebc287",
+          "#ffebd0"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Seitentitel, einer je Ansicht (h1, Rheinblau)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Titel von Dialogen und Leerzuständen."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Abschnittsüberschriften, Schritttitel, Gruppenköpfe."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Fließtext in Beschreibungen und Leerzuständen."
+      },
+      "body-sm": {
+        "displayName": "Body klein",
+        "purpose": "Arbeitsgröße: Tabellenzellen, Knöpfe, Navigation, Chips, Meta-Zeilen."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Badges, Legende, Abgleich-Stempel."
+      },
+      "column-head": {
+        "displayName": "Spaltenkopf",
+        "purpose": "Tabellenköpfe in Montserrat, ohne Großschreibung."
+      },
+      "data": {
+        "displayName": "Daten",
+        "purpose": "Versionen, Namen, Log-Auszüge, Code. Nur für Daten."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-karte",
+        "value": "0 1px 2px color-mix(in srgb, var(--rheinblau-tief) 6%, transparent), 0 4px 16px -8px color-mix(in srgb, var(--rheinblau-tief) 12%, transparent)",
+        "purpose": "Karten, Tabellencontainer, Kennzahlen, Leiterbahn-Schritte und Leerzustände."
+      },
+      {
+        "name": "shadow-karte-flach",
+        "value": "0 1px 2px color-mix(in srgb, var(--rheinblau-tief) 6%, transparent)",
+        "purpose": "Dicht beieinanderliegende Flächen ohne eigene Tiefe."
+      }
+    ],
+    "motion": [
+      {
+        "name": "farbuebergang",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1) (Tailwind transition-colors)",
+        "purpose": "Hover und Zustandswechsel von Knöpfen, Chips, Links und Navigation. Der Fokusring ist ausgenommen und erscheint sofort (transition-property: none). Reduced Motion: Dauer 0,01 ms."
+      },
+      {
+        "name": "ring-uebergang",
+        "value": "300ms (duration-300)",
+        "purpose": "Knoten der Leiterbahn wechseln beim Erledigen von gefülltem Rheinblau auf den olivfarbenen Ring. Reduced Motion: Dauer 0,01 ms, der Wechsel geschieht sofort."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px",
+        "purpose": "Titel wachsen, Repo-Kacheln erhalten eine vierte Spalte."
+      },
+      {
+        "name": "md",
+        "value": "768px",
+        "purpose": "Karten werden zu Tabellen, Wischkarten zur Leiterbahn."
+      },
+      {
+        "name": "lg",
+        "value": "1024px",
+        "purpose": "Hauptnavigation, Abgleich-Stempel und Konto in der Kopfleiste; Menü-Knopf entfällt."
+      },
+      {
+        "name": "logo-wechsel",
+        "value": "64rem",
+        "purpose": "Logo wechselt per picture/source von logo-compact (h-8) auf logo-wide (h-10); entspricht lg."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Hauptaktion (Olive)",
+      "kind": "custom",
+      "refersTo": "button-primary",
+      "description": "Die eine Hauptaktion je Element: Olive gefüllt, beim Hover Rheinblau.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Onboarding-PR anlegen</button>",
+      "css": ".ds-btn-primary { font-family: Inter, ui-sans-serif, system-ui, sans-serif; display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px; border:0; border-radius:8px; background:var(--olive); color:var(--papier); font-size:14px; line-height:20px; font-weight:600; cursor:pointer; transition:background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background:var(--rheinblau); } .ds-btn-primary:focus-visible { outline:2px solid var(--rheinblau); outline-offset:2px; transition:none; } .ds-btn-primary:active { transform:translateY(1px); }"
+    },
+    {
+      "name": "Ruhiger Knopf",
+      "kind": "custom",
+      "refersTo": "button-quiet",
+      "description": "Nebenaktion und Abbrechen: ohne Füllung, Ring in Rheinblau tief (55 %, mindestens 3:1).",
+      "html": "<button class=\"ds-btn-quiet\" type=\"button\">Abbrechen</button>",
+      "css": ".ds-btn-quiet { font-family: Inter, ui-sans-serif, system-ui, sans-serif; display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px; border:0; border-radius:8px; background:transparent; color:var(--rheinblau-tief); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rheinblau-tief) 55%, transparent); font-size:14px; line-height:20px; font-weight:600; cursor:pointer; transition:color 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn-quiet:hover { color:var(--rheinblau); box-shadow:inset 0 0 0 1px var(--rheinblau); } .ds-btn-quiet:focus-visible { outline:2px solid var(--rheinblau); outline-offset:2px; transition:none; }"
+    },
+    {
+      "name": "Filter-Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pille mit 32 px Höhe; aktiv gefüllt in Rheinblau und mit Haken, inaktiv Papier mit Ring.",
+      "html": "<div class=\"ds-chips\" role=\"group\" aria-label=\"Status\"><a class=\"ds-chip\" href=\"#\">Fehler <span class=\"ds-chip-n\">3</span></a><a class=\"ds-chip ds-chip-on\" href=\"#\" aria-current=\"true\"><svg class=\"ds-ico-s\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>Läuft <span class=\"ds-chip-n\">2</span><span class=\"ds-sr\"> (aktiv)</span></a></div>",
+      "css": ".ds-chips { display:flex; gap:6px; align-items:center; padding:6px 0; } .ds-chip { font-family: Inter, ui-sans-serif, system-ui, sans-serif; position:relative; display:inline-flex; align-items:center; gap:4px; height:32px; padding:0 12px; border-radius:9999px; background:var(--papier); color:var(--rheinblau-tief); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rheinblau-tief) 55%, transparent); font-size:14px; font-weight:500; white-space:nowrap; text-decoration:none; transition:color 150ms cubic-bezier(0.4,0,0.2,1), background-color 150ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms cubic-bezier(0.4,0,0.2,1); } .ds-chip::after { content:''; position:absolute; left:0; right:0; top:-6px; bottom:-6px; } .ds-chip:hover { color:var(--rheinblau); box-shadow:inset 0 0 0 1px var(--rheinblau); } .ds-chip-on { background:var(--rheinblau); color:var(--papier); box-shadow:inset 0 0 0 1px var(--rheinblau); } .ds-chip-on:hover { background:var(--rheinblau-hell); color:var(--papier); box-shadow:inset 0 0 0 1px var(--rheinblau); } .ds-chip:focus-visible { outline:2px solid var(--rheinblau); outline-offset:2px; transition:none; } .ds-chip-n { font-variant-numeric:tabular-nums; color:var(--tinte-weich, #525866); } .ds-chip-on .ds-chip-n { color:color-mix(in srgb, var(--papier) 80%, transparent); } .ds-ico-s { width:14px; height:14px; } .ds-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }"
+    },
+    {
+      "name": "Suchfeld",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Pille mit Lupe, Ring in Rheinblau tief (55 %); der Ring wechselt im Fokus auf Rheinblau.",
+      "html": "<label class=\"ds-search\"><span class=\"ds-sr\">Repos durchsuchen</span><span class=\"ds-search-ico\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></span><input class=\"ds-search-in\" type=\"search\" placeholder=\"Repo suchen\"></label>",
+      "css": ".ds-search { position:relative; display:flex; align-items:center; min-width:224px; } .ds-search-ico { position:absolute; left:12px; display:flex; color:#525866; pointer-events:none; } .ds-search-in { font-family: Inter, ui-sans-serif, system-ui, sans-serif; box-sizing:border-box; width:100%; height:44px; padding:0 16px 0 36px; border:0; border-radius:9999px; background:var(--papier); color:var(--rheinblau-tief); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rheinblau-tief) 55%, transparent); font-size:14px; outline:none; } .ds-search-in::placeholder { color:#525866; } .ds-search-in:focus-visible { box-shadow:inset 0 0 0 1px var(--rheinblau), 0 0 0 2px var(--papier), 0 0 0 4px var(--rheinblau); } .ds-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }"
+    },
+    {
+      "name": "Status-Badge",
+      "kind": "custom",
+      "refersTo": "status-badge",
+      "description": "Fünf Tonlagen, jede mit Symbol eigener Form und Text: Kreuz im Kreis, Dreieck, Haken, halber Kreis, Strich.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-badge-fehler\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m15 9-6 6\"/><path d=\"m9 9 6 6\"/></svg>Lauf fehlgeschlagen</span><span class=\"ds-badge ds-badge-warnung\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/></svg>Major zur Freigabe</span><span class=\"ds-badge ds-badge-erfolg\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>Aktuell</span><span class=\"ds-badge ds-badge-laeuft\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 18a6 6 0 0 0 0-12v12z\"/></svg>Läuft</span><span class=\"ds-badge ds-badge-neutral\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/></svg>Nicht onboardet</span></div>",
+      "css": ".ds-badges { display:flex; flex-wrap:wrap; gap:8px; } .ds-badge { font-family: Inter, ui-sans-serif, system-ui, sans-serif; display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:9999px; font-size:12px; line-height:16px; font-weight:600; white-space:nowrap; } .ds-badge .ds-ico { flex:none; } .ds-badge-fehler { background:color-mix(in srgb, var(--status-fehler) 8%, transparent); color:var(--status-fehler); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--status-fehler) 25%, transparent); } .ds-badge-fehler .ds-ico { color:var(--status-fehler); } .ds-badge-warnung { background:color-mix(in srgb, var(--status-warnung) 8%, transparent); color:var(--status-warnung); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--status-warnung) 25%, transparent); } .ds-badge-warnung .ds-ico { color:var(--status-warnung); } .ds-badge-erfolg { background:color-mix(in srgb, var(--logo-gruen) 8%, transparent); color:var(--rheinblau-tief); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--logo-gruen) 30%, transparent); } .ds-badge-erfolg .ds-ico { color:var(--logo-gruen); } .ds-badge-laeuft { background:color-mix(in srgb, var(--rheinblau-hell) 8%, transparent); color:var(--rheinblau-hell); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rheinblau-hell) 25%, transparent); } .ds-badge-laeuft .ds-ico { color:var(--rheinblau-hell); } .ds-badge-neutral { background:color-mix(in srgb, var(--rheinblau-tief) 5%, transparent); color:#525866; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rheinblau-tief) 15%, transparent); } .ds-badge-neutral .ds-ico { color:#525866; }"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Textlinks mit 44 px Höhe; die aktive Seite in Rheinblau mit Unterstreichung in Logo-Grün.",
+      "html": "<nav aria-label=\"Hauptnavigation\"><ul class=\"ds-nav\"><li><a class=\"ds-nav-a ds-nav-on\" href=\"#\" aria-current=\"page\">Übersicht</a></li><li><a class=\"ds-nav-a\" href=\"#\">Repos</a></li><li><a class=\"ds-nav-a\" href=\"#\">Pull Requests</a></li><li><a class=\"ds-nav-a\" href=\"#\">Jobs</a></li><li><a class=\"ds-nav-a\" href=\"#\">Probleme</a></li></ul></nav>",
+      "css": ".ds-nav { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:0; padding:0; list-style:none; } .ds-nav-a { font-family: Inter, ui-sans-serif, system-ui, sans-serif; display:flex; align-items:center; min-height:44px; padding:0 12px; border-radius:6px; color:var(--rheinblau-tief); font-size:14px; font-weight:500; text-decoration:none; transition:color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-nav-a:hover { color:var(--rheinblau-hell); } .ds-nav-on { color:var(--rheinblau); text-decoration:underline; text-decoration-color:var(--logo-gruen); text-decoration-thickness:2px; text-underline-offset:8px; } .ds-nav-a:focus-visible { outline:2px solid var(--rheinblau); outline-offset:2px; transition:none; }"
+    },
+    {
+      "name": "Karte mit Tabellenzeile",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Papier mit Karten-Schatten, ohne Rand; die Zeilen sind 44 px hoch mit feinem Trenner.",
+      "html": "<div class=\"ds-card\"><table class=\"ds-tbl\"><caption class=\"ds-sr\">Repos</caption><thead><tr><th scope=\"col\">Repo</th><th scope=\"col\">Version</th><th scope=\"col\">Zustand</th></tr></thead><tbody><tr><td>lector</td><td class=\"ds-mono\">v2.4.1</td><td><span class=\"ds-st ds-st-ok\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>Aktuell</span></td></tr><tr><td>shop-api</td><td class=\"ds-mono\">v1.9.0</td><td><span class=\"ds-st ds-st-err\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m15 9-6 6\"/><path d=\"m9 9 6 6\"/></svg>Lauf fehlgeschlagen</span></td></tr></tbody></table></div>",
+      "css": ".ds-card { overflow-x:auto; border-radius:8px; background:var(--papier); box-shadow:0 1px 2px color-mix(in srgb, var(--rheinblau-tief) 6%, transparent), 0 4px 16px -8px color-mix(in srgb, var(--rheinblau-tief) 12%, transparent); } .ds-tbl { font-family: Inter, ui-sans-serif, system-ui, sans-serif; width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums; color:var(--rheinblau-tief); } .ds-tbl th { font-family: Montserrat, ui-sans-serif, system-ui, sans-serif; height:40px; padding:0 12px; text-align:left; font-size:12px; font-weight:600; letter-spacing:0.025em; color:var(--tinte-weich, #525866); border-bottom:1px solid color-mix(in srgb, var(--rheinblau-tief) 15%, transparent); } .ds-tbl td { height:44px; padding:6px 12px; border-bottom:1px solid color-mix(in srgb, color-mix(in srgb, var(--rheinblau-tief) 15%, transparent) 70%, transparent); } .ds-tbl tbody tr:last-child td { border-bottom:0; } .ds-tbl tbody tr:hover { background:color-mix(in srgb, var(--surface) 70%, transparent); } .ds-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size:0.875em; font-weight:500; } .ds-st { display:inline-flex; align-items:center; gap:6px; font-weight:500; } .ds-st-ok { color:var(--rheinblau-tief); } .ds-st-ok .ds-ico { color:var(--logo-gruen); } .ds-st-err { color:var(--status-fehler); } .ds-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }"
+    },
+    {
+      "name": "Leiterbahn-Schritt",
+      "kind": "custom",
+      "refersTo": "step-node-open",
+      "description": "Signatur: offener Schritt mit gefülltem Rheinblau-Knoten und Nummer, erledigter mit olivfarbenem Ring und Haken, auf einer durchgehenden Bahn.",
+      "html": "<ol class=\"ds-rail\"><li class=\"ds-step\"><span class=\"ds-node ds-node-open\" aria-hidden=\"true\">1</span><div class=\"ds-step-card\"><div class=\"ds-step-body\"><p class=\"ds-step-t\">react <span class=\"ds-mono ds-step-v\">19.2.0</span></p><p class=\"ds-step-m\"><span class=\"ds-st ds-st-warn\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4\"/><path d=\"M12 17h.01\"/></svg>Major zur Freigabe</span> · lector</p></div><a class=\"ds-step-go\" href=\"#\">PR prüfen</a></div></li><li class=\"ds-step\"><span class=\"ds-node ds-node-done\" aria-hidden=\"true\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><div class=\"ds-step-card\"><div class=\"ds-step-body\"><p class=\"ds-step-t ds-done\">zod <span class=\"ds-mono ds-step-v ds-done\">4.1.0</span> <span class=\"ds-step-ok\">Erledigt</span></p><p class=\"ds-step-m\"><span class=\"ds-st ds-st-ok\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg>Minor</span> · shop-api</p></div></div></li></ol>",
+      "css": ".ds-rail { font-family: Inter, ui-sans-serif, system-ui, sans-serif; position:relative; margin:0; padding:0; list-style:none; display:grid; gap:8px; } .ds-rail::before { content:''; position:absolute; top:16px; bottom:16px; left:15px; width:2px; border-radius:9999px; background:color-mix(in srgb, var(--rheinblau) 25%, transparent); } .ds-step { position:relative; display:flex; align-items:flex-start; gap:16px; } .ds-node { position:relative; z-index:1; flex:none; display:grid; place-items:center; box-sizing:border-box; width:32px; height:32px; margin-top:12px; border-radius:9999px; transition:color 300ms cubic-bezier(0.4,0,0.2,1), background-color 300ms cubic-bezier(0.4,0,0.2,1), box-shadow 300ms cubic-bezier(0.4,0,0.2,1); } .ds-node-open { background:var(--rheinblau); color:var(--papier); box-shadow:0 0 0 4px var(--surface); font-family: Montserrat, ui-sans-serif, system-ui, sans-serif; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; } .ds-node-done { background:var(--papier); color:var(--olive); box-shadow:inset 0 0 0 2px var(--olive); } .ds-step-card { flex:1; min-width:0; display:flex; align-items:center; gap:16px; padding:12px 16px; border-radius:8px; background:var(--papier); box-shadow:0 1px 2px color-mix(in srgb, var(--rheinblau-tief) 6%, transparent), 0 4px 16px -8px color-mix(in srgb, var(--rheinblau-tief) 12%, transparent); } .ds-step-body { flex:1; min-width:0; } .ds-step-t { margin:0; font-size:16px; line-height:24px; font-weight:600; color:var(--rheinblau-tief); } .ds-step-t.ds-done { color:#525866; } .ds-step-v { margin-left:8px; font-size:14px; color:var(--rheinblau); white-space:nowrap; } .ds-step-v.ds-done { color:#525866; } .ds-step-ok { margin-left:8px; font-size:14px; font-weight:500; color:var(--olive); } .ds-step-m { margin:4px 0 0; font-size:14px; line-height:20px; color:#525866; } .ds-mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight:500; } .ds-st { display:inline-flex; align-items:center; gap:6px; font-weight:500; } .ds-st-warn { color:var(--status-warnung); } .ds-st-ok { color:var(--rheinblau-tief); } .ds-st-ok .ds-ico { color:var(--logo-gruen); } .ds-step-go { font-family: Inter, ui-sans-serif, system-ui, sans-serif; display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 16px; border-radius:8px; background:var(--olive); color:var(--papier); font-size:14px; font-weight:600; text-decoration:none; transition:background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-step-go:hover { background:var(--rheinblau); } .ds-step-go:focus-visible { outline:2px solid var(--rheinblau); outline-offset:2px; transition:none; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Das Stellwerk",
+    "overview": "**Creative North Star: \"Das Stellwerk\"**\n\nDie Update Zentrale ist ein ruhiger Kontrollraum. Er zeigt den Zustand vieler Strecken auf einen Blick, nämlich den aller Repos, Pull Requests und Renovate-Läufe, und gibt nur dort Signal, wo jemand handeln muss. Alles, was einfach läuft, bleibt still: weiße Karten auf hellgrauem Grund, Tinte in Rheinblau tief, kaum Farbe. Wer das Dashboard öffnet, soll in wenigen Sekunden sehen, ob etwas eine Entscheidung braucht, und nicht erst suchen müssen.\n\nDie Sprache stammt von krinke.me: Rheinblau, Fassholz, Olive und das Logo-Grün, Montserrat für Überschriften, Inter für alles andere. Das Dashboard übernimmt sie mit mehr Zurückhaltung als die Webseite. Es gibt eine einzige Hauptaktion je Element, in Olive. Alle übrigen Bedienelemente sind still: Rand, Tinte, kein Füllton. Die Dichte ist die eines Werkzeugs, nicht die eines Magazins. Zeilen sind 44 px hoch, Ziffern stehen in Spalten untereinander, und Status steht in Text und Symbol, nie in Farbe allein.\n\nDie Oberfläche kennt nur den hellen Modus. Das Logo bleibt unverändert, die Anrede lautet „Sie\". Das Dashboard bleibt bewusst unauffällig: Es verzichtet auf Hero-Zahlen, dekorative Verläufe und Bewegung, die nichts mitteilt.",
+    "keyCharacteristics": [
+      "Weiße Karten mit weichem Schatten auf hellgrauem Grund, keine Rahmen um Karten",
+      "Genau ein Signal je Element: Olive für die Hauptaktion, alles andere ruhig",
+      "Status in fünf Formen (Kreuz im Kreis, Dreieck, Haken, halber Kreis, Strich), immer mit Text",
+      "Montserrat für Überschriften, Inter für Fließtext, Monospace nur für Daten",
+      "Trefferflächen von mindestens 44 px, auch dort, wo das Element selbst kleiner ist",
+      "Ränder von Bedienelementen mit mindestens 3:1 Kontrast",
+      "Nur heller Modus, Bewegung nur als Farbübergang"
+    ],
+    "rules": [
+      {
+        "name": "Die Ein-Signal-Regel",
+        "body": "Olive füllt nur die eine Hauptaktion je Element (Karte, Schritt, Dialog). Eine zweite Aktion daneben ist ein ruhiger Knopf mit Rand. Wer zwei olivfarbene Flächen nebeneinander setzt, hat keine Hauptaktion mehr.",
+        "section": "colors"
+      },
+      {
+        "name": "Die Form-statt-Farbe-Regel",
+        "body": "Jeder Status trägt Text und ein Symbol eigener Form: Kreuz im Kreis (Fehler), Dreieck (Warnung), Haken (Erfolg), halber Kreis (läuft), Strich (neutral). Die Farbe verstärkt, sie trägt die Information nie allein.",
+        "section": "colors"
+      },
+      {
+        "name": "Die Grün-ist-kein-Text-Regel",
+        "body": "Logo-Grün erscheint nur in Symbolen und Linien. Erfolg wird im Text in Tinte gesetzt, nur das Symbol ist grün.",
+        "section": "colors"
+      },
+      {
+        "name": "Die Monospace-nur-für-Daten-Regel",
+        "body": "Monospace steht für Dinge, die man abschreiben oder vergleichen kann: Versionen, Namen, Log-Zeilen. Beschriftungen, Knöpfe und Fließtext setzen wir nie in Monospace, auch nicht „für den technischen Look\".",
+        "section": "typography"
+      },
+      {
+        "name": "Die Ziffern-stehen-still-Regel",
+        "body": "Überschriften und Tabellen nutzen tabellarische Ziffern (`tabular-nums`), ebenso Zähler an Chips und Gruppen. Zahlen in Spalten und Zählern springen beim Aktualisieren nicht.",
+        "section": "typography"
+      },
+      {
+        "name": "Die 44-px-Regel",
+        "body": "Jedes bedienbare Ziel ist mindestens 44 px hoch. Ist das sichtbare Element kleiner (Text-Link in einer Meta-Zeile, Chip mit 32 px, Spaltenkopf), vergrößert ein `::after`-Pseudo-Element die Trefferfläche über das Element hinaus, ohne den Abstand der Zeile zu ändern. Das Muster steckt in `TOUCH_TARGET` (`dashboard/src/lib/touch-target.ts`). Benachbarte Ziele dürfen sich nicht überdecken, deshalb sind Zeilen mit solchen Links mindestens 44 px hoch.",
+        "section": "layout"
+      },
+      {
+        "name": "Die Umbruch-vor-Überlauf-Regel",
+        "body": "Eine Zeile bricht um (`flex-wrap`, `min-w-0`, `[overflow-wrap:anywhere]`), bevor sie die Seite breiter als den Bildschirm macht. Waagerechtes Scrollen gibt es nur in ausdrücklich dafür gebauten Leisten (Filter auf dem Handy, Wischkarten).",
+        "section": "layout"
+      },
+      {
+        "name": "Die Papier-statt-Rahmen-Regel",
+        "body": "Karten haben einen Schatten und keinen Rand. Bedienelemente (Suchfeld, inaktive Chips, ruhige Knöpfe) haben dagegen immer einen Rand, und dieser Rand erreicht mindestens 3:1 Kontrast gegen den Untergrund (Rheinblau tief zu 55 %: 3,4:1 gegen Surface, 3,6:1 gegen Papier). Ein Rand um eine Karte ist falsch, ein blasser Rand um ein Feld ebenso.",
+        "section": "elevation"
+      },
+      {
+        "name": "Die Schatten-aus-Tinte-Regel",
+        "body": "Schatten werden aus Rheinblau tief gemischt, nie aus Schwarz. Sie stehen einmal als Token in `globals.css` und werden nicht an einzelnen Karten neu erfunden.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** Olive für die eine Hauptaktion je Element verwenden und jede weitere Aktion als ruhigen Knopf mit Ring setzen (Die Ein-Signal-Regel).",
+      "**Do** jeden Status mit Text und einem Symbol eigener Form zeigen: Kreuz im Kreis, Dreieck, Haken, halber Kreis, Strich (Die Form-statt-Farbe-Regel).",
+      "**Do** Logo-Grün auf Symbole und Linien beschränken; Text in Tinte setzen (Die Grün-ist-kein-Text-Regel).",
+      "**Do** Karten mit `shadow-karte` auf Surface legen und sie ohne Rand lassen; Bedienelemente erhalten einen Rand von mindestens 3:1 (Die Papier-statt-Rahmen-Regel).",
+      "**Do** jedes Ziel auf mindestens 44 px bringen, notfalls über das `after:`-Muster aus `TOUCH_TARGET` (Die 44-px-Regel).",
+      "**Do** Zustände mit direkt gewählten Farben darstellen (zum Beispiel Tinte weich für Erledigtes, jeweils mindestens 4,5:1 für Text).",
+      "**Do** Monospace nur für Versionen, Namen und Logs verwenden und Ziffern mit `tabular-nums` setzen.",
+      "**Do** Texte in „Sie\"-Form, auf Deutsch, sachlich und ohne Marketingsprache halten."
+    ],
+    "donts": [
+      "**Don't** einen farbigen Seitenrand über 1 px an Karten, Listeneinträgen oder Hinweisen setzen.",
+      "**Don't** Eyebrows oder Kicker über Überschriften stellen; die Überschrift trägt sich selbst.",
+      "**Don't** Kennzahlen als Kachelwand mit großer Zahl und kleinem Label bauen; die Übersicht zeigt sie als ruhige Liste.",
+      "**Don't** einen Dark Mode ergänzen. Die Oberfläche ist ausdrücklich nur hell (`color-scheme: light`).",
+      "**Don't** das Logo verändern, umfärben, beschneiden oder neu zeichnen.",
+      "**Don't** Zustände über Gruppen-Opacity abtönen. Ein erledigter Schritt erhält eigene, direkt gewählte Farben, damit der Kontrast je Text stimmt.",
+      "**Don't** Status allein über Farbe vermitteln oder Fehler mit einem roten Rand statt einer Statuszeile anzeigen.",
+      "**Don't** Hex-Werte in Komponenten schreiben. Komponenten nutzen die Token-Klassen (`bg-rheinblau`, `text-ink`, `shadow-karte`).",
+      "**Don't** Fließtext, Knöpfe oder Beschriftungen in Monospace setzen."
+    ]
+  }
+}
