@@ -51,7 +51,7 @@ export function SearchBox({ label, placeholder }: { label: string; placeholder: 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-11 w-full rounded-full bg-papier pr-4 pl-9 text-sm ring-1 ring-rheinblau-tief/20 ring-inset placeholder:text-ink-soft focus-visible:ring-rheinblau lg:h-9"
+        className="h-11 w-full rounded-full bg-papier pr-4 pl-9 text-sm ring-1 ring-rheinblau-tief/55 ring-inset placeholder:text-ink-soft focus-visible:ring-rheinblau lg:h-9"
       />
     </label>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ChevronDownIcon, ChevronUpIcon, CopyIcon } from "lucide-react";
@@ -11,6 +11,7 @@ import { JOB_STATUS_LABEL, JOB_STATUS_TONE, JOB_TRIGGER_LABEL } from "@/domain/s
 import { formatDateTime, formatDuration, formatRelative } from "@/lib/format";
 import { limitLogLines } from "@/lib/log-view";
 import { repoDetailHref } from "@/lib/repo-detail-href";
+import { TOUCH_TARGET } from "@/lib/touch-target";
 import type { JobRow } from "@/queries/jobs";
 
 type Layout = "table" | "card";
@@ -27,15 +28,43 @@ function logPanelId(job: JobRow, layout: Layout) {
 function JobTime({ job }: { job: JobRow }) {
   const at = jobTime(job);
   return (
-    <time dateTime={at.toISOString()} title={formatDateTime(at)} suppressHydrationWarning className="whitespace-nowrap">
+    <time dateTime={at.toISOString()} title={formatDateTime(at)} suppressHydrationWarning className="md:whitespace-nowrap">
       {formatRelative(at)}
     </time>
   );
 }
 
+/**
+ * Offen-Zustand der Log-Zeilen. Er läuft über einen Kontext statt über die Spaltendefinition: Hinge
+ * `columns` von `open` ab, würde die Tabelle die Zelle beim Aufklappen neu mounten und der Fokus
+ * fiele auf `body`.
+ */
+const OpenLogsContext = createContext<{ open: ReadonlySet<string>; toggle: (id: string) => void }>({
+  open: new Set(),
+  toggle: () => {},
+});
+
+function LogCell({ job, layout }: { job: JobRow; layout: Layout }) {
+  const { open, toggle } = useContext(OpenLogsContext);
+  return hasLog(job) ? (
+    <LogToggle
+      job={job}
+      layout={layout}
+      expanded={open.has(job.id)}
+      onToggle={toggle}
+      className={layout === "card" ? "min-h-11 after:hidden" : undefined}
+    />
+  ) : (
+    <NoLog job={job} />
+  );
+}
+
 function RepoLink({ fullName }: { fullName: string }) {
   return (
-    <Link href={repoDetailHref(fullName)} className="font-medium text-rheinblau underline-offset-4 hover:underline">
+    <Link
+      href={repoDetailHref(fullName)}
+      className={cn(TOUCH_TARGET, "font-medium text-rheinblau underline-offset-4 hover:underline")}
+    >
       {fullName}
     </Link>
   );
@@ -227,59 +256,46 @@ export function JobTable({
         id: "log",
         header: "Log",
         enableSorting: false,
-        cell: ({ row }) => {
-          const job = row.original;
-          return hasLog(job) ? (
-            <LogToggle job={job} layout="table" expanded={open.has(job.id)} onToggle={toggle} />
-          ) : (
-            <NoLog job={job} />
-          );
-        },
+        cell: ({ row }) => <LogCell job={row.original} layout="table" />,
       },
     );
     return cols;
-  }, [showRepo, open, toggle]);
+  }, [showRepo]);
+
+  const openLogs = useMemo(() => ({ open, toggle }), [open, toggle]);
 
   return (
-    <DataTable
-      caption={caption}
-      columns={columns}
-      rows={rows}
-      rowKey={(j) => j.id}
-      manualSorting={manualSorting}
-      renderExpanded={(job, layout) =>
-        open.has(job.id) && hasLog(job) ? <LogPanel job={job} layout={layout} /> : null
-      }
-      renderCard={(job) => (
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <StatusText tone={JOB_STATUS_TONE[job.status]}>{JOB_STATUS_LABEL[job.status]}</StatusText>
-            <span className="text-sm text-ink-soft">
-              <JobTime job={job} />
-            </span>
-          </div>
-          {showRepo ? (
-            <p className="text-sm break-words">
-              <RepoLink fullName={job.repoFullName} />
+    <OpenLogsContext.Provider value={openLogs}>
+      <DataTable
+        caption={caption}
+        columns={columns}
+        rows={rows}
+        rowKey={(j) => j.id}
+        manualSorting={manualSorting}
+        renderExpanded={(job, layout) =>
+          open.has(job.id) && hasLog(job) ? <LogPanel job={job} layout={layout} /> : null
+        }
+        renderCard={(job) => (
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <StatusText tone={JOB_STATUS_TONE[job.status]}>{JOB_STATUS_LABEL[job.status]}</StatusText>
+              <span className="text-sm text-ink-soft">
+                <JobTime job={job} />
+              </span>
+            </div>
+            {showRepo ? (
+              <p className="text-sm break-words">
+                <RepoLink fullName={job.repoFullName} />
+              </p>
+            ) : null}
+            <p className="text-sm text-ink-soft">
+              {JOB_TRIGGER_LABEL[job.trigger]}, Dauer <span className="tabular-nums">{formatDuration(job.durationMs)}</span>
             </p>
-          ) : null}
-          <p className="text-sm text-ink-soft">
-            {JOB_TRIGGER_LABEL[job.trigger]}, Dauer <span className="tabular-nums">{formatDuration(job.durationMs)}</span>
-          </p>
-          <ArtifactHint job={job} />
-          {hasLog(job) ? (
-            <LogToggle
-              job={job}
-              layout="card"
-              expanded={open.has(job.id)}
-              onToggle={toggle}
-              className="min-h-11 after:hidden"
-            />
-          ) : (
-            <NoLog job={job} />
-          )}
-        </div>
-      )}
-    />
+            <ArtifactHint job={job} />
+            <LogCell job={job} layout="card" />
+          </div>
+        )}
+      />
+    </OpenLogsContext.Provider>
   );
 }

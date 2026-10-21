@@ -34,7 +34,7 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
             >
               {i + 1}
             </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-xl bg-papier px-4 py-3 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)] sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-xl bg-papier px-4 py-3 shadow-karte sm:flex-row sm:items-center sm:gap-4">
               <div className="min-w-0 flex-1">
                 <p className="text-base font-semibold text-ink">
                   <span className="sr-only">Schritt {i + 1}: </span>

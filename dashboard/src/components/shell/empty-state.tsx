@@ -14,7 +14,7 @@ export function EmptyState({
   action?: { href: string; label: string };
 }) {
   return (
-    <section className="rounded-xl bg-papier p-6 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]">
+    <section className="rounded-xl bg-papier p-6 shadow-karte">
       <h2 className="text-lg font-semibold">{title}</h2>
       {children ? <div className="mt-2 max-w-prose space-y-2 text-ink-soft">{children}</div> : null}
       {action ? (

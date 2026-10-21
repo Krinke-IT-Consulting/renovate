@@ -70,7 +70,7 @@ function Section({
   return (
     <section aria-labelledby={id} className="mt-10">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4">
-        <h2 id={id} className="flex items-center gap-2 text-lg font-semibold">
+        <h2 id={id} className="flex flex-wrap items-center gap-x-2 text-lg font-semibold">
           {title}
           {count !== undefined ? (
             <span className="font-sans text-base font-medium text-ink-soft tabular-nums">

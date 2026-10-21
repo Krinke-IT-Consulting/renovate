@@ -65,7 +65,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
       <PageHeader title="Probleme" description={description} />
 
       <nav aria-label="Ansicht" className="mb-4">
-        <ul className="inline-flex rounded-full bg-papier p-1 ring-1 ring-rheinblau-tief/20 ring-inset">
+        <ul className="inline-flex max-w-full flex-wrap rounded-full bg-papier p-1 ring-1 ring-rheinblau-tief/20 ring-inset">
           {VIEWS.map((v) => {
             const active = ansicht === v;
             return (

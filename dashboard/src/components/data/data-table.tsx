@@ -99,7 +99,7 @@ export function DataTable<T>({
 
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-xl bg-papier shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)] md:block">
+      <div className="hidden overflow-x-auto rounded-xl bg-papier shadow-karte md:block">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead>
@@ -157,7 +157,7 @@ export function DataTable<T>({
                 <Fragment key={row.id}>
                   <tr
                     className={cn(
-                      "h-10 border-b border-border/70 last:border-b-0 hover:bg-surface/70",
+                      "h-11 border-b border-border/70 last:border-b-0 hover:bg-surface/70",
                       expanded && "border-b-0",
                       rowClassName?.(row.original),
                     )}
@@ -194,7 +194,7 @@ export function DataTable<T>({
 
       <ul aria-label={caption} className="space-y-3 md:hidden">
         {sortedRows.map((row) => (
-          <li key={row.id} className="rounded-xl bg-papier p-4 shadow-[0_1px_2px_rgb(26_39_68/0.06),0_4px_16px_-8px_rgb(26_39_68/0.12)]">
+          <li key={row.id} className="rounded-xl bg-papier p-4 shadow-karte">
             {renderCard(row.original)}
             {renderExpanded?.(row.original, "card") ?? null}
           </li>

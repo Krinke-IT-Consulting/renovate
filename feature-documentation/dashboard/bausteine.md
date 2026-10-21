@@ -307,3 +307,12 @@ Seite.
 - `@tanstack/react-table` ist bewusst auf `8.21.3` gepinnt: v9 erschien erst im August 2026 mit geänderter API; das Update kommt als Renovate-Major-PR.
 - Ungenutzt im Code: die Prop `rowClassName` von `DataTable` und die Prop `single` von `FilterChips`. Sie sind
   vorhanden, aber nicht aufgerufen. Ob sie bleiben oder entfernt werden, ist offen.
+## Audit-Korrekturen (Task 8.1)
+
+- **Trefferfläche 44 px:** `TOUCH_TARGET` (`dashboard/src/lib/touch-target.ts`) legt ein mittiges `::after` von mindestens 44 px über reine Text-Links. Tabellenzeilen sind `h-11`, damit sich Ziele benachbarter Zeilen nicht überdecken. Die Filter-Leiste hat `py-1.5`, sonst schneidet `overflow-x-auto` das Pseudo-Element der Chips ab.
+- **Text-Zoom 200 %:** `e2e/zoom.spec.ts` prüft `scrollWidth <= clientWidth` bei 375 und 1440 px. Media-Queries bleiben in Pixeln der Standardgröße; Kopfleiste, Kennzahlen, Chips und Statuszeilen müssen deshalb selbst umbrechen (`flex-wrap`, `min-w-0`, `md:whitespace-nowrap`).
+- **Log-Knopf:** Der Offen-Zustand läuft über `OpenLogsContext`; die Spalten von `JobTable` hängen nicht von ihm ab, sonst fällt der Fokus beim Aufklappen auf `body`.
+- **Ränder von Bedienelementen:** Suchfeld und inaktive Chips nutzen `ring-rheinblau-tief/55` (3,4:1 gegen `surface`, 3,6:1 gegen `papier`).
+- **Schatten:** `shadow-karte` und `shadow-karte-flach` in `globals.css`, aus `--rheinblau-tief` abgeleitet. Der Fokusring wird nicht animiert (`:focus-visible { transition-property: none }`, unlayered).
+- **Erledigt-Schritte:** keine Gruppen-Opacity; `text-olive` für "Erledigt", `text-ink-soft` für Titel, Version, Repo.
+- **Header-Logo:** ein `<picture>` mit `source` ab `64rem`, kompaktes Logo als `img`.
