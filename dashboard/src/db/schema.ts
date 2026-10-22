@@ -136,6 +136,14 @@ export const repositories = pgTable(
     ownCi: boolean("own_ci").notNull().default(false),
     /** Gesetzt, wenn das Repo auf der Plattform verschwunden ist; Zeilen werden nie gelöscht. */
     removedAt: ts("removed_at"),
+    /**
+     * Erlaubte Merge-Methoden in Vorzugsreihenfolge (squash, merge, rebase), aus dem Abgleich.
+     * Leer = unbekannt oder keine erlaubt; dann bietet die Oberfläche kein Mergen an.
+     */
+    mergeMethods: text("merge_methods")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
   },
   (t) => [
     uniqueIndex("repositories_connection_external_id_key").on(t.connectionId, t.externalId),

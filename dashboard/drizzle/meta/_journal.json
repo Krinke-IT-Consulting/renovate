@@ -22,6 +22,13 @@
       "when": 1792075143584,
       "tag": "0002_renovate_jobs_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792661200434,
+      "tag": "0003_repositories_merge_methods",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "repositories" ADD COLUMN "merge_methods" text[] DEFAULT '{}'::text[] NOT NULL;
