@@ -63,6 +63,6 @@
 
 - [x] 5.1 Doku: `feature-documentation/dashboard/merge.md` neu, `aktionen.md` und `PROGRESS.md`
   nachziehen. Fertig, wenn `openspec validate dashboard-pr-merge --strict` grün ist.
-- [ ] 5.2 Review durch `reviewer` und `github-app-integration`, Befunde beheben, dann PR, Merge und
+- [x] 5.2 Review durch `reviewer` und `github-app-integration`, Befunde beheben, dann PR, Merge und
   Deployment nach Freigabe. Fertig, wenn der Betreiber einen echten grünen PR aus dem Dashboard
   gemergt hat und Merge, AuditLog und Status im Dashboard stimmen.
