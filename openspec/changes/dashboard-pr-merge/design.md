@@ -152,7 +152,7 @@ Dafür wird kein Sonderweg gebaut.
 
 ## Migration Plan
 
-1. **Migration:** `0003_repositories_merge_methods` (Spalte nullable, Standard leeres Array). Läuft
+1. **Migration:** `0003_repositories_merge_methods` (Spalte `NOT NULL`, Standard leeres Array; ohne Tabellen-Rewrite). Läuft
    beim Containerstart wie bisher.
 2. **Erster Abgleich:** Er füllt die Spalte. Bis dahin zeigt die Oberfläche keine Merge-Knöpfe, denn
    die Methodenliste ist leer.
