@@ -12,6 +12,7 @@ import {
   PlatformApiError,
   RateLimitPause,
   type ChangeRequestRef,
+  type ListRepositoriesOptions,
   type ChangeRequestState,
   type ChangeStatus,
   type NewChangeRequest,
@@ -23,7 +24,7 @@ import {
 } from "@/platform";
 import { createRolloutService, setAutoOnboarding } from "@/rollout";
 import { resetLogFailures, runCeSync } from "./ce-sync";
-import { runGithubSync } from "./github-sync";
+import { resetMergeMethodsThrottle, runGithubSync } from "./github-sync";
 import { SYNC_LOCK_KEYS, withAdvisoryLock } from "./lock";
 import { syncProblems } from "./problems-sync";
 import { startSyncLoops } from "./scheduler";
@@ -117,8 +118,14 @@ class FakeAdapter implements PlatformAdapter {
     if (this.connectionsFail) throw this.connectionsFail;
     return this.connections;
   }
-  async listRepositories(conn: PlatformConnection) {
-    return this.repos.get(conn.externalConnectionId) ?? [];
+  /** Repos, für die der Abgleich Einzelabrufe der Merge-Methoden angefordert hat (je Durchlauf). */
+  methodReads: string[][] = [];
+  async listRepositories(conn: PlatformConnection, options?: ListRepositoriesOptions) {
+    const repos = this.repos.get(conn.externalConnectionId) ?? [];
+    this.methodReads.push(
+      repos.filter((r) => options?.readMergeMethods?.(r) ?? false).map((r) => r.fullName),
+    );
+    return repos;
   }
   async getHeadSha(conn: PlatformConnection, ref: { fullName: string }) {
     const r = this.find(conn, ref.fullName);
@@ -453,6 +460,28 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
       ]);
       await runGithubSync({ db, adapter });
       expect(await methods()).toEqual({ "acme/squash": ["merge"], "acme/keine": ["squash"], "acme/unbekannt": [] });
+    });
+
+    it("drosselt die Einzelabrufe der Merge-Methoden (offene PRs oder leere Spalte, höchstens stündlich)", async () => {
+      resetMergeMethodsThrottle();
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, [
+        makeRepo(1, "acme/neu"),
+        makeRepo(2, "acme/ruhig", { mergeMethods: ["squash"] }),
+        makeRepo(3, "acme/mitpr", { mergeMethods: ["squash"], prs: [makePr(5, "pr-1")] }),
+      ]);
+      await runGithubSync({ db, adapter });
+      // Erster Durchlauf: alle neu, alle angefordert.
+      expect(adapter.methodReads[0]).toEqual(["acme/neu", "acme/ruhig", "acme/mitpr"]);
+
+      // Sofort danach: gedrosselt, nichts angefordert.
+      await runGithubSync({ db, adapter });
+      expect(adapter.methodReads[1]).toEqual([]);
+
+      // Nach der Stunde: nur leere Spalte (neu) und offener PR (mitpr), nicht das ruhige Repo.
+      resetMergeMethodsThrottle();
+      await runGithubSync({ db, adapter });
+      expect(adapter.methodReads[2]).toEqual(["acme/neu", "acme/mitpr"]);
     });
 
     it("liest Inhalte nur bei neuem Head-SHA und leitet Onboarding und Build-Check ab", async () => {

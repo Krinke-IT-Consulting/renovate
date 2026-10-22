@@ -89,6 +89,15 @@ async function upsertConnection(
   return row!;
 }
 
+/** Mindestabstand, in dem die Merge-Methoden eines Repos einzeln gelesen werden (je Prozess). */
+export const MERGE_METHODS_READ_INTERVAL_MS = 3_600_000;
+const mergeMethodsReadAt = new Map<string, number>();
+
+/** Nur für Tests: vergisst, wann die Merge-Methoden zuletzt gelesen wurden. */
+export function resetMergeMethodsThrottle(): void {
+  mergeMethodsReadAt.clear();
+}
+
 /** Repos einer Connection abgleichen: anlegen, nachziehen, Verschwundene mit removed_at markieren. */
 async function syncRepositoryList(
   db: Db,
@@ -97,12 +106,35 @@ async function syncRepositoryList(
   conn: PlatformConnection,
   now: Date,
 ): Promise<void> {
-  const listed = await adapter.listRepositories(conn);
   const existing = await db
     .select()
     .from(repositories)
     .where(eq(repositories.connectionId, connRow.id));
   const byExternal = new Map(existing.map((r) => [r.externalId, r]));
+  // Einzelabrufe der Merge-Methoden kosten je Repo eine Anfrage (der ETag ändert sich bei jedem
+  // Push). Nur für Repos mit offenen Update-PRs oder ohne gespeicherte Methoden, höchstens
+  // stündlich je Repo; die Live-Prüfung beim Merge liest ohnehin frisch.
+  const withOpenPrs = new Set(
+    (
+      await db
+        .selectDistinct({ id: pullRequests.repositoryId })
+        .from(pullRequests)
+        .innerJoin(repositories, eq(pullRequests.repositoryId, repositories.id))
+        .where(and(eq(repositories.connectionId, connRow.id), eq(pullRequests.state, "open")))
+    ).map((r) => r.id),
+  );
+  const listed = await adapter.listRepositories(conn, {
+    readMergeMethods: (repo) => {
+      const row = byExternal.get(repo.externalId);
+      // Repo mit gespeicherten Methoden, aber ohne offenen Update-PR: nichts zu entscheiden.
+      if (row && !withOpenPrs.has(row.id) && row.mergeMethods.length > 0) return false;
+      const key = `${connRow.id}:${repo.externalId}`;
+      const last = mergeMethodsReadAt.get(key);
+      if (last !== undefined && now.getTime() - last < MERGE_METHODS_READ_INTERVAL_MS) return false;
+      mergeMethodsReadAt.set(key, now.getTime());
+      return true;
+    },
+  });
   const listedIds = new Set<string>();
 
   for (const repo of listed) {

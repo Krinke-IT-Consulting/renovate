@@ -23,6 +23,7 @@ import { listBulkMergeCandidates } from "@/queries/merge";
 import {
   BULK_PAUSE_MS,
   bulkResultToState,
+  type BulkMergeResult,
   mergeAllGreenCore,
   mergeOutcomeToState,
   mergePullRequestCore,
@@ -326,6 +327,92 @@ describe.skipIf(!adminUrl)("Merge-Kern (Postgres)", () => {
       expect(await audit()).toHaveLength(3);
     });
 
+    it("Paralleler Merge: Ablehnung nach dem PUT, PR inzwischen gemergt -> not_open mit eigener Meldung und state merged", async () => {
+      const t = await addPr("a", 1);
+      const fake = fakePlatform();
+      let reads = 0;
+      const platform: MergePlatform = {
+        async getMergeReadiness(c, repo, n) {
+          reads++;
+          const base = await fake.platform.getMergeReadiness(c, repo, n);
+          return reads >= 2 ? { ...base, state: "merged" } : base;
+        },
+        async mergeChangeRequest() {
+          throw new PlatformRejectedError("Die Plattform lehnt den Merge ab.");
+        },
+      };
+      const outcome = await mergePullRequestCore({ db, platform }, { ...t, actor: "s" });
+      expect(outcome).toMatchObject({ status: "skipped", reason: "not_open", message: "Der PR ist bereits gemergt." });
+      expect(reads).toBe(2);
+      expect((await stored(t.pullRequestId)).state).toBe("merged");
+      expect(await audit()).toEqual(["pr.merge.skipped|o/a #1 (not_open)"]);
+    });
+
+    it("Ablehnung nach dem PUT, PR weiter offen: bleibt bei rejected", async () => {
+      const t = await addPr("a", 1);
+      const fake = fakePlatform();
+      fake.live.set("o/a#1", { mergeError: new PlatformRejectedError("Die Plattform lehnt den Merge ab.") });
+      const outcome = await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" });
+      expect(outcome).toMatchObject({ reason: "rejected" });
+      expect(fake.reads).toHaveLength(2);
+      expect((await stored(t.pullRequestId)).state).toBe("open");
+    });
+
+    it("blockedReason: Entwurf und Branch-Schutz werden vor dem PUT abgelehnt, behind nie", async () => {
+      const t = await addPr("a", 1);
+      const fake = fakePlatform();
+      fake.live.set("o/a#1", { blockedReason: "protection" });
+      expect(await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" })).toMatchObject({
+        reason: "rejected",
+        message: "Branch-Schutz oder fehlende Freigaben verhindern den Merge.",
+      });
+      fake.live.set("o/a#1", { blockedReason: "draft" });
+      expect(await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" })).toMatchObject({
+        reason: "rejected",
+        message: "Der PR ist ein Entwurf.",
+      });
+      expect(fake.merges).toEqual([]);
+      // Kein Hinweis (etwa "behind"): der Merge wird versucht.
+      fake.live.set("o/a#1", { blockedReason: null });
+      expect((await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" })).status).toBe("merged");
+    });
+
+    it("Methoden unbekannt (null): eigene Meldung statt 'keine Methode'", async () => {
+      const t = await addPr("a", 1);
+      const fake = fakePlatform();
+      fake.live.set("o/a#1", { methods: null });
+      const outcome = await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" });
+      expect(outcome).toMatchObject({
+        reason: "no_method",
+        message: "Die erlaubten Merge-Methoden sind nicht lesbar (Rechte der App prüfen).",
+      });
+      expect(fake.merges).toEqual([]);
+    });
+
+    it("Kontingent-Pause beim Einzel-Merge: Meldung mit Uhrzeit (Europe/Berlin)", async () => {
+      const t = await addPr("a", 1);
+      const fake = fakePlatform();
+      fake.live.set("o/a#1", { readError: new RateLimitPause(0, 5000, new Date("2026-10-22T12:30:00Z")) });
+      expect(await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" })).toMatchObject({
+        status: "failed",
+        message: "Kontingent knapp, wieder möglich ab 14:30.",
+      });
+    });
+
+    it("Fehlendes Workflow-Recht: Meldung zum Recht Workflows", async () => {
+      const t = await addPr("a", 1);
+      const fake = fakePlatform();
+      fake.live.set("o/a#1", {
+        mergeError: new PlatformPermissionError(
+          "Der GitHub App fehlt in diesem Repo das Schreibrecht auf Workflows. Bitte in den App-Einstellungen ergänzen.",
+        ),
+      });
+      expect(await mergePullRequestCore({ db, platform: fake.platform }, { ...t, actor: "s" })).toMatchObject({
+        status: "failed",
+        message: expect.stringContaining("Workflows"),
+      });
+    });
+
     it("gemergt, aber Speichern scheitert: trotzdem merged, ohne Werte im Log", async () => {
       const t = await addPr("a", 1);
       const fake = fakePlatform();
@@ -337,9 +424,12 @@ describe.skipIf(!adminUrl)("Merge-Kern (Postgres)", () => {
           transaction: async () => {
             throw new Error("db weg");
           },
+          // Das AuditLog bleibt erreichbar: der Kern schreibt pr.merge dann separat.
+          insert: db.insert.bind(db),
         } as unknown as Db;
         const outcome = await mergePullRequestCore({ db: broken, platform: fake.platform }, { ...t, actor: "s" });
         expect(outcome.status).toBe("merged");
+        expect(await audit()).toEqual(["pr.merge|o/a #1"]);
         expect(log).toHaveBeenCalled();
         expect(JSON.stringify(log.mock.calls)).not.toContain("db weg");
       } finally {
@@ -385,6 +475,71 @@ describe.skipIf(!adminUrl)("Merge-Kern (Postgres)", () => {
       const message = (state as { message: string }).message;
       expect(message).toContain("2 PRs gemergt, 1 übersprungen");
       expect(message).toContain("o/a #2: Der PR hat sich seit der Anzeige geändert");
+    });
+
+    it("Zeitgrenze: übrige Ziele werden nicht versucht, ohne Audit je Ziel, Meldung mit Zählung", async () => {
+      const t1 = await addPr("a", 1);
+      const t2 = await addPr("b", 2);
+      const t3 = await addPr("b", 3);
+      const fake = fakePlatform();
+      let tick = 0;
+      const result = await mergeAllGreenCore(
+        { ...deps(fake.platform), timeLimitMs: 45_000, clockMs: () => (tick++ === 0 ? 0 : 50_000) },
+        { targets: [t1, t2, t3], actor: "s" },
+      );
+      // Erste Prüfung (Start, 0 ms) und erste Schleife (0 ms nach Start) vergehen; danach 50 s.
+      expect(result.stopped).toBe("time");
+      expect(result.outcomes.map((o) => o.status)).toEqual([]);
+      expect(result.notAttempted).toBe(3);
+      expect(await audit()).toEqual(["pr.merge_bulk|3 PRs in 2 Repos"]);
+      expect((bulkResultToState(result) as { message: string }).message).toContain(
+        "3 PRs wurden nicht versucht (Zeitgrenze erreicht), bitte erneut auslösen.",
+      );
+    });
+
+    it("Zeitgrenze mitten im Lauf: bereits gemergte bleiben, der Rest zählt als nicht versucht (Einzahl)", async () => {
+      const t1 = await addPr("a", 1);
+      const t2 = await addPr("b", 2);
+      const fake = fakePlatform();
+      const times = [0, 0, 60_000];
+      const result = await mergeAllGreenCore(
+        { ...deps(fake.platform), clockMs: () => times.shift() ?? 60_000 },
+        { targets: [t1, t2], actor: "s" },
+      );
+      expect(result.outcomes.map((o) => o.status)).toEqual(["merged"]);
+      expect(result.notAttempted).toBe(1);
+      const message = (bulkResultToState(result) as { message: string }).message;
+      expect(message).toContain("1 PR wurde nicht versucht (Zeitgrenze erreicht), bitte erneut auslösen.");
+    });
+
+    it("Kontingent-Pause beim zweiten Ziel: Rest nicht versucht, kein pr.merge.failed, Pause einmal mit Uhrzeit", async () => {
+      const t1 = await addPr("a", 1);
+      const t2 = await addPr("b", 2);
+      const t3 = await addPr("b", 3);
+      const fake = fakePlatform();
+      fake.live.set("o/b#2", { readError: new RateLimitPause(0, 5000, new Date("2026-10-22T12:30:00Z")) });
+      const result = await mergeAllGreenCore(deps(fake.platform), { targets: [t1, t2, t3], actor: "s" });
+      expect(result.outcomes.map((o) => o.status)).toEqual(["merged"]);
+      expect(result.stopped).toBe("pause");
+      expect(result.notAttempted).toBe(2);
+      expect(fake.reads).toEqual(["o/a#1", "o/b#2"]);
+      expect(await audit()).toEqual(["pr.merge_bulk|3 PRs in 2 Repos", "pr.merge|o/a #1"]);
+      const message = (bulkResultToState(result) as { message: string }).message;
+      expect(message.match(/Kontingent knapp/g)).toHaveLength(1);
+      expect(message).toContain("wieder möglich ab 14:30");
+      expect(message).toContain("2 PRs wurden nicht versucht, bitte erneut auslösen.");
+    });
+
+    it("Zählsätze in der Einzahl: ein weiterer PR über der Obergrenze, kein Ziel versucht", () => {
+      const merged = { status: "merged" as const, prUrl: "u", prNumber: 1, repoFullName: "o/a" };
+      const base: BulkMergeResult = { outcomes: [merged], ignored: 0, notAttempted: 0, stopped: null, pauseResetAt: null };
+      const one = (bulkResultToState({ ...base, ignored: 1 }) as { message: string }).message;
+      expect(one).toContain("1 weiterer PR blieb wegen der Obergrenze");
+      const pause = (
+        bulkResultToState({ ...base, outcomes: [], ignored: 0, notAttempted: 1, stopped: "pause" }) as { message: string }
+      ).message;
+      expect(pause).toContain("1 PR wurde nicht versucht");
+      expect(pause).not.toContain("Es gab keine PRs");
     });
 
     it("Pause zwischen zwei Merges im selben Repo", async () => {

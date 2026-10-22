@@ -27,6 +27,7 @@ import type {
   MergeRequest,
   NewChangeRequest,
   PlatformAdapter,
+  ListRepositoriesOptions,
   PlatformConnection,
   PlatformRepository,
   RepositoryContentState,
@@ -75,6 +76,11 @@ const MERGE_REJECTED_MESSAGE =
   "Die Plattform lehnt den Merge ab (zum Beispiel wegen Branch-Schutz oder fehlender Freigaben).";
 const MERGE_INVALID_MESSAGE =
   "Die Plattform hat den Merge als ungültig abgelehnt (etwa weil die Methode nicht erlaubt ist).";
+const WORKFLOW_PERMISSION_TEXT = /refusing to allow.*workflow|workflows?`? permission/i;
+const MERGE_BASE_CHANGED_MESSAGE = "Der Ziel-Branch hat sich gerade geändert; bitte erneut versuchen.";
+const MERGE_BEHIND_MESSAGE = "Der Branch muss erst aktualisiert werden (Branch-Regel).";
+const MERGE_DRAFT_MESSAGE = "Der PR ist ein Entwurf.";
+const MERGE_METHOD_NOT_ALLOWED_MESSAGE = "Diese Merge-Methode ist im Repo nicht erlaubt.";
 const SAFE_BRANCH = /^[A-Za-z0-9._/-]+$/;
 
 export interface GitHubAdapterOptions {
@@ -146,6 +152,8 @@ interface ApiPull {
   state: string;
   merged_at?: string | null;
   mergeable?: boolean | null;
+  mergeable_state?: string;
+  draft?: boolean;
 }
 interface ApiSha {
   sha: string;
@@ -210,6 +218,7 @@ export class GitHubAdapter implements PlatformAdapter {
 
   async listRepositories(
     conn: PlatformConnection,
+    options?: ListRepositoriesOptions,
   ): Promise<PlatformRepository[]> {
     const pages = await this.getPaged<{ repositories: ApiRepository[] }>(
       conn.externalConnectionId,
@@ -223,7 +232,11 @@ export class GitHubAdapter implements PlatformAdapter {
       // Fehlen die Felder in der Listenantwort, einzeln lesen (bedingt: 304 kostet kein Kontingent).
       // Archivierte Repos lassen kein Mergen zu. Ein Fehler hier lässt die Methoden unbestimmt
       // (der gespeicherte Stand bleibt), nur eine Kontingent-Pause bricht ab.
-      if (methods === undefined && !r.archived) {
+      if (
+        methods === undefined &&
+        !r.archived &&
+        (options?.readMergeMethods?.({ externalId: String(r.id), fullName: r.full_name }) ?? true)
+      ) {
         try {
           const { owner, name } = split(r.full_name);
           const detail = await this.get<ApiRepository>(
@@ -453,8 +466,15 @@ export class GitHubAdapter implements PlatformAdapter {
     const state = pr.merged_at ? "merged" : pr.state === "open" ? "open" : "closed";
     const mergeable = typeof pr.mergeable === "boolean" ? pr.mergeable : null;
     if (state !== "open") {
-      return { state, headSha: pr.head.sha, mergeable, ci: "none", methods: [] };
+      return { state, headSha: pr.head.sha, mergeable, ci: "none", methods: [], blockedReason: null };
     }
+    // "behind" (Branch veraltet) ist bewusst kein Grund: GitHub entscheidet beim Merge selbst.
+    const blockedReason =
+      pr.draft === true || pr.mergeable_state === "draft"
+        ? "draft"
+        : pr.mergeable_state === "blocked"
+          ? "protection"
+          : null;
     const [ci, repoInfo] = await Promise.all([
       this.readCi(scope, repo, pr.head.sha),
       this.get<ApiRepository>(
@@ -469,7 +489,8 @@ export class GitHubAdapter implements PlatformAdapter {
       headSha: pr.head.sha,
       mergeable,
       ci,
-      methods: mergeMethodsOf(repoInfo) ?? [],
+      methods: mergeMethodsOf(repoInfo) ?? null,
+      blockedReason,
     };
   }
 
@@ -492,6 +513,23 @@ export class GitHubAdapter implements PlatformAdapter {
       },
       {
         mapError: (status, text) => {
+          // Den Text der Plattform nur zum Klassifizieren lesen, nie weitergeben.
+          // Fehlendes Workflow-Recht zuerst: es kommt je nach Fall als 403, 405, 409 oder 422.
+          // Bewusst enger als /workflow/i: ein Check namens "workflow / build" in einer 405-Meldung
+          // ("Required status check ... is expected") ist kein Rechtefehler.
+          if (WORKFLOW_PERMISSION_TEXT.test(text) && status >= 400 && status < 500) {
+            return new PlatformPermissionError(WORKFLOW_PERMISSION_MESSAGE);
+          }
+          if (status === 405 || status === 409 || status === 422) {
+            if (/base branch was modified/i.test(text)) {
+              return new PlatformRejectedError(MERGE_BASE_CHANGED_MESSAGE);
+            }
+            if (/not up to date|behind/i.test(text)) return new PlatformRejectedError(MERGE_BEHIND_MESSAGE);
+            if (/draft/i.test(text)) return new PlatformRejectedError(MERGE_DRAFT_MESSAGE);
+            if (/merge.*not allowed|method.*not allowed/i.test(text)) {
+              return new PlatformRejectedError(MERGE_METHOD_NOT_ALLOWED_MESSAGE);
+            }
+          }
           if (status === 405) return new PlatformRejectedError(MERGE_REJECTED_MESSAGE);
           if (status === 409) return new PlatformHeadChangedError();
           if (status === 422) return new PlatformRejectedError(MERGE_INVALID_MESSAGE);

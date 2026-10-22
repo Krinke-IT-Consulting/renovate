@@ -86,8 +86,17 @@ export interface MergeReadiness {
   mergeable: boolean | null;
   /** CI des Head-Commits, gleiche Ableitung wie `getChangeStatus`. Nur bei offenem Request gelesen. */
   ci: CiStatus;
-  /** Erlaubte Merge-Methoden in Vorzugsreihenfolge; leer, wenn keine erlaubt ist oder der Request nicht offen ist. */
-  methods: ChangeMergeMethod[];
+  /**
+   * Erlaubte Merge-Methoden in Vorzugsreihenfolge; leer, wenn keine erlaubt ist oder der Request
+   * nicht offen ist. `null`: unbekannt, weil die Plattform sie nicht liefert (etwa fehlendes Recht).
+   */
+  methods: ChangeMergeMethod[] | null;
+  /**
+   * Aus demselben Abruf: warum die Plattform den Merge voraussichtlich ablehnt. `protection` =
+   * Branch-Schutz oder fehlende Freigaben, `draft` = Entwurf, `null`/fehlt = kein Hinweis. Ein
+   * veralteter Branch ("behind") gilt nie als Grund; dann wird der Merge versucht.
+   */
+  blockedReason?: "protection" | "draft" | null;
 }
 
 export interface MergeRequest {
@@ -126,9 +135,22 @@ export interface ChangeRequestRef {
   url: string;
 }
 
+export interface ListRepositoriesOptions {
+  readMergeMethods?: (repo: { externalId: string; fullName: string }) => boolean;
+}
+
 export interface PlatformAdapter {
   listConnections(): Promise<PlatformConnection[]>;
-  listRepositories(conn: PlatformConnection): Promise<PlatformRepository[]>;
+  /**
+   * Repos einer Verbindung. Liefert die Listenantwort die Merge-Methoden nicht, liest der Adapter
+   * sie je Repo einzeln nach (ein Aufruf je Repo). `options.readMergeMethods` entscheidet je Repo,
+   * ob das nötig ist; ohne Angabe wird für jedes nicht archivierte Repo gelesen. Unterbleibt das
+   * Lesen oder scheitert es, fehlt `mergeMethods` ("unbekannt", gespeicherter Stand gilt).
+   */
+  listRepositories(
+    conn: PlatformConnection,
+    options?: ListRepositoriesOptions,
+  ): Promise<PlatformRepository[]>;
   /**
    * Günstiger Abruf (bedingt, 304 kostet kein Kontingent). Grundlage der Head-SHA-Logik.
    * `null` bei einem leeren Repo (noch kein Commit auf dem Default-Branch).

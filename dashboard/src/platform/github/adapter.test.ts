@@ -1333,7 +1333,7 @@ describe("Merge: Voraussetzungen, Merge, Methoden", () => {
       const adapter = adapterWithSleep();
       const first = await adapter.getMergeReadiness(conn, REPO, PR_NUMBER);
       await adapter.getMergeReadiness(conn, REPO, PR_NUMBER);
-      expect(first).toEqual({ state: "open", headSha: SHA, mergeable: true, ci: "success", methods: ["merge", "rebase"] });
+      expect(first).toEqual({ state: "open", headSha: SHA, mergeable: true, ci: "success", methods: ["merge", "rebase"], blockedReason: null });
       expect(seen).toEqual([null, null]);
       expect(sleeps).toEqual([]);
     });
@@ -1374,10 +1374,35 @@ describe("Merge: Voraussetzungen, Merge, Methoden", () => {
       expect(sleeps).toEqual([]);
     });
 
-    it("Repo ohne Auskunft zu Methoden: leere Liste (kein Mergen)", async () => {
+    it("Repo ohne Auskunft zu Methoden (Recht fehlt): unbekannt (null), nicht leer", async () => {
       server.use(http.get(`${base}/pulls/${PR_NUMBER}`, () => HttpResponse.json(pullBody())));
       useChecks({});
-      expect((await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER)).methods).toEqual([]);
+      expect((await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER)).methods).toBeNull();
+    });
+
+    it.each([
+      ["blocked", undefined, "protection"],
+      ["draft", undefined, "draft"],
+      ["clean", true, null],
+      ["behind", undefined, null],
+      ["unstable", undefined, null],
+    ])("mergeable_state %s (draft=%s) -> blockedReason %s, ohne Zusatzanfrage", async (mergeableState, draft, expected) => {
+      let pullReads = 0;
+      server.use(
+        http.get(`${base}/pulls/${PR_NUMBER}`, () => {
+          pullReads++;
+          return HttpResponse.json({ ...pullBody(), mergeable_state: mergeableState, draft: draft === true && mergeableState === "draft" });
+        }),
+      );
+      useChecks();
+      expect((await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER)).blockedReason).toBe(expected);
+      expect(pullReads).toBe(1);
+    });
+
+    it("draft=true im PR gilt als Entwurf, auch ohne mergeable_state", async () => {
+      server.use(http.get(`${base}/pulls/${PR_NUMBER}`, () => HttpResponse.json({ ...pullBody(), draft: true })));
+      useChecks();
+      expect((await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER)).blockedReason).toBe("draft");
     });
   });
 
@@ -1411,10 +1436,45 @@ describe("Merge: Voraussetzungen, Merge, Methoden", () => {
     });
 
     it("422: abgelehnt mit festem Text", async () => {
-      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: "Merge method not allowed" }, { status: 422 })));
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: "Validation Failed" }, { status: 422 })));
       const err = await adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(PlatformRejectedError);
       expect((err as PlatformRejectedError).userMessage).toContain("ungültig");
+    });
+
+    it.each([
+      [405, "Base branch was modified. Review and try the merge again.", "Ziel-Branch hat sich gerade geändert"],
+      [405, "Head branch is not up to date with the base branch.", "Branch muss erst aktualisiert werden"],
+      [405, "Draft pull requests are not mergeable.", "ein Entwurf"],
+      [405, "Merge commits are not allowed on this repository.", "Merge-Methode ist im Repo nicht erlaubt"],
+      [422, "Squash merges are not allowed on this repository.", "Merge-Methode ist im Repo nicht erlaubt"],
+    ])("%i %s: eigene Meldung ohne Text der Plattform", async (status, message, expected) => {
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message }, { status })));
+      const err = await adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformRejectedError);
+      expect((err as PlatformRejectedError).userMessage).toContain(expected);
+      expect((err as Error).message).not.toContain(message);
+    });
+
+    it("fehlendes Workflow-Recht wird vor 405, 409 und 422 erkannt", async () => {
+      const message =
+        "refusing to allow a GitHub App to create or update workflow `.github/workflows/x.yml` without `workflows` permission";
+      for (const status of [403, 405, 409, 422]) {
+        server.use(http.put(mergeUrl, () => HttpResponse.json({ message }, { status })));
+        const err = await adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request).catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(PlatformPermissionError);
+        expect((err as PlatformPermissionError).userMessage).toContain("Workflows");
+        expect((err as Error).message).not.toContain("x.yml");
+      }
+    });
+
+    it("ein Check namens workflow in einer 405-Meldung ist kein Rechtefehler", async () => {
+      server.use(
+        http.put(mergeUrl, () =>
+          HttpResponse.json({ message: 'Required status check "workflow / build" is expected.' }, { status: 405 }),
+        ),
+      );
+      await expect(adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request)).rejects.toBeInstanceOf(PlatformRejectedError);
     });
 
     it("403: Branch-Schutz-Text abgelehnt, sonst fehlende Schreibrechte, sekundäres Limit eine Pause", async () => {
@@ -1468,6 +1528,24 @@ describe("Merge: Voraussetzungen, Merge, Methoden", () => {
       const repos = await adapterWithSleep().listRepositories(conn);
       expect(repos[0]?.mergeMethods).toEqual(["merge", "rebase"]);
       expect(hits).toEqual(["GET /installation/repositories"]);
+    });
+
+    it("readMergeMethods entscheidet je Repo über den Einzelabruf", async () => {
+      server.use(
+        etagged("/installation/repositories", '"m3"', {
+          total_count: 2,
+          repositories: [
+            { id: 1, full_name: REPO.fullName, default_branch: "main", archived: false, private: true },
+            { id: 2, full_name: "Krinke-IT-Consulting/ruhig", default_branch: "main", archived: false, private: true },
+          ],
+        }),
+        etagged(`/repos/${REPO.fullName}`, '"d2"', { allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: true }),
+      );
+      const repos = await adapterWithSleep().listRepositories(conn, {
+        readMergeMethods: (r) => r.fullName === REPO.fullName,
+      });
+      expect(repos.map((r) => r.mergeMethods)).toEqual([["squash", "merge", "rebase"], undefined]);
+      expect(hits.filter((h) => h.includes("/ruhig"))).toEqual([]);
     });
 
     it("fehlen die Felder, liest er GET repos/{o}/{r}; archivierte Repos und Fehler bleiben unbestimmt", async () => {
