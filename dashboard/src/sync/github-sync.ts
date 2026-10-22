@@ -116,12 +116,16 @@ async function syncRepositoryList(
         fullName: repo.fullName,
         defaultBranch: repo.defaultBranch,
         archived: repo.archived,
+        ...(repo.mergeMethods ? { mergeMethods: repo.mergeMethods } : {}),
       });
     } else if (
       row.fullName !== repo.fullName ||
       row.defaultBranch !== repo.defaultBranch ||
       row.archived !== repo.archived ||
-      row.removedAt !== null
+      row.removedAt !== null ||
+      // Nur wenn die Plattform die Methoden geliefert hat; sonst bleibt der gespeicherte Stand.
+      (repo.mergeMethods !== undefined &&
+        row.mergeMethods.join(",") !== repo.mergeMethods.join(","))
     ) {
       await db
         .update(repositories)
@@ -130,6 +134,7 @@ async function syncRepositoryList(
           defaultBranch: repo.defaultBranch,
           archived: repo.archived,
           removedAt: null,
+          ...(repo.mergeMethods ? { mergeMethods: repo.mergeMethods } : {}),
         })
         .where(eq(repositories.id, row.id));
     }

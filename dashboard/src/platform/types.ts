@@ -7,6 +7,9 @@
 
 import type { CiStatus } from "@/domain/pull-requests";
 
+/** Merge-Methoden eines Repos, plattformneutral benannt. */
+export type ChangeMergeMethod = "squash" | "merge" | "rebase";
+
 export type OwnerType = "organization" | "user";
 
 /** Ein Zugang zu einem Owner (GitHub: Installation der App). */
@@ -24,6 +27,12 @@ export interface PlatformRepository {
   defaultBranch: string;
   archived: boolean;
   private: boolean;
+  /**
+   * Erlaubte Merge-Methoden des Repos in Vorzugsreihenfolge (squash, merge, rebase). `undefined`,
+   * wenn die Plattform sie nicht geliefert hat (dann bleibt der gespeicherte Stand unverändert);
+   * leer, wenn keine Methode erlaubt ist.
+   */
+  mergeMethods?: ChangeMergeMethod[];
 }
 
 /** Was der Adapter zum Adressieren eines Repos braucht. */
@@ -66,6 +75,25 @@ export interface ChangeRequestState {
 export interface ChangeStatus {
   /** Normalisierter CI-Status des Commits; die plattformspezifische Ableitung liegt im Adapter. */
   ci: CiStatus;
+}
+
+/** Frisch gelesener Stand eines Requests unmittelbar vor dem Merge. */
+export interface MergeReadiness {
+  state: ChangeRequestStateValue;
+  /** Aktueller Head-Commit des Requests. */
+  headSha: string;
+  /** Konfliktfrei? `null`: die Plattform berechnet es noch (auch nach einem erneuten Lesen). */
+  mergeable: boolean | null;
+  /** CI des Head-Commits, gleiche Ableitung wie `getChangeStatus`. Nur bei offenem Request gelesen. */
+  ci: CiStatus;
+  /** Erlaubte Merge-Methoden in Vorzugsreihenfolge; leer, wenn keine erlaubt ist oder der Request nicht offen ist. */
+  methods: ChangeMergeMethod[];
+}
+
+export interface MergeRequest {
+  /** Head-Commit, an den der Merge gebunden ist; ändert er sich, lehnt die Plattform ab. */
+  sha: string;
+  method: ChangeMergeMethod;
 }
 
 /** Was die schreibenden Methoden zum Adressieren der Verbindung brauchen. */
@@ -127,6 +155,28 @@ export interface PlatformAdapter {
     repo: RepositoryRef,
     sha: string,
   ): Promise<ChangeStatus>;
+  /**
+   * Liest Stand, Head-Commit, Konfliktfreiheit, CI und erlaubte Merge-Methoden frisch (ohne
+   * Cache). Liefert die Plattform die Konfliktfreiheit noch nicht, wird einmal nach kurzer Wartezeit
+   * neu gelesen; bleibt sie offen, ist `mergeable` `null`.
+   */
+  getMergeReadiness(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    number: number,
+  ): Promise<MergeReadiness>;
+  /**
+   * Mergt den Request mit der Methode, gebunden an `sha`. Schreibaufruf (Kontingent-Pause und
+   * sekundäres Rate-Limit greifen). Wirft `PlatformHeadChangedError` (Head weicht ab),
+   * `PlatformRejectedError` (Plattform lehnt ab, z. B. Branch-Schutz), `PlatformPermissionError`
+   * bei fehlenden Rechten und `RateLimitPause`.
+   */
+  mergeChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    number: number,
+    request: MergeRequest,
+  ): Promise<void>;
   /** URL des offenen Dependency-Dashboard-Issues des Bots oder null. */
   findDependencyDashboard(
     conn: PlatformConnection,

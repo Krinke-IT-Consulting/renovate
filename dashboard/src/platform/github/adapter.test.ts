@@ -13,6 +13,7 @@ import {
 import {
   PlatformApiError,
   PlatformFilesExistError,
+  PlatformHeadChangedError,
   PlatformLeftoverBranchError,
   PlatformPermissionError,
   PlatformRejectedError,
@@ -143,6 +144,7 @@ describe("Verbindungen und Repos", () => {
         defaultBranch: "main",
         archived: false,
         private: true,
+        mergeMethods: ["squash", "merge"],
       },
       {
         externalId: "1002",
@@ -150,6 +152,7 @@ describe("Verbindungen und Repos", () => {
         defaultBranch: "master",
         archived: true,
         private: false,
+        mergeMethods: [],
       },
     ]);
   });
@@ -1271,6 +1274,218 @@ describe("Review Phase 7: Rollout-Adapter", () => {
       setup();
       const ref = { externalConnectionId: String(INSTALLATION_ID), ownerName: "Krinke-IT-Consulting" };
       await expect(makeAdapter().getHeadSha(ref, REPO)).resolves.toBe(HEAD_SHA);
+    });
+  });
+});
+
+describe("Merge: Voraussetzungen, Merge, Methoden", () => {
+  const base = `${API}/repos/${REPO.fullName}`;
+  const PR_NUMBER = 7;
+  const SHA = "7".padStart(40, "a");
+  const sleeps: number[] = [];
+
+  function adapterWithSleep() {
+    sleeps.length = 0;
+    return new GitHubAdapter({
+      appId: "12345",
+      privateKey: PRIVATE_KEY,
+      appSlug: APP_SLUG,
+      cache: new MemoryHttpCache(),
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+    });
+  }
+
+  function pullBody(over: { mergeable?: boolean | null; state?: string; merged_at?: string | null } = {}) {
+    return {
+      number: PR_NUMBER,
+      state: over.state ?? "open",
+      merged_at: over.merged_at ?? null,
+      mergeable: over.mergeable === undefined ? true : over.mergeable,
+      head: { ref: "renovate/x", sha: SHA },
+    };
+  }
+
+  /** Antworten für Check-Runs, Commit-Status und Repo-Einstellungen am Head-Commit. */
+  function useChecks(
+    repoBody: Record<string, unknown> = { allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: false },
+  ) {
+    server.use(
+      http.get(`${base}/commits/${SHA}/check-runs`, () =>
+        HttpResponse.json({ total_count: 1, check_runs: [{ status: "completed", conclusion: "success" }] }),
+      ),
+      http.get(`${base}/commits/${SHA}/status`, () => HttpResponse.json({ state: "success", statuses: [] })),
+      http.get(base, () => HttpResponse.json(repoBody)),
+    );
+  }
+
+  describe("getMergeReadiness", () => {
+    it("liest PR, CI und erlaubte Methoden in Vorzugsreihenfolge, ohne ETag-Anfrage", async () => {
+      const seen: (string | null)[] = [];
+      server.use(
+        http.get(`${base}/pulls/${PR_NUMBER}`, ({ request }) => {
+          seen.push(request.headers.get("if-none-match"));
+          return HttpResponse.json(pullBody(), { headers: { etag: '"p"' } });
+        }),
+      );
+      useChecks({ allow_squash_merge: false, allow_merge_commit: true, allow_rebase_merge: true });
+      const adapter = adapterWithSleep();
+      const first = await adapter.getMergeReadiness(conn, REPO, PR_NUMBER);
+      await adapter.getMergeReadiness(conn, REPO, PR_NUMBER);
+      expect(first).toEqual({ state: "open", headSha: SHA, mergeable: true, ci: "success", methods: ["merge", "rebase"] });
+      expect(seen).toEqual([null, null]);
+      expect(sleeps).toEqual([]);
+    });
+
+    it("mergeable null, danach true: wartet einmal 2 s und liest neu", async () => {
+      const answers = [null, true];
+      server.use(http.get(`${base}/pulls/${PR_NUMBER}`, () => HttpResponse.json(pullBody({ mergeable: answers.shift() }))));
+      useChecks();
+      const readiness = await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER);
+      expect(readiness.mergeable).toBe(true);
+      expect(sleeps).toEqual([2000]);
+      expect(answers).toEqual([]);
+    });
+
+    it("mergeable bleibt null: genau ein zweites Lesen, Ergebnis null", async () => {
+      let reads = 0;
+      server.use(
+        http.get(`${base}/pulls/${PR_NUMBER}`, () => {
+          reads++;
+          return HttpResponse.json(pullBody({ mergeable: null }));
+        }),
+      );
+      useChecks();
+      const readiness = await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER);
+      expect(readiness.mergeable).toBeNull();
+      expect(reads).toBe(2);
+      expect(sleeps).toEqual([2000]);
+    });
+
+    it("nicht offener PR: kein CI- und kein Repo-Abruf, gemergt wird erkannt", async () => {
+      server.use(
+        http.get(`${base}/pulls/${PR_NUMBER}`, () =>
+          HttpResponse.json(pullBody({ state: "closed", merged_at: "2026-10-03T08:00:00Z", mergeable: null })),
+        ),
+      );
+      const readiness = await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER);
+      expect(readiness).toMatchObject({ state: "merged", ci: "none", methods: [] });
+      expect(sleeps).toEqual([]);
+    });
+
+    it("Repo ohne Auskunft zu Methoden: leere Liste (kein Mergen)", async () => {
+      server.use(http.get(`${base}/pulls/${PR_NUMBER}`, () => HttpResponse.json(pullBody())));
+      useChecks({});
+      expect((await adapterWithSleep().getMergeReadiness(conn, REPO, PR_NUMBER)).methods).toEqual([]);
+    });
+  });
+
+  describe("mergeChangeRequest", () => {
+    const request = { sha: SHA, method: "squash" as const };
+    const mergeUrl = `${base}/pulls/${PR_NUMBER}/merge`;
+
+    it("200: PUT mit sha und merge_method", async () => {
+      let body: unknown;
+      server.use(
+        http.put(mergeUrl, async ({ request: r }) => {
+          body = await r.json();
+          return HttpResponse.json({ sha: "m", merged: true, message: "Pull Request successfully merged" });
+        }),
+      );
+      await expect(adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request)).resolves.toBeUndefined();
+      expect(body).toEqual({ sha: SHA, merge_method: "squash" });
+    });
+
+    it("405: abgelehnt mit fester Meldung, ohne Text der Plattform", async () => {
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: 'Required status check "x" is expected.' }, { status: 405 })));
+      const err = await adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformRejectedError);
+      expect((err as PlatformRejectedError).userMessage).toContain("lehnt den Merge ab");
+      expect(String((err as Error).message)).not.toContain("status check");
+    });
+
+    it("409: PlatformHeadChangedError", async () => {
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: "Head branch was modified." }, { status: 409 })));
+      await expect(adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request)).rejects.toBeInstanceOf(PlatformHeadChangedError);
+    });
+
+    it("422: abgelehnt mit festem Text", async () => {
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: "Merge method not allowed" }, { status: 422 })));
+      const err = await adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(PlatformRejectedError);
+      expect((err as PlatformRejectedError).userMessage).toContain("ungültig");
+    });
+
+    it("403: Branch-Schutz-Text abgelehnt, sonst fehlende Schreibrechte, sekundäres Limit eine Pause", async () => {
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: "Protected branch update failed" }, { status: 403 })));
+      await expect(adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request)).rejects.toBeInstanceOf(PlatformRejectedError);
+      server.use(http.put(mergeUrl, () => HttpResponse.json({ message: "Resource not accessible by integration" }, { status: 403 })));
+      await expect(adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request)).rejects.toBeInstanceOf(PlatformPermissionError);
+      server.use(
+        http.put(mergeUrl, () =>
+          HttpResponse.json({ message: "You have exceeded a secondary rate limit." }, { status: 403, headers: { "retry-after": "30" } }),
+        ),
+      );
+      await expect(adapterWithSleep().mergeChangeRequest(conn, REPO, PR_NUMBER, request)).rejects.toBeInstanceOf(RateLimitPause);
+    });
+
+    it("pausiert bei knappem Kontingent, ohne den nächsten Merge zu senden", async () => {
+      let puts = 0;
+      server.use(
+        http.put(mergeUrl, () => {
+          puts++;
+          return HttpResponse.json({ merged: true }, { headers: rateHeaders() });
+        }),
+      );
+      const adapter = adapterWithSleep();
+      rate.remaining = 100;
+      await adapter.mergeChangeRequest(conn, REPO, PR_NUMBER, request);
+      await expect(adapter.mergeChangeRequest(conn, REPO, PR_NUMBER, request)).rejects.toBeInstanceOf(RateLimitPause);
+      expect(puts).toBe(1);
+    });
+  });
+
+  describe("Methoden im Repo-Abgleich", () => {
+    it("übernimmt allow_*-Felder der Listenantwort ohne Zusatzabruf", async () => {
+      server.use(
+        etagged("/installation/repositories", '"m1"', {
+          total_count: 1,
+          repositories: [
+            {
+              id: 1,
+              full_name: REPO.fullName,
+              default_branch: "main",
+              archived: false,
+              private: true,
+              allow_squash_merge: false,
+              allow_merge_commit: true,
+              allow_rebase_merge: true,
+            },
+          ],
+        }),
+      );
+      const repos = await adapterWithSleep().listRepositories(conn);
+      expect(repos[0]?.mergeMethods).toEqual(["merge", "rebase"]);
+      expect(hits).toEqual(["GET /installation/repositories"]);
+    });
+
+    it("fehlen die Felder, liest er GET repos/{o}/{r}; archivierte Repos und Fehler bleiben unbestimmt", async () => {
+      server.use(
+        etagged("/installation/repositories", '"m2"', {
+          total_count: 3,
+          repositories: [
+            { id: 1, full_name: REPO.fullName, default_branch: "main", archived: false, private: true },
+            { id: 2, full_name: "Krinke-IT-Consulting/old", default_branch: "main", archived: true, private: true },
+            { id: 3, full_name: "Krinke-IT-Consulting/kaputt", default_branch: "main", archived: false, private: true },
+          ],
+        }),
+        etagged(`/repos/${REPO.fullName}`, '"d1"', { allow_squash_merge: true, allow_merge_commit: false, allow_rebase_merge: false }),
+        http.get(`${API}/repos/Krinke-IT-Consulting/kaputt`, () => HttpResponse.json({ message: "boom" }, { status: 500 })),
+      );
+      const repos = await adapterWithSleep().listRepositories(conn);
+      expect(repos.map((r) => r.mergeMethods)).toEqual([["squash"], undefined, undefined]);
+      expect(hits.filter((h) => h.includes("/old"))).toEqual([]);
     });
   });
 });

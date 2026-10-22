@@ -39,6 +39,9 @@ export function createE2eFakeAdapter(): PlatformAdapter {
     getPullRequestState: unsupported,
     getChangeStatus: unsupported,
     findDependencyDashboard: unsupported,
+    // Platzhalter, damit der Typ passt; Task 4.4 ersetzt sie durch den echten Ersatz.
+    getMergeReadiness: unsupported,
+    mergeChangeRequest: unsupported,
     async findOpenChangeRequest() {
       return null;
     },
