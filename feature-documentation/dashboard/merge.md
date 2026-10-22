@@ -19,10 +19,9 @@ folgt und baut gegen den Vertrag `src/merge/types.ts` und die Actions in `src/ac
 
 ## Quelle der Merge-Methoden (Task 1.1)
 
-**Offen, nicht an der echten Antwort geprüft.** Die lesende Prüfung über die laufende Produktion
-(`ssh` + `docker exec`, Installation-Token, Ausgabe nur von Feldnamen) wurde vom Berechtigungssystem
-der Sitzung abgelehnt und nicht ausgeführt. Stattdessen gilt eine Annahme, die für beide Fälle
-funktioniert:
+**Nicht an der echten Antwort geprüft; auf Entscheidung des Betreibers entfallen (2026-10-22).** Die
+lesende Prüfung über die laufende Produktion wurde nicht ausgeführt. Der Code funktioniert für beide
+möglichen Antworten:
 
 - Der Abgleich liest `GET /installation/repositories`. Sind `allow_squash_merge`, `allow_merge_commit`
   und `allow_rebase_merge` dort alle drei boolesch vorhanden, werden sie übernommen.

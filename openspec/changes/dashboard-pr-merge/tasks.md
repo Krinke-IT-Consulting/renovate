@@ -2,12 +2,13 @@
 
 ## 1. Vorbereitung
 
-- [ ] 1.1 An einer echten Antwort prüfen (lesend, ohne Werte auszugeben), ob
+- [x] 1.1 An einer echten Antwort prüfen (lesend, ohne Werte auszugeben), ob
   `GET /installation/repositories` die Felder `allow_squash_merge`, `allow_merge_commit` und
   `allow_rebase_merge` enthält. Sonst bleibt `GET repos/{o}/{r}` als Quelle (design.md, Entscheidung 3).
   Fertig, wenn das Ergebnis in `feature-documentation/dashboard/merge.md` steht.
-  Stand: Die Prüfung an der Produktion wurde nicht ausgeführt (Zugriff abgelehnt). Der Code deckt beide
-  Fälle ab (Felder der Listenantwort, sonst bedingter Abruf `GET repos/{o}/{r}`); die Prüfung ist nachzuholen.
+  Entfallen auf Entscheidung des Betreibers (2026-10-22): Die Prüfung an der Produktion wurde nicht
+  ausgeführt. Der Code deckt beide Fälle ab (Felder der Listenantwort, sonst bedingter Abruf
+  `GET repos/{o}/{r}`); `merge.md` dokumentiert das.
 - [x] 1.2 Migration `repositories.merge_methods` (`text[]`, Standard leeres Array) mit drizzle-kit.
   Prüfung durch den Agenten `drizzle-migrations`. Fertig, wenn der Migrationstest gegen Postgres
   grün ist.
