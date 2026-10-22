@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { GitMergeIcon, TriangleAlertIcon } from "lucide-react";
+import { MergeAction } from "@/components/actions/merge-action";
 import { DataTable, type ColumnMeta } from "@/components/data/data-table";
 import { ExternalLink } from "@/components/data/external-link";
 import { StatusBadge, StatusText } from "@/components/status/status";
@@ -13,6 +14,7 @@ import {
   UPDATE_TYPE_TONE,
 } from "@/domain/status-tone";
 import { ageInDays } from "@/lib/format";
+import { mergeTargetOf } from "@/merge/target";
 import { TOUCH_TARGET } from "@/lib/touch-target";
 import type { PullRequestRow } from "@/queries/pull-requests";
 import { PR_COMPARE, UPDATE_TYPE_RANK, ageLabel, isStale, versionJump } from "./pull-request-format";
@@ -36,6 +38,13 @@ function Automerge() {
       Automerge
     </span>
   );
+}
+
+/** "Mergen" nur bei grüner CI und erlaubter Methode; sonst bleibt der Titel-Link zum PR die Aktion. */
+function MergeCell({ row, wide = false }: { row: PullRequestRow; wide?: boolean }) {
+  const target = mergeTargetOf(row);
+  if (!target) return null;
+  return <MergeAction target={target} repoFullName={row.repoFullName} prNumber={row.number} wide={wide} />;
 }
 
 function Age({ row, now }: { row: PullRequestRow; now: Date }) {
@@ -131,6 +140,24 @@ export function PullRequestTable({
         meta: { align: "right" } satisfies ColumnMeta,
         cell: ({ row }) => <Age row={row.original} now={at} />,
       },
+      {
+        id: "merge",
+        // `relative`: der absolut positionierte sr-only-Text bleibt im scrollenden Tabellencontainer
+        // und verbreitert die Seite nicht (Text-Zoom 200 %).
+        header: () => (
+          <span className="relative block">
+            <span className="sr-only">Aktion</span>
+          </span>
+        ),
+        enableSorting: false,
+        meta: { align: "right" } satisfies ColumnMeta,
+        // Rechtsbündig: der Knopf steht am Zeilenende (ConfirmAction ist flex-col, items-start).
+        cell: ({ row }) => (
+          <div className="flex justify-end">
+            <MergeCell row={row.original} />
+          </div>
+        ),
+      },
     );
     return cols;
   }, [showRepo, nowMs]);
@@ -158,6 +185,11 @@ export function PullRequestTable({
               {showRepo ? <span className="text-sm break-all text-ink-soft">{r.repoFullName}</span> : <span />}
               <Age row={r} now={at} />
             </div>
+            {mergeTargetOf(r) ? (
+              <div className="pt-1">
+                <MergeCell row={r} wide />
+              </div>
+            ) : null}
           </div>
         );
       }}

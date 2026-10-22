@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, CheckIcon, ExternalLinkIcon } from "lucide-react";
+import { MergeAction } from "@/components/actions/merge-action";
 import { OnboardingAction } from "@/components/actions/onboarding-action";
 import { StatusText } from "@/components/status/status";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,19 @@ function ActionLink({ step, wide = false }: { step: ShownStep; wide?: boolean })
         repositoryId={action.repositoryId}
         repoFullName={action.repoFullName}
         variant={step.done ? "quiet" : "primary"}
+        wide={wide}
+      />
+    );
+  }
+  if (action.kind === "merge") {
+    // Ein gemergter PR (Schritt erledigt) bekommt keinen zweiten Knopf; "Erledigt" und die Meldung stehen da.
+    if (step.done) return null;
+    return (
+      <MergeAction
+        target={{ pullRequestId: action.pullRequestId, expectedSha: action.expectedSha, expectedMethod: action.method }}
+        repoFullName={action.repoFullName}
+        prNumber={action.prNumber}
+        variant="primary"
         wide={wide}
       />
     );

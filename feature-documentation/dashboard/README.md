@@ -20,6 +20,7 @@ Für KI-Coding-Agenten: Zuerst diese Seite, dann das Dokument zum jeweiligen The
 | `lagebericht.md` | Startseite `/` als Lagebericht: Schritte, Erledigt-Logik, Textbausteine, Kennzahlen. |
 | `bausteine.md` | Gemeinsame UI-Bausteine: Status-Töne, `DataTable`, Filter, Suche, Abgleich-Stempel, Auto-Refresh. |
 | `aktionen.md` | Aktionen in der Oberfläche: Bestätigungsdialog, Server Actions, AuditLog, Schalter (Phase 7). |
+| `merge.md` | Mergen im Dashboard (Change `dashboard-pr-merge`): Einzel- und Sammel-Merge, Live-Prüfung, Merge-Methoden, Plattform-Antworten, AuditLog, Grenzen, Tests. |
 | `rollout.md` | Rollout-Logik: Onboarding- und Build-Check-PRs über die Git-Data-API, automatisches Onboarding. |
 | `tests-und-fixtures.md` | Vitest-Tests, Fixtures in `src/db/fixtures.ts`, Playwright-Smoke, lokale Docker-Postgres, CI. |
 | `vorbereitung.md` | Versionen (Task 1.1), geprüfte CE-Endpunkte (Task 1.2), Rechte der GitHub App (Task 1.3). |

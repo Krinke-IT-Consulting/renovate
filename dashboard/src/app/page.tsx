@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ActionResult } from "@/components/actions/confirm-action";
+import { MERGE_RESULT_KEY } from "@/components/actions/merge-action";
 import { RepoGrid, Metrics } from "@/components/overview/side-panel";
 import { StepList } from "@/components/overview/step-list";
 import { buildReport, buildSteps, shortName, type ReportSegment } from "@/domain/report";
@@ -61,6 +63,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
 
         <div className="mt-8">
           {/* key: Beim Wechsel des Repo-Filters beginnt die Liste neu (kein "erledigt" durch Filtern). */}
+          <ActionResult resultKey={MERGE_RESULT_KEY} />
           <StepList key={repoFilter ?? "alle"} steps={steps} />
         </div>
       </div>

@@ -23,6 +23,7 @@ Stand: 2026-10-22
 ## In Arbeit
 
 - Change `renovate-konfiguration`: offen 5.1 (kein Automerge ohne Checks, braucht ein Repo ohne CI) und 5.2 (Limits bei Sicherheits-PRs, braucht einen echten Sicherheitsfall)
+- Change `dashboard-pr-merge` (Mergen im Dashboard): Tasks 1.1 bis 4.4 umgesetzt (Task 1.1 auf Entscheidung des Betreibers entfallen). Einzel- und Sammel-Merge mit Live-Prüfung, Merge-Methoden, AuditLog, Oberfläche in Liste, Repo-Detail und Lagebericht. Review-Befunde korrigiert (Commit `8d52d74`). Offen: Review und Deployment (5.2) — Doku: `feature-documentation/dashboard/merge.md`
 
 ## Ausstehend
 

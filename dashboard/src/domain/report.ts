@@ -3,6 +3,8 @@ import type { CiStatus, UpdateType } from "./pull-requests";
 import { repoDetailHref } from "@/lib/repo-detail-href";
 import { CI_STATUS_LABEL, PROBLEM_KIND_LABEL, type StatusTone } from "./status-tone";
 import { versionJump } from "./version-jump";
+import { mergeTargetOf } from "@/merge/target";
+import type { MergeMethod } from "@/merge/types";
 
 export { versionJump };
 
@@ -54,6 +56,10 @@ export type ReportPr = {
   ciStatus: CiStatus;
   createdAt: Date;
   repoFullName: string;
+  /** Head-Commit laut Abgleich; mit grüner CI und `mergeMethods` wird der Schritt zur Merge-Aktion. */
+  headSha: string | null;
+  /** Erlaubte Merge-Methoden des Repos in Vorzugsreihenfolge. */
+  mergeMethods: string[];
 };
 
 export type ReportProblem = {
@@ -90,11 +96,23 @@ export type ReportInput = {
 
 /**
  * Hauptaktion eines Schritts: ein Link (intern oder extern) oder eine Aktion mit Bestätigung. Die
- * Oberfläche rendert "onboarding" als Bestätigungsdialog, der den Onboarding-PR anlegt.
+ * Oberfläche rendert "onboarding" als Bestätigungsdialog, der den Onboarding-PR anlegt, und "merge"
+ * als Bestätigungsdialog, der den PR mergt (nur bei grüner CI und erlaubter Methode; sonst Link).
  */
 export type StepAction =
   | { kind: "link"; label: string; href: string; external: boolean }
-  | { kind: "onboarding"; label: string; repositoryId: string; repoFullName: string };
+  | { kind: "onboarding"; label: string; repositoryId: string; repoFullName: string }
+  | {
+      kind: "merge";
+      label: string;
+      pullRequestId: string;
+      /** Head-Commit, den der Merge bestätigen muss. */
+      expectedSha: string;
+      method: MergeMethod;
+      /** Für den Dialogtext ("{Repo} #{n}"). */
+      repoFullName: string;
+      prNumber: number;
+    };
 
 export type Step = {
   id: string;
@@ -137,6 +155,23 @@ function byAgeThenRepo<T extends { createdAt?: Date; firstSeenAt?: Date; repoFul
   return ta - tb || a.repoFullName.localeCompare(b.repoFullName);
 }
 
+/** "Mergen" bei grüner CI, bekanntem Head-Commit und erlaubter Methode; sonst der Link zum PR. */
+function prAction(pr: ReportPr, mergeLabel: string, linkLabel: string): StepAction {
+  const target = mergeTargetOf(pr);
+  if (target) {
+    return {
+      kind: "merge",
+      label: mergeLabel,
+      pullRequestId: target.pullRequestId,
+      expectedSha: target.expectedSha,
+      method: target.expectedMethod,
+      repoFullName: pr.repoFullName,
+      prNumber: pr.number,
+    };
+  }
+  return { kind: "link", label: linkLabel, href: pr.url, external: true };
+}
+
 /** Titel als Aufgabe formuliert; die gespeicherte Kurzbeschreibung steht in der Detailzeile. */
 const FAILURE_TITLE: Partial<Record<ProblemKind, string>> = {
   config_error: "Konfiguration prüfen",
@@ -163,7 +198,7 @@ export function buildSteps(input: ReportInput): Step[] {
       version: versionJump(pr.title),
       repoFullName: pr.repoFullName,
       detail: [CI_STATUS_LABEL[pr.ciStatus], ageText(pr.createdAt, now) + (stale ? ", hängt" : "")],
-      action: { kind: "link", label: "Auf GitHub mergen", href: pr.url, external: true },
+      action: prAction(pr, "Mergen", "Auf GitHub mergen"),
     });
   }
 
@@ -204,7 +239,7 @@ export function buildSteps(input: ReportInput): Step[] {
       version: versionJump(pr.title),
       repoFullName: pr.repoFullName,
       detail: [CI_STATUS_LABEL[pr.ciStatus], ageText(pr.createdAt, now)],
-      action: { kind: "link", label: "Freigeben", href: pr.url, external: true },
+      action: prAction(pr, "Mergen", "Freigeben"),
     });
   }
 

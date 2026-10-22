@@ -1,3 +1,5 @@
+import { ActionResult } from "@/components/actions/confirm-action";
+import { BulkMergeAction, MERGE_RESULT_KEY } from "@/components/actions/merge-action";
 import { FilterBar, FilterChips, type ChipOption } from "@/components/data/filter-chips";
 import { Pagination } from "@/components/data/pagination";
 import { SearchBox } from "@/components/data/search-box";
@@ -10,6 +12,7 @@ import { ciStatusEnum, updateTypeEnum } from "@/db/schema";
 import { CI_STATUS_LABEL, UPDATE_TYPE_LABEL } from "@/domain/status-tone";
 import { plural } from "@/lib/format";
 import { parseFlag, parseList, parsePage, parseSort, parseText, type RawSearchParams } from "@/lib/search-params";
+import { listBulkMergeCandidates } from "@/queries/merge";
 import { listOpenPullRequests, listPullRequestRepos } from "@/queries/pull-requests";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +27,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
   const db = getDb();
 
   const allRepos = await listPullRequestRepos(db);
+  // Unabhängig von den Filtern: der Sammel-Merge erfasst immer alle grünen Patch- und Minor-PRs.
+  const bulk = await listBulkMergeCandidates(db);
   const repos = parseList(sp, "repo", allRepos);
   const types = parseList(sp, "typ", updateTypeEnum.enumValues);
   const ci = parseList(sp, "ci", ciStatusEnum.enumValues);
@@ -61,7 +66,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Raw
 
   return (
     <>
-      <PageHeader title="Pull Requests" description={summary} />
+      <PageHeader
+        title="Pull Requests"
+        description={summary}
+        action={bulk.targets.length > 0 ? <BulkMergeAction targets={bulk.targets} repoCount={bulk.repoCount} /> : undefined}
+      />
+      {/* Bleibt eingehängt, auch wenn ein gemergter PR (und sein Knopf) aus der Liste verschwindet. */}
+      <ActionResult resultKey={MERGE_RESULT_KEY} />
 
       {allRepos.length === 0 ? (
         <EmptyState title="Keine offenen Renovate-PRs">

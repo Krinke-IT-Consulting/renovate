@@ -38,12 +38,14 @@ type RepoSpec = {
   configPath?: string | null;
   dashboard?: boolean;
   ecosystems?: string[];
+  /** Erlaubte Merge-Methoden in Vorzugsreihenfolge; Vorgabe: Squash und Merge-Commit. */
+  mergeMethods?: string[];
 };
 
 const REPOS: RepoSpec[] = [
   { key: "shop", owner: "beispiel-firma", name: "shop-api", ecosystems: ["npm", "docker"], dashboard: true },
   { key: "kasse", owner: "beispiel-firma", name: "kasse", ecosystems: ["npm", "expo"], dashboard: true },
-  { key: "lager", owner: "beispiel-firma", name: "lager-sync", buildCheck: "missing", ecosystems: ["python"], dashboard: true },
+  { key: "lager", owner: "beispiel-firma", name: "lager-sync", buildCheck: "missing", ecosystems: ["python"], dashboard: true, mergeMethods: ["merge"] },
   { key: "website", owner: "beispiel-firma", name: "website", buildCheck: "own_ci", ownCi: true, ecosystems: ["npm"], dashboard: true },
   { key: "infra", owner: "beispiel-firma", name: "infra", onboarding: "none", buildCheck: "missing", configPath: null, ecosystems: ["terraform"] },
   { key: "legacy", owner: "beispiel-firma", name: "legacy-portal", archived: true, ecosystems: ["npm"] },
@@ -147,6 +149,7 @@ export async function seedFixtures(db: Db, options: SeedOptions = {}): Promise<v
         buildCheckStatus: r.buildCheck ?? "active",
         ownCi: r.ownCi ?? false,
         detectedEcosystems: r.ecosystems ?? [],
+        mergeMethods: r.mergeMethods ?? ["squash", "merge"],
         dependencyDashboardUrl: r.dashboard ? `https://github.com/${r.owner}/${r.name}/issues/1` : null,
         configPath: r.configPath === undefined ? "renovate.json" : r.configPath,
         ceStatus: r.ceStatus ?? (r.onboarding === "disabled" ? "disabled" : r.onboarding === "none" ? null : "onboarded"),
@@ -171,6 +174,8 @@ export async function seedFixtures(db: Db, options: SeedOptions = {}): Promise<v
         packageNames: p.packages,
         ciStatus: p.ci,
         automerge: p.automerge ?? false,
+        // Erfundener Head-Commit je PR; Grundlage der Merge-Bindung in der Oberfläche.
+        headSha: `e2e${p.number}`.padEnd(40, "a"),
         state: "open" as const,
         createdAt: ago(p.ageDays * DAY + 3 * HOUR),
         updatedAt: ago(2 * HOUR),

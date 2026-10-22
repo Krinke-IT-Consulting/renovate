@@ -92,6 +92,7 @@ Repo auf einer Plattform. Gehört zu einer Verbindung.
 | `ce_status` | Rohwert `status` der CE-Reporting-API (etwa `onboarded`, `disabled`, `failed`). Der Wert wird unverändert gespeichert. |
 | `own_ci` | Markierung des Betreibers „eigene CI“. Der Abgleich überschreibt sie nie. |
 | `removed_at` | Gesetzt, wenn das Repo auf der Plattform verschwunden ist oder seine Installation entfernt oder gesperrt wurde. Zeilen werden nicht gelöscht. |
+| `merge_methods` | `text[]`, Standard leeres Array (`'{}'`), `NOT NULL`. Erlaubte Merge-Methoden des Repos in Vorzugsreihenfolge (`squash`, `merge`, `rebase`), aus dem Abgleich. Leer = keine erlaubt oder noch nicht gelesen; dann bietet die Oberfläche kein Mergen an. Der Abgleich schreibt die Spalte nur, wenn die Plattform die Werte geliefert hat. Details in `merge.md`, Abschnitt 7. |
 
 Indizes:
 
@@ -195,7 +196,7 @@ Protokoll der Aktionen in der Oberfläche. Nur Einfügen, kein Ändern.
 | Spalte | Bedeutung |
 |---|---|
 | `actor` | Authelia-Nutzer, der die Aktion ausgelöst hat (oder `auto`). |
-| `action` | Art der Aktion. Vorkommende Werte: `job.trigger`, `job.trigger_all`, `repo.own_ci`, `settings.auto_onboarding`, `rollout.onboarding`, `rollout.build_check`, `rollout.onboarding.failed`, `rollout.build_check.failed`. |
+| `action` | Art der Aktion. Vorkommende Werte: `job.trigger`, `job.trigger_all`, `repo.own_ci`, `settings.auto_onboarding`, `rollout.onboarding`, `rollout.build_check`, `rollout.onboarding.failed`, `rollout.build_check.failed`, `pr.merge`, `pr.merge.skipped`, `pr.merge.failed`, `pr.merge_bulk` (siehe `merge.md`, Abschnitt 12). |
 | `target` | Ziel der Aktion, als Text (etwa der Repo-Name). |
 | `created_at` | Zeitpunkt. |
 
@@ -248,8 +249,9 @@ Snapshot unter `drizzle/meta/`.
 | `0000_deep_midnight.sql` | Ausgangsschema: zwölf Enums, zehn Tabellen (`audit_log` bis `tenants`), Fremdschlüssel, eindeutige und normale Indizes sowie die partiellen Indizes aus Abschnitt 3. |
 | `0001_late_red_shift.sql` | Ergänzt `renovate_jobs.artifact_error_count` sowie `sync_state.paused_at`, `paused_until` und `pause_note` für die Kontingent-Pause. |
 | `0002_renovate_jobs_created_at.sql` | Ergänzt `renovate_jobs.created_at` (Standard `now()`), damit verschwundene Läufe ohne Startzeit erkannt werden. |
+| `0003_repositories_merge_methods.sql` | Ergänzt `repositories.merge_methods` (`text[]`, Standard `'{}'::text[]`, `NOT NULL`) für das Mergen im Dashboard (Change `dashboard-pr-merge`). |
 
-Die Snapshots `0000_snapshot.json`, `0001_snapshot.json` und `0002_snapshot.json` gehören zu den Migrationen. `drizzle-kit`
+Die Snapshots `0000_snapshot.json` bis `0003_snapshot.json` gehören zu den Migrationen. `drizzle-kit`
 erzeugt sie bei `db:generate`.
 
 ## 6. Ablauf: Schema ändern und migrieren

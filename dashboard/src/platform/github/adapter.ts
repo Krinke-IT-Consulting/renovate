@@ -1,8 +1,9 @@
 import { App } from "@octokit/app";
-import { parseUpdatePackages } from "@/domain/pull-requests";
+import { parseUpdatePackages, type CiStatus } from "@/domain/pull-requests";
 import {
   PlatformApiError,
   PlatformFilesExistError,
+  PlatformHeadChangedError,
   PlatformLeftoverBranchError,
   PlatformPermissionError,
   PlatformRejectedError,
@@ -17,12 +18,16 @@ import {
   UPDATE_BRANCH_PREFIX,
 } from "../renovate-files";
 import type {
+  ChangeMergeMethod,
   ChangeRequestRef,
   ChangeRequestState,
   ChangeStatus,
   ConnectionRef,
+  MergeReadiness,
+  MergeRequest,
   NewChangeRequest,
   PlatformAdapter,
+  ListRepositoriesOptions,
   PlatformConnection,
   PlatformRepository,
   RepositoryContentState,
@@ -65,6 +70,17 @@ const BRANCH_RULE_MESSAGE = `Eine Branch-Regel verhindert das Anlegen von \`${RO
 const TEMPLATE_UNREADABLE_MESSAGE = `Das Vorlagen-Repo ${BUILD_CHECK_SOURCE_REPO} ist für die GitHub App nicht lesbar.`;
 /** Sekundäres Rate-Limit ohne `retry-after`: mindestens so lange pausieren. */
 const SECONDARY_LIMIT_MIN_PAUSE_MS = 60_000;
+/** GitHub berechnet `mergeable` asynchron: einmal nach dieser Wartezeit neu lesen. */
+export const MERGEABLE_RETRY_MS = 2000;
+const MERGE_REJECTED_MESSAGE =
+  "Die Plattform lehnt den Merge ab (zum Beispiel wegen Branch-Schutz oder fehlender Freigaben).";
+const MERGE_INVALID_MESSAGE =
+  "Die Plattform hat den Merge als ungültig abgelehnt (etwa weil die Methode nicht erlaubt ist).";
+const WORKFLOW_PERMISSION_TEXT = /refusing to allow.*workflow|workflows?`? permission/i;
+const MERGE_BASE_CHANGED_MESSAGE = "Der Ziel-Branch hat sich gerade geändert; bitte erneut versuchen.";
+const MERGE_BEHIND_MESSAGE = "Der Branch muss erst aktualisiert werden (Branch-Regel).";
+const MERGE_DRAFT_MESSAGE = "Der PR ist ein Entwurf.";
+const MERGE_METHOD_NOT_ALLOWED_MESSAGE = "Diese Merge-Methode ist im Repo nicht erlaubt.";
 const SAFE_BRANCH = /^[A-Za-z0-9._/-]+$/;
 
 export interface GitHubAdapterOptions {
@@ -76,6 +92,10 @@ export interface GitHubAdapterOptions {
   appSlug?: string;
   /** Nur für Tests: Uhr. */
   now?: () => number;
+  /** Nur für Tests: Wartefunktion (Standard: setTimeout). */
+  sleep?: (ms: number) => Promise<void>;
+  /** Wartezeit vor dem zweiten Lesen von `mergeable`; Standard {@link MERGEABLE_RETRY_MS}. */
+  mergeableRetryMs?: number;
 }
 
 interface RateState {
@@ -105,6 +125,10 @@ interface ApiRepository {
   default_branch: string;
   archived: boolean;
   private: boolean;
+  // Nur mit Schreibrecht in der Antwort; fehlen sie, gibt es keine Auskunft (nicht "verboten").
+  allow_squash_merge?: boolean;
+  allow_merge_commit?: boolean;
+  allow_rebase_merge?: boolean;
 }
 interface ApiContentEntry {
   name: string;
@@ -127,6 +151,9 @@ interface ApiPull {
   auto_merge?: unknown;
   state: string;
   merged_at?: string | null;
+  mergeable?: boolean | null;
+  mergeable_state?: string;
+  draft?: boolean;
 }
 interface ApiSha {
   sha: string;
@@ -155,6 +182,8 @@ export class GitHubAdapter implements PlatformAdapter {
   private readonly app: App;
   private readonly cache: HttpCache;
   private readonly now: () => number;
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly mergeableRetryMs: number;
   private readonly rate = new Map<string, RateState>();
   private appSlug: string | undefined;
   private templateScope: string | undefined;
@@ -167,6 +196,8 @@ export class GitHubAdapter implements PlatformAdapter {
     this.cache = options.cache;
     this.appSlug = options.appSlug;
     this.now = options.now ?? Date.now;
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.mergeableRetryMs = options.mergeableRetryMs ?? MERGEABLE_RETRY_MS;
   }
 
   async listConnections(): Promise<PlatformConnection[]> {
@@ -187,6 +218,7 @@ export class GitHubAdapter implements PlatformAdapter {
 
   async listRepositories(
     conn: PlatformConnection,
+    options?: ListRepositoriesOptions,
   ): Promise<PlatformRepository[]> {
     const pages = await this.getPaged<{ repositories: ApiRepository[] }>(
       conn.externalConnectionId,
@@ -194,15 +226,39 @@ export class GitHubAdapter implements PlatformAdapter {
       {},
       (body) => body.repositories.length,
     );
-    return pages
-      .flatMap((p) => p.repositories)
-      .map((r) => ({
+    const result: PlatformRepository[] = [];
+    for (const r of pages.flatMap((p) => p.repositories)) {
+      let methods = mergeMethodsOf(r);
+      // Fehlen die Felder in der Listenantwort, einzeln lesen (bedingt: 304 kostet kein Kontingent).
+      // Archivierte Repos lassen kein Mergen zu. Ein Fehler hier lässt die Methoden unbestimmt
+      // (der gespeicherte Stand bleibt), nur eine Kontingent-Pause bricht ab.
+      if (
+        methods === undefined &&
+        !r.archived &&
+        (options?.readMergeMethods?.({ externalId: String(r.id), fullName: r.full_name }) ?? true)
+      ) {
+        try {
+          const { owner, name } = split(r.full_name);
+          const detail = await this.get<ApiRepository>(
+            conn.externalConnectionId,
+            "GET /repos/{owner}/{repo}",
+            { owner, repo: name },
+          );
+          methods = mergeMethodsOf(detail);
+        } catch (e) {
+          if (e instanceof RateLimitPause) throw e;
+        }
+      }
+      result.push({
         externalId: String(r.id),
         fullName: r.full_name,
         defaultBranch: r.default_branch,
         archived: r.archived,
         private: r.private,
-      }));
+        ...(methods !== undefined ? { mergeMethods: methods } : {}),
+      });
+    }
+    return result;
   }
 
   async getHeadSha(
@@ -384,8 +440,119 @@ export class GitHubAdapter implements PlatformAdapter {
     repo: RepositoryRef,
     sha: string,
   ): Promise<ChangeStatus> {
+    return { ci: await this.readCi(conn.externalConnectionId, repo, sha) };
+  }
+
+  async getMergeReadiness(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    number: number,
+  ): Promise<MergeReadiness> {
     const { owner, name } = split(repo.fullName);
     const scope = conn.externalConnectionId;
+    const readPull = () =>
+      this.get<ApiPull>(
+        scope,
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+        { owner, repo: name, pull_number: number },
+        { noCache: true },
+      );
+    let pr = await readPull();
+    // Die Mergebarkeit berechnet GitHub asynchron: einmal kurz warten und neu lesen.
+    if (pr.state === "open" && (pr.mergeable === null || pr.mergeable === undefined)) {
+      await this.sleep(this.mergeableRetryMs);
+      pr = await readPull();
+    }
+    const state = pr.merged_at ? "merged" : pr.state === "open" ? "open" : "closed";
+    const mergeable = typeof pr.mergeable === "boolean" ? pr.mergeable : null;
+    if (state !== "open") {
+      return { state, headSha: pr.head.sha, mergeable, ci: "none", methods: [], blockedReason: null };
+    }
+    // "behind" (Branch veraltet) ist bewusst kein Grund: GitHub entscheidet beim Merge selbst.
+    const blockedReason =
+      pr.draft === true || pr.mergeable_state === "draft"
+        ? "draft"
+        : pr.mergeable_state === "blocked"
+          ? "protection"
+          : null;
+    const [ci, repoInfo] = await Promise.all([
+      this.readCi(scope, repo, pr.head.sha),
+      this.get<ApiRepository>(
+        scope,
+        "GET /repos/{owner}/{repo}",
+        { owner, repo: name },
+        { noCache: true },
+      ),
+    ]);
+    return {
+      state,
+      headSha: pr.head.sha,
+      mergeable,
+      ci,
+      methods: mergeMethodsOf(repoInfo) ?? null,
+      blockedReason,
+    };
+  }
+
+  async mergeChangeRequest(
+    conn: ConnectionRef,
+    repo: RepositoryRef,
+    number: number,
+    request: MergeRequest,
+  ): Promise<void> {
+    const { owner, name } = split(repo.fullName);
+    const res = await this.write<{ merged?: boolean } | undefined>(
+      conn.externalConnectionId,
+      "PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge",
+      {
+        owner,
+        repo: name,
+        pull_number: number,
+        sha: request.sha,
+        merge_method: request.method,
+      },
+      {
+        mapError: (status, text) => {
+          // Den Text der Plattform nur zum Klassifizieren lesen, nie weitergeben.
+          // Fehlendes Workflow-Recht zuerst: es kommt je nach Fall als 403, 405, 409 oder 422.
+          // Bewusst enger als /workflow/i: ein Check namens "workflow / build" in einer 405-Meldung
+          // ("Required status check ... is expected") ist kein Rechtefehler.
+          if (WORKFLOW_PERMISSION_TEXT.test(text) && status >= 400 && status < 500) {
+            return new PlatformPermissionError(WORKFLOW_PERMISSION_MESSAGE);
+          }
+          if (status === 405 || status === 409 || status === 422) {
+            if (/base branch was modified/i.test(text)) {
+              return new PlatformRejectedError(MERGE_BASE_CHANGED_MESSAGE);
+            }
+            if (/not up to date|behind/i.test(text)) return new PlatformRejectedError(MERGE_BEHIND_MESSAGE);
+            if (/draft/i.test(text)) return new PlatformRejectedError(MERGE_DRAFT_MESSAGE);
+            if (/merge.*not allowed|method.*not allowed/i.test(text)) {
+              return new PlatformRejectedError(MERGE_METHOD_NOT_ALLOWED_MESSAGE);
+            }
+          }
+          if (status === 405) return new PlatformRejectedError(MERGE_REJECTED_MESSAGE);
+          if (status === 409) return new PlatformHeadChangedError();
+          if (status === 422) return new PlatformRejectedError(MERGE_INVALID_MESSAGE);
+          if (
+            status === 403 &&
+            /rule violation|ruleset|branch protection|protected branch/i.test(text)
+          ) {
+            return new PlatformRejectedError(MERGE_REJECTED_MESSAGE);
+          }
+          return undefined;
+        },
+      },
+    );
+    if (res?.merged === false) throw new PlatformRejectedError(MERGE_REJECTED_MESSAGE);
+  }
+
+  /** CI aus Check-Runs und Commit-Status eines Commits, normalisiert (`deriveCiStatus`). */
+  private async readCi(
+    scope: string,
+    repo: RepositoryRef,
+    sha: string,
+  ): Promise<CiStatus> {
+    const { owner, name } = split(repo.fullName);
     const [runs, combined] = await Promise.all([
       this.get<{ check_runs: { status: string; conclusion: string | null }[] }>(
         scope,
@@ -398,15 +565,13 @@ export class GitHubAdapter implements PlatformAdapter {
         { owner, repo: name, ref: sha, per_page: PAGE_SIZE },
       ),
     ]);
-    return {
-      ci: deriveCiStatus(
-        runs.check_runs.map((c) => ({
-          status: c.status,
-          conclusion: c.conclusion,
-        })),
-        combined.statuses.map((s) => ({ state: s.state })),
-      ),
-    };
+    return deriveCiStatus(
+      runs.check_runs.map((c) => ({
+        status: c.status,
+        conclusion: c.conclusion,
+      })),
+      combined.statuses.map((s) => ({ state: s.state })),
+    );
   }
 
   async findDependencyDashboard(
@@ -792,7 +957,12 @@ export class GitHubAdapter implements PlatformAdapter {
     scope: string,
     route: string,
     params: Record<string, unknown>,
-    opts?: { tolerate?: readonly number[]; bypassPause?: boolean },
+    opts?: {
+      tolerate?: readonly number[];
+      bypassPause?: boolean;
+      /** Eigene Abbildung eines Fehlerstatus (nach der Rate-Limit-Prüfung, vor den Standardregeln). */
+      mapError?: (status: number, text: string) => Error | undefined;
+    },
   ): Promise<T> {
     if (!opts?.bypassPause) this.assertNotPaused(scope);
     const method = route.split(" ")[0] ?? "POST";
@@ -810,6 +980,8 @@ export class GitHubAdapter implements PlatformAdapter {
       if (opts?.tolerate?.includes(status)) return undefined as T;
       const text = errorText(e);
       if (status === 403 || status === 429) this.throwIfRateLimited(scope, headers ?? {}, text);
+      const mapped = opts?.mapError?.(status, text);
+      if (mapped) throw mapped;
       if (
         (status === 403 || status === 422) &&
         /rule violation|ruleset|branch protection|protected branch/i.test(text)
@@ -881,6 +1053,23 @@ export class GitHubAdapter implements PlatformAdapter {
     this.rate.set(scope, { remaining: 0, limit: limit || 1, resetAtMs });
     throw new RateLimitPause(0, limit, new Date(resetAtMs));
   }
+}
+
+/** Erlaubte Methoden in Vorzugsreihenfolge; `undefined`, wenn die Felder in der Antwort fehlen. */
+function mergeMethodsOf(r: ApiRepository): ChangeMergeMethod[] | undefined {
+  const { allow_squash_merge: squash, allow_merge_commit: merge, allow_rebase_merge: rebase } = r;
+  if (
+    typeof squash !== "boolean" ||
+    typeof merge !== "boolean" ||
+    typeof rebase !== "boolean"
+  ) {
+    return undefined;
+  }
+  return [
+    ...(squash ? (["squash"] as const) : []),
+    ...(merge ? (["merge"] as const) : []),
+    ...(rebase ? (["rebase"] as const) : []),
+  ];
 }
 
 function header(headers: HeaderBag, name: string): string | undefined {

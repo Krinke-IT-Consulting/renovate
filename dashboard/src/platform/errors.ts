@@ -102,3 +102,16 @@ export class PlatformLeftoverBranchError extends Error {
     this.original = original;
   }
 }
+
+/**
+ * Der Head-Commit des Requests weicht von dem ab, an den der Merge gebunden war (Renovate hat den
+ * Request neu gebaut). Fester Text, keine Werte der Plattform.
+ */
+export class PlatformHeadChangedError extends Error {
+  readonly userMessage = "Der Pull Request hat sich geändert (neuer Commit).";
+
+  constructor() {
+    super("Der Pull Request hat sich geändert (neuer Commit).");
+    this.name = "PlatformHeadChangedError";
+  }
+}
