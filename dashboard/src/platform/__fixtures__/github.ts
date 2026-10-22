@@ -39,6 +39,9 @@ export const installationRepositories = {
       default_branch: "main",
       archived: false,
       private: true,
+      allow_squash_merge: true,
+      allow_merge_commit: true,
+      allow_rebase_merge: false,
     },
     {
       id: 1002,
@@ -46,6 +49,9 @@ export const installationRepositories = {
       default_branch: "master",
       archived: true,
       private: false,
+      allow_squash_merge: false,
+      allow_merge_commit: false,
+      allow_rebase_merge: false,
     },
   ],
 };

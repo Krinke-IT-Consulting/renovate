@@ -2,17 +2,19 @@
 
 ## 1. Vorbereitung
 
-- [ ] 1.1 An einer echten Antwort prüfen (lesend, ohne Werte auszugeben), ob
+- [x] 1.1 An einer echten Antwort prüfen (lesend, ohne Werte auszugeben), ob
   `GET /installation/repositories` die Felder `allow_squash_merge`, `allow_merge_commit` und
   `allow_rebase_merge` enthält. Sonst bleibt `GET repos/{o}/{r}` als Quelle (design.md, Entscheidung 3).
   Fertig, wenn das Ergebnis in `feature-documentation/dashboard/merge.md` steht.
+  Stand: Die Prüfung an der Produktion wurde nicht ausgeführt (Zugriff abgelehnt). Der Code deckt beide
+  Fälle ab (Felder der Listenantwort, sonst bedingter Abruf `GET repos/{o}/{r}`); die Prüfung ist nachzuholen.
 - [ ] 1.2 Migration `repositories.merge_methods` (`text[]`, Standard leeres Array) mit drizzle-kit.
   Prüfung durch den Agenten `drizzle-migrations`. Fertig, wenn der Migrationstest gegen Postgres
   grün ist.
 
 ## 2. Plattform
 
-- [ ] 2.1 `PlatformAdapter`: `getMergeReadiness` und `mergeChangeRequest` (design.md, Entscheidungen
+- [x] 2.1 `PlatformAdapter`: `getMergeReadiness` und `mergeChangeRequest` (design.md, Entscheidungen
   1 und 2), umgesetzt im `GitHubAdapter`.
   - Frische Lesezugriffe ohne Cache.
   - `sha`-Bindung beim Merge.
@@ -21,24 +23,24 @@
 
   Fertig, wenn msw-Tests diese Fälle abdecken: 200, 405, 409, 422, `null` → `true` und `null` →
   `null`.
-- [ ] 2.2 Der GitHub-Abgleich füllt `merge_methods` (Quelle laut 1.1). Fertig, wenn ein
+- [x] 2.2 Der GitHub-Abgleich füllt `merge_methods` (Quelle laut 1.1). Fertig, wenn ein
   Integrationstest die Spalte nach dem Abgleich zeigt und ein Repo ohne erlaubte Methode eine
   leere Liste hat.
 
 ## 3. Merge-Kern und Actions
 
-- [ ] 3.1 `mergePullRequestCore` (design.md, Entscheidung 4) mit Live-Prüfung, Ergebnis-Codes,
+- [x] 3.1 `mergePullRequestCore` (design.md, Entscheidung 4) mit Live-Prüfung, Ergebnis-Codes,
   `state = merged` und AuditLog (`pr.merge`, `pr.merge.skipped`, `pr.merge.failed`) in einer
   Transaktion. Fertig, wenn Tests gegen Postgres mit Fake-Adapter alle Scenarios der Requirements
   „PR im Dashboard mergen“ und „Merge-Methode wie im Repo erlaubt“ abdecken.
-- [ ] 3.2 Sammel-Merge (design.md, Entscheidung 5):
+- [x] 3.2 Sammel-Merge (design.md, Entscheidung 5):
   - Kandidaten aus der DB, höchstens 20.
   - Gebunden an die beim Rendern übergebenen IDs, SHAs und Methoden.
   - Nacheinander, 1 s Pause im selben Repo.
   - AuditLog `pr.merge_bulk` vor dem Start.
 
   Fertig, wenn Tests die Scenarios „Gemischte Lage“ und „Ausgenommene Typen“ abdecken.
-- [ ] 3.3 Server Actions `mergePullRequest` und `mergeAllGreen` als dünne Hüllen (`requireActor`,
+- [x] 3.3 Server Actions `mergePullRequest` und `mergeAllGreen` als dünne Hüllen (`requireActor`,
   zod, `revalidatePath`). Fertig, wenn `tsc` und `eslint` sauber sind.
 
 ## 4. Oberfläche

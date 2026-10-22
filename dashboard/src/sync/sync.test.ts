@@ -168,6 +168,13 @@ class FakeAdapter implements PlatformAdapter {
     return pr;
   }
   async deleteBranch() {}
+  // Merge-Methoden: nicht Gegenstand des Abgleichs (nur `mergeMethods` an den Repos).
+  async getMergeReadiness(): Promise<never> {
+    throw new Error("nicht vorgesehen");
+  }
+  async mergeChangeRequest(): Promise<never> {
+    throw new Error("nicht vorgesehen");
+  }
 }
 
 const failing: ChangeStatus = { ci: "failure" };
@@ -422,6 +429,30 @@ describe.skipIf(!adminUrl)("Abgleich (Postgres)", () => {
       const again = (await db.select().from(schema.repositories).where(eq(schema.repositories.externalId, "2")))[0]!;
       expect(again).toMatchObject({ id: second.id, removedAt: null });
       expect(again.firstSeenAt).toEqual(second.firstSeenAt);
+    });
+
+    it("hält die erlaubten Merge-Methoden je Repo aktuell (leere Liste, unbekannt, Änderung)", async () => {
+      const adapter = new FakeAdapter();
+      adapter.addOwner("acme", 11, [
+        makeRepo(1, "acme/squash", { mergeMethods: ["squash", "rebase"] }),
+        makeRepo(2, "acme/keine", { mergeMethods: [] }),
+        makeRepo(3, "acme/unbekannt"),
+      ]);
+      const methods = async () =>
+        Object.fromEntries(
+          (await db.select().from(schema.repositories)).map((r) => [r.fullName, r.mergeMethods]),
+        );
+      await runGithubSync({ db, adapter });
+      expect(await methods()).toEqual({ "acme/squash": ["squash", "rebase"], "acme/keine": [], "acme/unbekannt": [] });
+
+      // Änderung wird nachgezogen; "unbekannt" (undefined) lässt den gespeicherten Stand stehen.
+      adapter.repos.set("11", [
+        makeRepo(1, "acme/squash", { mergeMethods: ["merge"] }),
+        makeRepo(2, "acme/keine", { mergeMethods: ["squash"] }),
+        makeRepo(3, "acme/unbekannt"),
+      ]);
+      await runGithubSync({ db, adapter });
+      expect(await methods()).toEqual({ "acme/squash": ["merge"], "acme/keine": ["squash"], "acme/unbekannt": [] });
     });
 
     it("liest Inhalte nur bei neuem Head-SHA und leitet Onboarding und Build-Check ab", async () => {
