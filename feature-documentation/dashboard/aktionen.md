@@ -79,7 +79,21 @@ Aufheben gilt der Build-Check wieder als `missing`; das Problem entsteht beim n�
 - **Repos**, Abschnitt „Automatisches Onboarding“ (`components/repos/auto-onboarding.tsx`): je Owner ein Knopf mit
   `aria-pressed`, sichtbar „An“ oder „Aus“, mit Bestätigung.
 
-## 5. Tests
+## 5. Mergen (Change `dashboard-pr-merge`)
+
+Der Einzel-Merge (`mergePullRequest(target)`) und der Sammel-Merge (`mergeAllGreen(targets)`) sind Server Actions in
+`dashboard/src/actions/merge.ts`, dünne Hüllen um `dashboard/src/actions/core/merge.ts`. Sie folgen demselben Muster wie
+die Aktionen oben: `requireActor()`, zod-Prüfung, `runAction`, `revalidatePath("/", "layout")`. Die Knöpfe
+(`components/actions/merge-action.tsx`) nutzen den Bestätigungsdialog und `resultKey` mit dem Schlüssel `"merge"`.
+
+Vor dem Merge prüft die Logik den Stand live auf der Plattform (Head-SHA, CI, Mergebarkeit, erlaubte Methode). Weicht
+er ab, unterbleibt der Merge und die Meldung nennt den Grund. Der AuditLog nutzt die Aktionen `pr.merge`,
+`pr.merge.skipped`, `pr.merge.failed` und `pr.merge_bulk`.
+
+Vollständige Beschreibung (Ablauf, Gründe, Methoden, Plattform-Antworten, AuditLog, Grenzen, Tests):
+`feature-documentation/dashboard/merge.md`.
+
+## 6. Tests
 
 - `src/actions/core/core.test.ts` (Postgres, ohne `DATABASE_URL` übersprungen): Einzel- und Sammellauf gegen einen
   Fake-CE-Client, `unchanged` erzeugt keinen zweiten Job, Fehlerfälle ohne AuditLog, eigene CI inklusive Abgleich,
