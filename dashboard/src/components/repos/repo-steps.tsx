@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRightIcon, ExternalLinkIcon } from "lucide-react";
+import { MergeAction } from "@/components/actions/merge-action";
 import { OnboardingAction } from "@/components/actions/onboarding-action";
 import { onboardingResultKey } from "@/components/repos/repo-actions";
 import { StatusText } from "@/components/status/status";
@@ -11,7 +12,7 @@ const ACTION =
 
 /**
  * "Was hier zu tun ist" für ein Repo: dieselben Schritte wie im Lagebericht, auf einer Leiterbahn
- * wie im Logo. Der Onboarding-Schritt trägt die Aktion "Onboarding-PR anlegen" mit Bestätigung; ein
+ * wie im Logo. Der Onboarding-Schritt trägt die Aktion "Onboarding-PR anlegen", der Schritt eines grünen PR die Aktion "Mergen", beide mit Bestätigung; ein
  * Link auf die Seite selbst (Ziel unter /repos/) zeigt keinen Knopf.
  */
 export function RepoSteps({ steps }: { steps: Step[] }) {
@@ -58,6 +59,13 @@ export function RepoSteps({ steps }: { steps: Step[] }) {
                   repositoryId={action.repositoryId}
                   repoFullName={action.repoFullName}
                   resultKey={onboardingResultKey(action.repositoryId)}
+                />
+              ) : action.kind === "merge" ? (
+                <MergeAction
+                  target={{ pullRequestId: action.pullRequestId, expectedSha: action.expectedSha, expectedMethod: action.method }}
+                  repoFullName={action.repoFullName}
+                  prNumber={action.prNumber}
+                  variant="primary"
                 />
               ) : link && showAction ? (
                 link.external ? (

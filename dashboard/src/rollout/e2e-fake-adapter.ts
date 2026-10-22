@@ -1,8 +1,16 @@
+import { and, eq } from "drizzle-orm";
+import { getDb } from "@/db/client";
+import { pullRequests, repositories } from "@/db/schema";
+import type { CiStatus } from "@/domain/pull-requests";
+import { MERGE_METHODS } from "@/merge/types";
 import {
+  PlatformHeadChangedError,
   ROLLOUT_BRANCH_PREFIX,
   type ChangeRequestRef,
   type PlatformAdapter,
   type TemplateFile,
+  type ConnectionRef,
+  type RepositoryRef,
   type TemplateName,
 } from "@/platform";
 
@@ -28,9 +36,26 @@ function unsupported(): never {
   throw new Error("Im E2E-Ersatz nicht vorgesehen.");
 }
 
+/** Der PR laut Datenbank (Fixtures), samt erlaubten Merge-Methoden seines Repos. */
+async function findPullRequest(repo: RepositoryRef, number: number) {
+  const [row] = await getDb()
+    .select({
+      state: pullRequests.state,
+      headSha: pullRequests.headSha,
+      ci: pullRequests.ciStatus,
+      url: pullRequests.url,
+      methods: repositories.mergeMethods,
+    })
+    .from(pullRequests)
+    .innerJoin(repositories, eq(repositories.id, pullRequests.repositoryId))
+    .where(and(eq(repositories.fullName, repo.fullName), eq(pullRequests.number, number)));
+  if (!row) throw new Error("Im E2E-Ersatz unbekannter PR.");
+  return row;
+}
+
 export function createE2eFakeAdapter(): PlatformAdapter {
   let next = 100;
-  return {
+  const base: Omit<PlatformAdapter, "getMergeReadiness" | "mergeChangeRequest"> = {
     listConnections: unsupported,
     listRepositories: unsupported,
     getHeadSha: unsupported,
@@ -39,9 +64,6 @@ export function createE2eFakeAdapter(): PlatformAdapter {
     getPullRequestState: unsupported,
     getChangeStatus: unsupported,
     findDependencyDashboard: unsupported,
-    // Platzhalter, damit der Typ passt; Task 4.4 ersetzt sie durch den echten Ersatz.
-    getMergeReadiness: unsupported,
-    mergeChangeRequest: unsupported,
     async findOpenChangeRequest() {
       return null;
     },
@@ -55,4 +77,27 @@ export function createE2eFakeAdapter(): PlatformAdapter {
       return TEMPLATES[name];
     },
   };
+  // Merge-Methoden (design.md, Entscheidung 1), gelesen aus der Datenbank statt von der Plattform.
+  const merge: Pick<PlatformAdapter, "getMergeReadiness" | "mergeChangeRequest"> = {
+    /**
+     * Stand des PR für die Live-Prüfung des Merges, gelesen aus der Datenbank (Fixtures). Immer
+     * konfliktfrei; Tests ändern den Stand per SQL (Head-SHA, CI, Zustand), um Abweichungen zu erzeugen.
+     */
+    async getMergeReadiness(_conn: ConnectionRef, repo: RepositoryRef, number: number) {
+      const pr = await findPullRequest(repo, number);
+      return {
+        state: pr.state,
+        headSha: pr.headSha ?? "",
+        mergeable: true as boolean | null,
+        ci: pr.ci as CiStatus,
+        methods: MERGE_METHODS.filter((m) => pr.methods.includes(m)),
+      };
+    },
+    /** Merge ohne Netz: prüft nur die SHA-Bindung wie die Plattform (409 bei Abweichung). */
+    async mergeChangeRequest(_conn: ConnectionRef, repo: RepositoryRef, number: number, options: { sha: string }) {
+      const pr = await findPullRequest(repo, number);
+      if (pr.headSha !== options.sha) throw new PlatformHeadChangedError();
+    },
+  };
+  return { ...base, ...merge };
 }

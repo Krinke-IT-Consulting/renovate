@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ActionResult } from "@/components/actions/confirm-action";
+import { MERGE_RESULT_KEY } from "@/components/actions/merge-action";
 import { ExternalLink } from "@/components/data/external-link";
 import { JobTable } from "@/components/jobs/job-table";
 import { ProblemGroups } from "@/components/problems/problem-groups";
@@ -184,6 +186,8 @@ export default async function Page({
       </header>
 
       <Section id="zu-tun" title="Was hier zu tun ist" count={repo.steps.length || undefined}>
+        {/* Meldungen der Merge-Aktionen dieser Seite (Schritte und PR-Tabelle); bleibt nach dem Neurendern stehen. */}
+        <ActionResult resultKey={MERGE_RESULT_KEY} />
         {repo.steps.length > 0 ? <RepoSteps steps={repo.steps} /> : <p className="text-ink-soft">Nichts zu tun.</p>}
       </Section>
 

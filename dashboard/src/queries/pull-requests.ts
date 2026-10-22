@@ -14,8 +14,12 @@ export type PullRequestRow = {
   ciStatus: CiStatus;
   automerge: boolean;
   createdAt: Date;
+  /** Head-Commit laut letztem Abgleich; Grundlage der Merge-Bindung (null: unbekannt). */
+  headSha: string | null;
   repoId: string;
   repoFullName: string;
+  /** Erlaubte Merge-Methoden des Repos in Vorzugsreihenfolge; leer = kein Mergen anbieten. */
+  mergeMethods: string[];
 };
 
 export type PullRequestFilter = {
@@ -63,8 +67,10 @@ export async function listOpenPullRequests(db: Db, filter: PullRequestFilter = {
       ciStatus: pullRequests.ciStatus,
       automerge: pullRequests.automerge,
       createdAt: pullRequests.createdAt,
+      headSha: pullRequests.headSha,
       repoId: repositories.id,
       repoFullName: repositories.fullName,
+      mergeMethods: repositories.mergeMethods,
     })
     .from(pullRequests)
     .innerJoin(repositories, eq(repositories.id, pullRequests.repositoryId))

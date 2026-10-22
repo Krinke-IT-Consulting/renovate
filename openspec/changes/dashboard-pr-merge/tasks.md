@@ -46,16 +46,16 @@
 
 ## 4. Oberfläche
 
-- [ ] 4.1 PR-Tabelle (Liste und Repo-Detail): Knopf „Mergen“ als ruhiger Knopf, nur bei grüner CI und
+- [x] 4.1 PR-Tabelle (Liste und Repo-Detail): Knopf „Mergen“ als ruhiger Knopf, nur bei grüner CI und
   nicht leeren Methoden. Dialog mit Methode, Meldung mit PR-Link. Mobil als Kartenknopf. Fertig,
   wenn der Playwright-Smoke „Grüner PR“ und „Rote CI → kein Knopf“ besteht.
-- [ ] 4.2 Lagebericht: Sicherheits- und Major-Schritte mit `action.kind = "merge"` bei grüner CI
+- [x] 4.2 Lagebericht: Sicherheits- und Major-Schritte mit `action.kind = "merge"` bei grüner CI
   (`src/domain/report.ts`, `step-list.tsx`, `repo-steps.tsx`). Fertig, wenn Vitest das Scenario
   „Grünes Sicherheitsupdate im Lagebericht“ und Playwright den Merge im Lagebericht abdecken.
-- [ ] 4.3 Sammel-Merge-Knopf im Kopf von `/pull-requests`, nur bei n > 0. Die Meldung nennt gemergte
+- [x] 4.3 Sammel-Merge-Knopf im Kopf von `/pull-requests`, nur bei n > 0. Die Meldung nennt gemergte
   und übersprungene PRs mit Grund. Fertig, wenn der Playwright-Smoke „Gemischte Lage“ und „Nichts
   für den Sammel-Merge“ besteht.
-- [ ] 4.4 Der Plattform-Ersatz für E2E (`src/rollout/e2e-fake-adapter.ts`) bekommt beide neuen
+- [x] 4.4 Der Plattform-Ersatz für E2E (`src/rollout/e2e-fake-adapter.ts`) bekommt beide neuen
   Methoden. Fertig, wenn `npx playwright test` vollständig grün ist und `impeccable detect` keine
   Treffer meldet.
 
