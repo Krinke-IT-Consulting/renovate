@@ -16,12 +16,10 @@ Stand: 2026-10-22
 - Build-Check (Change `build-check`, archiviert; Spec `build-check`): Reusable Workflow `.github/workflows/build-check.yml`, Aufruf-Vorlage `templates/build-check-caller.yml`, Selbsttest mit 11 Beispielen; Release `v1.1.0` (`v1` zeigt darauf) mit Erkennung des Docker-Build-Kontexts; Pilot `Hiwamashi/smoking-tracker` grün — Doku: `feature-documentation/build-check.md`
 - Dashboard Phase 6 „Ansichten“ (Tasks 6.1 bis 6.7, PR #15, deployt am 2026-10-20 und vom Betreiber gesichtet): Seiten `/` (Lagebericht), `/repos`, `/repos/[owner]/[name]`, `/pull-requests`, `/jobs`, `/probleme`; Fixtures und Playwright-Smoke — Doku: `feature-documentation/dashboard/ansichten.md`, `lagebericht.md`, `bausteine.md`, `tests-und-fixtures.md`
 - Dashboard Phase 8 „Abschluss“, Task 8.1 (`/impeccable audit`): Audit 15/20, Befunde behoben, PR #21 gemergt — Doku: `feature-documentation/dashboard/bausteine.md` (Abschnitt „Audit-Korrekturen“)
+- Dashboard Phase 7 „Aktionen“ (Tasks 7.1 bis 7.6, PR #17 und Fix #18, deployt am 2026-10-21): Bestätigungsdialog, Server Actions und AuditLog; Läufe für ein Repo und alle; Onboarding- und Build-Check-PRs über die Git-Data-API mit Idempotenz und Aufräumen; Markierung „eigene CI“; automatisches Onboarding je Owner. Abnahme 7.6: Lauf für `Krinke-IT-Consulting/renovate` aus dem Dashboard gestartet, in AuditLog und Job-Liste sichtbar. Dabei behoben: laufende Jobs der CE-Historie galten als fehlgeschlagen. Task 7.7: erster echter Onboarding-PR `Hiwamashi/lector#1` am 2026-10-21 aus dem Dashboard angelegt und gemergt; der Build-Check lief (Docker und Compose grün, Python rot durch einen eigenen Testfehler in lector) — Doku: `feature-documentation/dashboard/aktionen.md`, `rollout.md`
+- Dashboard Phase 8 „Abschluss“ (Tasks 8.2 bis 8.4): `DESIGN.md` (PR #22, vom Betreiber gesichtet), Feature-Doku `feature-documentation/dashboard/README.md`, `betrieb.md`, `datenmodell.md`, `abgleich.md` (PR #23), Abschluss-Review mit Sicherheitsblick, Befunde behoben (PR #24); Spec `dashboard-app`: Tenant-Eingrenzung kommt mit der Mandanten-Sicht
 
 ## In Arbeit
-
-- Dashboard Phase 7 „Aktionen“ (Tasks 7.1 bis 7.6, PR #17 und Fix #18, deployt am 2026-10-21): Bestätigungsdialog, Server Actions und AuditLog; Läufe für ein Repo und alle; Onboarding- und Build-Check-PRs über die Git-Data-API mit Idempotenz und Aufräumen; Markierung „eigene CI“; automatisches Onboarding je Owner. Abnahme 7.6: Lauf für `Krinke-IT-Consulting/renovate` aus dem Dashboard gestartet, in AuditLog und Job-Liste sichtbar. Dabei behoben: laufende Jobs der CE-Historie galten als fehlgeschlagen. Task 7.7: erster echter Onboarding-PR `Hiwamashi/lector#1` am 2026-10-21 aus dem Dashboard angelegt und gemergt; der Build-Check lief (Docker und Compose grün, Python rot durch einen eigenen Testfehler in lector) — Doku: `feature-documentation/dashboard/aktionen.md`, `rollout.md`
-
-- Dashboard Phase 8 „Abschluss“: Task 8.2 `DESIGN.md` als PR #22 zur Sichtung (Branch `docs/design-md`, PR offen; die Datei liegt auf diesem Branch noch nicht vor). Task 8.3 Feature-Doku: `feature-documentation/dashboard/README.md`, `betrieb.md`, `datenmodell.md`, `abgleich.md` ergänzt; Abnahme durch den Betreiber ausstehend. Task 8.4 (abschließender `reviewer`) offen — Doku: `feature-documentation/dashboard/`
 
 - Change `renovate-konfiguration`: offen 5.1 (kein Automerge ohne Checks, braucht ein Repo ohne CI) und 5.2 (Limits bei Sicherheits-PRs, braucht einen echten Sicherheitsfall)
 
@@ -29,5 +27,4 @@ Stand: 2026-10-22
 
 - GitHub App für weitere Repos installieren (über das Dashboard-Onboarding oder von Hand), Build-Check-Aufruf in weitere Repos ausrollen
 - npm 12: Freigabeliste für Install-Skripte (`allowScripts`) in den Node-Repos, offene Frage im Design von `build-check`
-- OpenSpec-Change `dashboard`: in `tasks.md` sind 5.1 und 5.3 unabgehakt, obwohl `src/ce/` und `src/domain/` im Code vorhanden sind; Klärung durch den Betreiber
 - Graphify einrichten, sobald es Code gibt

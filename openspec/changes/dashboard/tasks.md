@@ -230,12 +230,12 @@
 
 - [x] 8.1 `/impeccable audit`: Zugänglichkeit, Responsive, Performance. Befunde beheben. Fertig,
   wenn der Audit ohne offene kritische Befunde ist.
-- [ ] 8.2 `/impeccable document`: `DESIGN.md` aus der fertigen Oberfläche erzeugen. Fertig, wenn
+- [x] 8.2 `/impeccable document`: `DESIGN.md` aus der fertigen Oberfläche erzeugen. Fertig, wenn
   die Datei existiert und der Betreiber sie gesehen hat.
 - [x] 8.3 Feature-Doku unter `feature-documentation/dashboard/`, je Funktion eine Datei:
   - Aufbau und Betrieb, Datenmodell, Abgleich, Ansichten, Aktionen
   - Versionen aus 1.1, Ergebnisse aus 1.2 und 4.6
 
   `PROGRESS.md` aktualisieren. Fertig, wenn `openspec validate dashboard --strict` grün ist.
-- [ ] 8.4 Abschließender `reviewer` über den gesamten Change und Sicherheitsblick auf
+- [x] 8.4 Abschließender `reviewer` über den gesamten Change und Sicherheitsblick auf
   Vertrauensgrenze, Log-Auszüge und Fehlermeldungen. Fertig, wenn keine offenen Befunde bleiben.
