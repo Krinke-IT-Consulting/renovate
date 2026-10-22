@@ -67,6 +67,8 @@ export function repoSteps(
       ciStatus: p.ciStatus,
       createdAt: p.createdAt,
       repoFullName: repo.fullName,
+      headSha: p.headSha,
+      mergeMethods: p.mergeMethods,
     })),
     openProblems: openProblems.map((p) => {
       const prNumber = /^\d+$/.test(p.dedupeKey) ? Number(p.dedupeKey) : null;

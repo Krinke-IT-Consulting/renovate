@@ -13,6 +13,8 @@ function pr(over: Partial<ReportPr> & Pick<ReportPr, "id" | "repoFullName">): Re
     packageNames: ["x"],
     ciStatus: "success",
     createdAt: new Date(now.getTime() - 2 * DAY),
+    headSha: `sha-${over.id}`,
+    mergeMethods: ["squash", "merge"],
     ...over,
   };
 }
@@ -50,7 +52,75 @@ describe("Lagebericht", () => {
       ["security", "Krinke-IT-Consulting/lector"],
       ["security", "Hiwamashi/seatmagic"],
     ]);
-    expect(steps[0].action).toEqual({ kind: "link", label: "Auf GitHub mergen", href: expect.stringContaining("/pull/"), external: true });
+    // Beide Sicherheits-PRs haben grüne CI und eine erlaubte Methode: Hauptaktion ist "Mergen".
+    expect(steps[0].action).toEqual({
+      kind: "merge",
+      label: "Mergen",
+      pullRequestId: "b",
+      expectedSha: "sha-b",
+      method: "squash",
+      repoFullName: "Krinke-IT-Consulting/lector",
+      prNumber: 1,
+    });
+  });
+
+  it("Scenario: Grünes Sicherheitsupdate im Lagebericht", () => {
+    const input: ReportInput = {
+      now,
+      repos: [onboarded("o/r")],
+      openPrs: [pr({ id: "s1", repoFullName: "o/r", number: 7, mergeMethods: ["merge"] })],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    const [step] = buildSteps(input);
+    expect(step.group).toBe("security");
+    expect(step.action).toEqual({
+      kind: "merge",
+      label: "Mergen",
+      pullRequestId: "s1",
+      expectedSha: "sha-s1",
+      method: "merge",
+      repoFullName: "o/r",
+      prNumber: 7,
+    });
+  });
+
+  it("Grünes Major-Update bekommt ebenfalls die Merge-Aktion", () => {
+    const input: ReportInput = {
+      now,
+      repos: [onboarded("o/r")],
+      openPrs: [pr({ id: "m1", repoFullName: "o/r", updateType: "major", title: "chore(deps): update dependency x to v3" })],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    expect(buildSteps(input)[0].action).toMatchObject({ kind: "merge", label: "Mergen", method: "squash" });
+  });
+
+  it.each([
+    ["rote CI", { ciStatus: "failure" as const }, "Auf GitHub mergen"],
+    ["laufende CI", { ciStatus: "pending" as const }, "Auf GitHub mergen"],
+    ["keine erlaubte Methode", { mergeMethods: [] }, "Auf GitHub mergen"],
+    ["unbekannter Head-Commit", { headSha: null }, "Auf GitHub mergen"],
+  ])("Scenario: Sicherheitsupdate mit %s bleibt ein Link zur Plattform", (_name, over, label) => {
+    const input: ReportInput = {
+      now,
+      repos: [onboarded("o/r")],
+      openPrs: [pr({ id: "s1", repoFullName: "o/r", ...over })],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    expect(buildSteps(input)[0].action).toEqual({ kind: "link", label, href: "https://github.com/o/r/pull/1", external: true });
+  });
+
+  it("Major-Update mit roter CI bleibt der Link „Freigeben“", () => {
+    const input: ReportInput = {
+      now,
+      repos: [onboarded("o/r")],
+      openPrs: [pr({ id: "m1", repoFullName: "o/r", updateType: "major", ciStatus: "failure" })],
+      openProblems: [],
+      hasAnyJob: true,
+    };
+    expect(buildSteps(input)[0].action).toMatchObject({ kind: "link", label: "Freigeben", external: true });
   });
 
   it("Scenario: Alles erledigt", () => {

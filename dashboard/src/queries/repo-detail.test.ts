@@ -16,8 +16,10 @@ const pr = (number: number, over: Partial<PullRequestRow> = {}): PullRequestRow 
   ciStatus: "success",
   automerge: false,
   createdAt: new Date(NOW.getTime() - 2 * DAY),
+  headSha: `sha-${number}`,
   repoId: "r1",
   repoFullName: "o/r",
+  mergeMethods: ["squash", "merge"],
   ...over,
 });
 

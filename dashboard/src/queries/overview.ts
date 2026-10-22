@@ -31,12 +31,14 @@ export async function loadOverview(db: Db, now = new Date()): Promise<OverviewDa
       fullName: repositories.fullName,
       onboarding: repositories.onboardingStatus,
       archived: repositories.archived,
+      mergeMethods: repositories.mergeMethods,
     })
     .from(repositories)
     .where(isNull(repositories.removedAt))
     .orderBy(repositories.fullName);
   const repoIds = repoRows.map((r) => r.id);
   const nameOf = new Map(repoRows.map((r) => [r.id, r.fullName]));
+  const methodsOf = new Map(repoRows.map((r) => [r.id, r.mergeMethods]));
 
   // Gleiches Fenster wie die Seite /jobs, auf die die Kennzahl verlinkt.
   const since = new Date(now.getTime() - 7 * 86_400_000);
@@ -80,6 +82,8 @@ export async function loadOverview(db: Db, now = new Date()): Promise<OverviewDa
     ciStatus: p.ciStatus,
     createdAt: p.createdAt,
     repoFullName: nameOf.get(p.repositoryId)!,
+    headSha: p.headSha,
+    mergeMethods: methodsOf.get(p.repositoryId) ?? [],
   }));
   const prByKey = new Map(prRows.map((p) => [`${p.repositoryId}#${p.number}`, p]));
 
