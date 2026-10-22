@@ -42,8 +42,9 @@ werden.
 
 ### Requirement: Mandantenfähig vorbereitet
 Jeder Datensatz mit Repo-Bezug MUST über PlatformConnection einem Tenant zugeordnet sein. Im MVP
-MUST es genau einen Tenant geben, der beim ersten Start angelegt wird. Jede Abfrage von Repo-Daten
-MUST nach Tenant eingrenzen.
+MUST es genau einen Tenant geben, der beim ersten Start angelegt wird. Die Eingrenzung der Abfragen
+und Aktionen nach Tenant ist nicht Teil des MVP: Sie kommt mit der Mandanten-Sicht (PRD 3.2). Bis
+dahin MUST NOT ein zweiter Tenant angelegt werden, denn ohne Eingrenzung sähe er alle Repos.
 
 #### Scenario: Erster Start
 - **WHEN** das Dashboard zum ersten Mal startet
