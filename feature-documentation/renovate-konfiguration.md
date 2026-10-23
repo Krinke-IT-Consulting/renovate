@@ -53,6 +53,7 @@ auf. `:semanticPrefixFixDepsChoreOthers` ist per `ignorePresets` abgewählt.
 | Limits | `prConcurrentLimit: 5`, `prHourlyLimit: 2` | Höchstens 5 offene Renovate-PRs je Repo, höchstens 2 neue PRs pro Stunde. Sicherheitsupdates sollen die Limits umgehen (siehe Abschnitt 8). |
 | GitHub Actions | `helpers:pinGitHubActionDigests` | Actions werden auf Commit-Digests gepinnt, die Version steht als Kommentar dahinter. Digest-Updates gehören zur Patch-Gruppe. |
 | Automerge-Art | `platformAutomerge: false`, `automergeType: "pr"` | Automerge macht Renovate selbst, nicht GitHub. Gemergt wird als PR, nicht als Branch. |
+| npm für Lockfiles | `constraints: { "npm": "^11" }` | Renovate aktualisiert `package-lock.json` mit npm 11, also mit derselben Hauptversion wie der Build-Check. Grund siehe Abschnitt 9. |
 | Dashboard | `dependencyDashboard: true` | Renovate legt je Repo ein Dependency-Dashboard-Issue an. |
 
 `ignoreTests` ist nicht gesetzt und bleibt damit auf Renovate-Standard `false`.
@@ -216,6 +217,14 @@ Ohne diese Bestätigung ist das Preset für Automerge nicht freigegeben.
 - **`prPriority` entfällt:** Die Option ist im Block `vulnerabilityAlerts` nicht zulässig. Es gibt
   keinen `packageRules`-Selektor für Sicherheitsupdates. Sicherheits-PRs laufen deshalb ohne eigene
   Priorität, aber sofort.
+- **npm-Version für Lockfiles festgelegt (`constraints.npm: "^11"`):** Renovate CE bringt npm 12 mit
+  (`binarySource: "install"`, Stand Oktober 2026: 12.2.1). npm 12 sperrt Downloads vom Typ „remote“
+  standardmäßig und bricht beim Aktualisieren der `package-lock.json` mit `EALLOWREMOTE` ab, sobald die
+  Lockfile das optionale Paket `@tailwindcss/oxide-wasm32-wasi` enthält (Tailwind 4). Folge: Renovate meldet
+  „Artifact update problem“, die Lockfile bleibt alt, `npm ci` im Build-Check scheitert. Der Build-Check
+  installiert mit der npm-Version, die zu Node 24 gehört (npm 11). Das Preset hält Renovate deshalb auf
+  derselben Hauptversion. Aufheben, sobald der Build-Check auf npm 12 umstellt und der Fehler dort nicht
+  mehr auftritt (zusammen mit der offenen Frage zu `allowScripts`, Abschnitt 11 in `build-check.md`).
 - **Verworfen: `automergeType: "branch"`.** Dann fehlten die PRs im Dashboard und in der Historie.
 - **Verworfen: Registry-Regel im Preset.** Dort wäre nur ein verschlüsseltes Secret möglich, dafür
   bräuchte CE einen privaten Schlüssel. Deshalb liegt die Regel in `renovate-ce/config.js`.
