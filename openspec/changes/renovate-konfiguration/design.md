@@ -91,6 +91,10 @@ Dass Sicherheits-PRs `prConcurrentLimit` und `prHourlyLimit` umgehen, ist laut R
 Standardverhalten. Task 5 prüft das. Falls nicht, setzt der Block selbst
 `prConcurrentLimit: 0` und `prHourlyLimit: 0`.
 
+Ergebnis von Task 5.2 (2026-10-23, Renovate 44.164.1): Das Stundenlimit wird umgangen, das
+Limit gleichzeitig offener PRs nicht (Sicherheits-PRs haben nur ein eigenes Kontingent). Der Block
+setzt daher `prConcurrentLimit: 0`; `prHourlyLimit: 0` wäre wirkungslos und entfällt.
+
 ### 6. Limits
 - `prConcurrentLimit: 5` und `prHourlyLimit: 2`.
 - Durch die Gruppierung entstehen je Repo normalerweise höchstens zwei Gruppen-PRs plus
