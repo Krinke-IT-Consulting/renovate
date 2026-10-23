@@ -60,7 +60,7 @@
 
 - [ ] 5.1 Ein Test-Repo onboarden und bestätigen: kein Automerge ohne Status-Checks
   (Szenario „Repo ohne Status-Checks")
-- [ ] 5.2 Bestätigen, dass Sicherheits-PRs `prConcurrentLimit`/`prHourlyLimit` umgehen; andernfalls
+- [x] 5.2 (2026-10-23: `prHourlyLimit` wird umgangen, Beleg `Hiwamashi/lector` #2–#4; `prConcurrentLimit` nicht, nur eigenes Kontingent; daher `prConcurrentLimit: 0` im Block `vulnerabilityAlerts`) Bestätigen, dass Sicherheits-PRs `prConcurrentLimit`/`prHourlyLimit` umgehen; andernfalls
   die Limits im Block `vulnerabilityAlerts` auf 0 setzen (design.md Entscheidung 5)
 - [x] 5.3 (2026-10-14: Issue #1 in Krinke-IT-Consulting/renovate zeigt `postgres` v18 unter „Pending Approval“, kein PR) Bestätigen, dass Major-Updates nur im Dependency Dashboard erscheinen und erst nach
   dem Anhaken einen PR erhalten

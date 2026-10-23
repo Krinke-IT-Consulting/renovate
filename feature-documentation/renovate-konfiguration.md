@@ -46,11 +46,11 @@ auf. `:semanticPrefixFixDepsChoreOthers` ist per `ignorePresets` abgewählt.
 | Minor-Gruppe | Regel mit `matchUpdateTypes: ["minor"]`, `groupName: "Minor-Updates"`, `groupSlug: "minor-updates"`, `automerge: false` | Laufzeit-Minor-Updates bilden einen eigenen PR und werden nicht automatisch gemergt. |
 | Major-Updates | Regel mit `matchUpdateTypes: ["major"]`, `dependencyDashboardApproval: true`, `automerge: false` | Erscheinen zuerst im Dependency Dashboard. Ein PR entsteht erst nach dem Anhaken. Nie automatisch gemergt. |
 | Major-Gruppierung | keine eigene `groupName` | Paketfamilien (Monorepos) landen gemeinsam in einem PR, über `group:monorepos` und `group:recommended` aus `config:recommended`. Diese wirken nur bei Major-Updates (siehe Abschnitt 3). |
-| Sicherheitsupdates | Block `vulnerabilityAlerts`: `labels: ["dependencies", "renovate", "security"]`, `schedule: ["at any time"]`, `dependencyDashboardApproval: false`, `automerge: false`, `groupName: null` | Sofort, einzeln, mit Label `security`, nie automatisch gemergt. Keine Freigabe nötig. |
+| Sicherheitsupdates | Block `vulnerabilityAlerts`: `labels: ["dependencies", "renovate", "security"]`, `schedule: ["at any time"]`, `dependencyDashboardApproval: false`, `automerge: false`, `groupName: null`, `prConcurrentLimit: 0` | Sofort, einzeln, mit Label `security`, nie automatisch gemergt. Keine Freigabe nötig. Kein Limit für gleichzeitig offene Sicherheits-PRs; das Stundenlimit umgeht Renovate für Sicherheits-PRs ohnehin. |
 | OSV-Alarme | `osvVulnerabilityAlerts: true` | Sicherheitsupdates auch aus der OSV-Datenbank. |
 | Labels | `labels: ["dependencies", "renovate"]`; je Update-Typ eine Regel mit `addLabels` | Patch: `update:patch`, Minor: `update:minor`, Major: `update:major`, Digest und Pin: `update:digest`, Paketersatz: `update:replacement`. |
 | Commits und Titel | `semanticCommits: "enabled"`, `semanticCommitType: "chore"`, `semanticCommitScope: "deps"` | Form `chore(deps): …`. |
-| Limits | `prConcurrentLimit: 5`, `prHourlyLimit: 2` | Höchstens 5 offene Renovate-PRs je Repo, höchstens 2 neue PRs pro Stunde. Sicherheitsupdates sollen die Limits umgehen (siehe Abschnitt 8). |
+| Limits | `prConcurrentLimit: 5`, `prHourlyLimit: 2` | Höchstens 5 offene Renovate-PRs je Repo, höchstens 2 neue PRs pro Stunde. Sicherheitsupdates sind davon ausgenommen (siehe Zeile Sicherheitsupdates und Abschnitt 8). |
 | GitHub Actions | `helpers:pinGitHubActionDigests` | Actions werden auf Commit-Digests gepinnt, die Version steht als Kommentar dahinter. Digest-Updates gehören zur Patch-Gruppe. |
 | Automerge-Art | `platformAutomerge: false`, `automergeType: "pr"` | Automerge macht Renovate selbst, nicht GitHub. Gemergt wird als PR, nicht als Branch. |
 | npm für Lockfiles | `constraints: { "npm": "^11" }` | Renovate aktualisiert `package-lock.json` mit npm 11, also mit derselben Hauptversion wie der Build-Check. Grund siehe Abschnitt 9. |
@@ -193,8 +193,15 @@ läuft:
 - **Automerge ohne Checks (5.1):** Ein Patch-PR in einem Repo ohne Status-Checks darf nicht gemergt
   werden. Die Erwartung ist, dass der kombinierte Status dann „pending" bleibt. Das ist nicht
   bestätigt.
-- **Limits bei Sicherheits-PRs (5.2):** Renovate-Doku nennt Umgehung der Limits als Standard. Falls
-  nicht, setzt der Block `vulnerabilityAlerts` `prConcurrentLimit: 0` und `prHourlyLimit: 0`.
+- **Limits bei Sicherheits-PRs (5.2, geprüft am 2026-10-23):** Renovate 44.164.1 (in CE 15.8.0)
+  behandelt die beiden Limits unterschiedlich (`dist/workers/global/limits.js`, `handleConcurrentLimits`):
+  - `prHourlyLimit` gilt für Sicherheits-PRs nicht. Beleg am echten Repo: In `Hiwamashi/lector` entstanden
+    am 2026-10-21 (Mittwoch) drei Sicherheits-PRs (#2 bis #4) innerhalb von 30 Sekunden, trotz Limit 2 und
+    Wochenend-Zeitplan.
+  - `prConcurrentLimit` gilt weiter, Sicherheits-PRs haben nur ein eigenes Kontingent
+    (`VulnerabilityConcurrentPRs`). Ohne Eingriff wären also höchstens 5 Sicherheits-PRs gleichzeitig offen.
+  Deshalb setzt der Block `vulnerabilityAlerts` `prConcurrentLimit: 0` (kein Limit). `prHourlyLimit: 0`
+  ist überflüssig und fehlt bewusst.
 - **Major-Freigabe am echten Repo (5.3):** Major-Updates erscheinen nur im Dependency Dashboard und
   erhalten erst nach dem Anhaken einen PR.
 

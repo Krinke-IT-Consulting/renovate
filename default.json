@@ -54,7 +54,8 @@
     "schedule": ["at any time"],
     "dependencyDashboardApproval": false,
     "automerge": false,
-    "groupName": null
+    "groupName": null,
+    "prConcurrentLimit": 0
   },
   "osvVulnerabilityAlerts": true
 }
