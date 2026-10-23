@@ -21,10 +21,11 @@ Stand: 2026-10-22
 - Dashboard Phase 8 „Abschluss“ (Tasks 8.2 bis 8.4): `DESIGN.md` (PR #22, vom Betreiber gesichtet), Feature-Doku `feature-documentation/dashboard/README.md`, `betrieb.md`, `datenmodell.md`, `abgleich.md` (PR #23), Abschluss-Review mit Sicherheitsblick, Befunde behoben (PR #24); Spec `dashboard-app`: Tenant-Eingrenzung kommt mit der Mandanten-Sicht
 - Change `dashboard-pr-merge` (archiviert am 2026-10-22, PR #28, deployt): Renovate-PRs im Dashboard mergen — Einzel-Merge in PR-Liste, Repo-Detail und Lagebericht, Sammel-Merge grüner Patch-/Minor-PRs, Live-Prüfung, Merge-Methode wie im Repo erlaubt; erster echter Merge `Hiwamashi/lector#2` aus dem Dashboard — Doku: `feature-documentation/dashboard/merge.md`
 - Fix Preset: `constraints.npm: "^11"`, weil npm 12 in Renovate CE die Dashboard-Lockfile nicht aktualisieren konnte (`EALLOWREMOTE` bei `@tailwindcss/oxide-wasm32-wasi`) und die Renovate-PRs #12/#13 deshalb rot waren — Doku: `feature-documentation/renovate-konfiguration.md`, Abschnitt 9
+- Change `renovate-konfiguration` archiviert am 2026-10-23 (`openspec/changes/archive/2026-10-23-renovate-konfiguration/`; neue Specs `renovate-preset`, `renovate-engine-config`): 5.2 Sicherheits-PRs ohne Limit für gleichzeitig offene PRs (PR #31), 5.1 über den Quelltext belegt — Doku: `feature-documentation/renovate-konfiguration.md`
 
 ## In Arbeit
 
-- Change `renovate-konfiguration`: offen 5.1 (kein Automerge ohne Checks, braucht ein Repo ohne CI) und 5.2 (Limits bei Sicherheits-PRs, braucht einen echten Sicherheitsfall)
+- Kein offener Change
 
 ## Ausstehend
 
