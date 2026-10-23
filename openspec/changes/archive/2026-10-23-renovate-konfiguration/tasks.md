@@ -58,7 +58,7 @@
 
 ## 5. Verifikation am Test-Repo (erst nach dem Compose-Change, wenn CE läuft)
 
-- [ ] 5.1 Ein Test-Repo onboarden und bestätigen: kein Automerge ohne Status-Checks
+- [x] 5.1 (2026-10-23, Nachweis über den Quelltext statt Test-Repo, Entscheidung des Betreibers: Renovate 44.164.1 `modules/platform/github/index.js` `getBranchStatus` filtert erfolgreiche `renovate/*`-Status heraus und liefert ohne weitere Status und Check-Runs `yellow`; Automerge verlangt `green`, `ignoreTests` ist nicht gesetzt. Ein Praxistest an einem Repo ohne CI steht aus) Ein Test-Repo onboarden und bestätigen: kein Automerge ohne Status-Checks
   (Szenario „Repo ohne Status-Checks")
 - [x] 5.2 (2026-10-23: `prHourlyLimit` wird umgangen, Beleg `Hiwamashi/lector` #2–#4; `prConcurrentLimit` nicht, nur eigenes Kontingent; daher `prConcurrentLimit: 0` im Block `vulnerabilityAlerts`) Bestätigen, dass Sicherheits-PRs `prConcurrentLimit`/`prHourlyLimit` umgehen; andernfalls
   die Limits im Block `vulnerabilityAlerts` auf 0 setzen (design.md Entscheidung 5)

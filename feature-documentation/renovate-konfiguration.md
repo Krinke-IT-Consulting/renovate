@@ -185,14 +185,16 @@ Die Sicherheitszeile stammt aus einem zweiten Lauf mit aktivem OSV (im Zuordnung
 aus). Die Logs lagen im Scratchpad der Sitzung und sind nicht Teil des Repos; der Lauf lässt sich
 mit den Befehlen aus Abschnitt 6 und einem Beispiel-`package.json` wiederholen.
 
-## 8. Offen bis CE läuft (Tasks 5.x)
+## 8. Verifikation im Betrieb (Tasks 5.x)
 
-Diese Punkte sind **nicht** verifiziert und hängen am Test-Repo, nachdem der Compose-Stack mit CE
-läuft:
+Stand 2026-10-23, Change archiviert unter `openspec/changes/archive/2026-10-23-renovate-konfiguration/`:
 
-- **Automerge ohne Checks (5.1):** Ein Patch-PR in einem Repo ohne Status-Checks darf nicht gemergt
-  werden. Die Erwartung ist, dass der kombinierte Status dann „pending" bleibt. Das ist nicht
-  bestätigt.
+- **Automerge ohne Checks (5.1, über den Quelltext belegt):** Ein Patch-PR in einem Repo ohne
+  Status-Checks wird nicht gemergt. Renovate 44.164.1 (`dist/modules/platform/github/index.js`,
+  `getBranchStatus`) filtert die eigenen erfolgreichen `renovate/*`-Status heraus und liefert ohne
+  weitere Status und Check-Runs `yellow`. Automerge verlangt `green`, `ignoreTests` ist nicht gesetzt.
+  Auf Entscheidung des Betreibers ersetzt dieser Beleg den Test-Repo-Lauf; ein Praxistest an einem
+  Repo ohne CI steht noch aus.
 - **Limits bei Sicherheits-PRs (5.2, geprüft am 2026-10-23):** Renovate 44.164.1 (in CE 15.8.0)
   behandelt die beiden Limits unterschiedlich (`dist/workers/global/limits.js`, `handleConcurrentLimits`):
   - `prHourlyLimit` gilt für Sicherheits-PRs nicht. Beleg am echten Repo: In `Hiwamashi/lector` entstanden
@@ -202,10 +204,9 @@ läuft:
     (`VulnerabilityConcurrentPRs`). Ohne Eingriff wären also höchstens 5 Sicherheits-PRs gleichzeitig offen.
   Deshalb setzt der Block `vulnerabilityAlerts` `prConcurrentLimit: 0` (kein Limit). `prHourlyLimit: 0`
   ist überflüssig und fehlt bewusst.
-- **Major-Freigabe am echten Repo (5.3):** Major-Updates erscheinen nur im Dependency Dashboard und
-  erhalten erst nach dem Anhaken einen PR.
-
-Ohne diese Bestätigung ist das Preset für Automerge nicht freigegeben.
+- **Major-Freigabe am echten Repo (5.3, bestätigt am 2026-10-14):** Major-Updates erscheinen nur im
+  Dependency Dashboard (Issue #1 dieses Repos, `postgres` v18 unter „Pending Approval") und erhalten
+  erst nach dem Anhaken einen PR.
 
 ## 9. Bewusste Entscheidungen
 
@@ -239,4 +240,4 @@ Ohne diese Bestätigung ist das Preset für Automerge nicht freigegeben.
 ## Offene Punkte (Übersicht)
 
 - `MEND_RNV_*`-Variablen, Volumes und Cache-Pfade folgen mit dem Compose-Stack-Change.
-- Tasks 5.1 bis 5.3 (Verifikation am Test-Repo) sind offen, bis CE läuft.
+- Praxistest „kein Automerge ohne Status-Checks“ an einem Repo ohne CI (5.1 ist über den Quelltext belegt).
