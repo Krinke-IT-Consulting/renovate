@@ -13,6 +13,7 @@
   "prHourlyLimit": 2,
   "platformAutomerge": false,
   "automergeType": "pr",
+  "constraints": { "npm": "^11" },
   "packageRules": [
     {
       "description": "Minor-Gruppe: alle Minor-Updates, kein Automerge",
