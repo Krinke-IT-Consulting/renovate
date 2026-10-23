@@ -479,10 +479,23 @@ Dort kann der neue Stand automatisch gemergt werden, sobald der Check grün ist.
   und dieselben Variablen. Für Monorepos mit gemischtem Bedarf reicht das, weil die Datenbank nicht stört.
 - **Standard-Branch fest `main`.** Die Vorlage trägt `main` ein. Repos mit anderem Standard-Branch brauchen eine
   Anpassung (`design.md`, Trade-off).
-- **Install-Skripte unter npm 12.** npm 11 warnt, npm 12 soll Install-Skripte ohne Freigabe in `allowScripts`
-  standardmäßig blockieren. Der Build-Check übernimmt das Verhalten der npm-Version und umgeht es nicht.
-  Offene Frage aus `design.md` (Open Questions): Es ist nicht entschieden, ob das Dashboard die Freigabeliste
-  (`npm approve-scripts`) beim Onboarding anlegt. Das soll ein späterer Change klären.
+- **Install-Skripte unter npm 12.** npm 12 blockiert Install-Skripte von Abhängigkeiten, die nicht im Feld
+  `allowScripts` der `package.json` freigegeben sind (Standard: nur Warnung, mit `strict-allow-scripts` Fehler).
+  Freigeben mit `npm install-scripts approve <paket>`, prüfen mit `npm install-scripts ls`. Der Build-Check
+  übernimmt das Verhalten der npm-Version und umgeht es nicht.
+  - **Wann es greift:** Der Build-Check nutzt immer das npm, das mit der Node-Version kommt; ein Feld
+    `packageManager: "npm@…"` wertet er nicht aus. Stand 2026-10-23 liefert keine Node-Version npm 12 mit
+    (Node 24.22: npm 11.19, Node 26.12: npm 11.20). Renovate betrifft es nicht, es schreibt Lockfiles mit
+    `--ignore-scripts`.
+  - **Wen es trifft:** Im Dashboard blockiert npm 12.2.1 fünf Skripte (`esbuild` dreifach, `fsevents`,
+    `unrs-resolver`), alles läuft trotzdem, weil die Binärdateien über optionale Abhängigkeiten kommen.
+    Kritisch sind native Module, die ihr Skript zum Bauen oder Herunterladen brauchen, etwa `argon2` und
+    `@prisma/engines` in smoking-tracker (Abschnitt 6.2), außerdem `sharp`, `better-sqlite3`, `bcrypt` oder
+    ein Husky-`prepare`.
+  - **Entscheidung (2026-10-23):** Geparkt. Ein Change („Dashboard legt `allowScripts` beim Onboarding an,
+    Bestandsrepos mit `npm install-scripts ls` prüfen“) startet, sobald eine Node-Version npm 12 mitliefert
+    oder ein Repo npm 12 bewusst einsetzt. Zusammenhang mit dem npm-Constraint im Preset:
+    `renovate-konfiguration.md`, Abschnitt 9.
 - **Lint als Automerge-Bremse.** Ein Lint-Fehler nach einem Plugin-Update bricht Automerge. Das ist gewollt. Eine
   Eingabe zum Abschalten von Lint gibt es nicht. `design.md` nennt ein späteres `run-lint`-Flag, es ist nicht Teil
   dieses Changes.
