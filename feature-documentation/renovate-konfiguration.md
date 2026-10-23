@@ -231,8 +231,17 @@ Stand 2026-10-23, Change archiviert unter `openspec/changes/archive/2026-10-23-r
   Lockfile das optionale Paket `@tailwindcss/oxide-wasm32-wasi` enthält (Tailwind 4). Folge: Renovate meldet
   „Artifact update problem“, die Lockfile bleibt alt, `npm ci` im Build-Check scheitert. Der Build-Check
   installiert mit der npm-Version, die zu Node 24 gehört (npm 11). Das Preset hält Renovate deshalb auf
-  derselben Hauptversion. Aufheben, sobald der Build-Check auf npm 12 umstellt und der Fehler dort nicht
-  mehr auftritt (zusammen mit der offenen Frage zu `allowScripts`, Abschnitt 11 in `build-check.md`).
+  derselben Hauptversion.
+  Ursache ist ein npm-Fehler, keine Fehlkonfiguration: Tarballs vom Registry-Host sind von der Sperre
+  eigentlich ausgenommen, die Ausnahme greift aber nicht für Pakete mit `bundleDependencies`
+  ([npm/cli#9800](https://github.com/npm/cli/issues/9800), Fix in
+  [npm/cli#9819](https://github.com/npm/cli/pull/9819), beide am 2026-10-23 offen). Schon ein frisches
+  Projekt mit `@tailwindcss/postcss` scheitert mit npm 12.2.1; mit `--allow-remote=all` läuft es durch.
+  `allow-remote=all` in einer `.npmrc` ist trotzdem keine Lösung, weil es die Schutzfunktion ganz abschaltet.
+  **Aufheben erst, wenn beide Bedingungen erfüllt sind:** (1) ein npm-12-Release enthält den Fix, und
+  (2) die Node-Version des Build-Checks liefert npm 12 mit (Stand 2026-10-23: Node 24.22 bringt npm 11.19,
+  Node 26.12 npm 11.20). Sonst schriebe Renovate Lockfiles mit einer anderen npm-Hauptversion, als das CI
+  liest. Zur Freigabeliste für Install-Skripte siehe Abschnitt 11 in `build-check.md`.
 - **Verworfen: `automergeType: "branch"`.** Dann fehlten die PRs im Dashboard und in der Historie.
 - **Verworfen: Registry-Regel im Preset.** Dort wäre nur ein verschlüsseltes Secret möglich, dafür
   bräuchte CE einen privaten Schlüssel. Deshalb liegt die Regel in `renovate-ce/config.js`.

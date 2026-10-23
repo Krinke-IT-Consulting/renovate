@@ -30,5 +30,5 @@ Stand: 2026-10-22
 ## Ausstehend
 
 - GitHub App für weitere Repos installieren (über das Dashboard-Onboarding oder von Hand), Build-Check-Aufruf in weitere Repos ausrollen
-- npm 12: Freigabeliste für Install-Skripte (`allowScripts`) in den Node-Repos, offene Frage im Design von `build-check`
+- npm 12 (geparkt, 2026-10-23): Constraint `npm: "^11"` im Preset aufheben, sobald npm den Fehler npm/cli#9800 behebt (PR #9819) und eine Node-Version npm 12 mitliefert; dann Change für die `allowScripts`-Freigabeliste beim Onboarding — Auslöser und Befund: `feature-documentation/build-check.md` Abschnitt 11, `renovate-konfiguration.md` Abschnitt 9
 - Graphify einrichten, sobald es Code gibt
