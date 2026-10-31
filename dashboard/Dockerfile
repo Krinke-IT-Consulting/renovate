@@ -1,6 +1,6 @@
 # Dashboard "Krinke-IT - Update Zentrale". Build-Kontext: dashboard/ (Coolify: ../dashboard).
 # Der Build braucht keine Secrets und keine Datenbank; alle Seiten sind dynamisch.
-FROM node:24.22.1-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS base
+FROM node:24.22.2-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
