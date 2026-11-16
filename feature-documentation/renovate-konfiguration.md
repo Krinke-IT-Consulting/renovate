@@ -143,7 +143,17 @@ Quelle: `.github/workflows/validate-renovate.yml`.
 - Schritt 1 prüft die JSON-Dateien:
   `npx --yes --package "renovate@${RENOVATE_VERSION}" renovate-config-validator --strict --no-global default.json renovate.json templates/renovate.json`
 - Schritt 2 prüft `renovate-ce/config.js` mit gesetzter Variable `RENOVATE_CONFIG_FILE=renovate-ce/config.js`.
-- `RENOVATE_VERSION` steht im Workflow-`env` auf `44.155.2`.
+- `RENOVATE_VERSION` steht im Workflow-`env` auf `44.188.2`. Das ist genau die CLI-Version, die
+  Renovate CE 15.11.0 bündelt (laut Release Notes von `mend/renovate-ce-ee`).
+- Renovate aktualisiert diese Version **nicht** selbst: Eine `packageRule` in `renovate.json`
+  schaltet `renovate` (npm) für diesen Workflow ab. Grund: Am 16.11.2026 wollte Renovate den
+  Validator auf 44.247.1 heben. Dieser verlangt im `--strict`-Modus die Schreibweise
+  `"dependencyDashboard": { "enabled": true }`. Die laufende CE (44.164.1) und auch CE 15.11
+  (44.188.2) lehnen genau diese Schreibweise aber ab („should be boolean“). Ein Validator, der der
+  CE vorausläuft, würde also Migrationen erzwingen, die den Betrieb brechen.
+- **Pflege:** Bei jedem Update von `ghcr.io/mend/renovate-ce` in `renovate-ce/Dockerfile` die
+  gebündelte CLI-Version aus den CE-Release-Notes ablesen und `RENOVATE_VERSION` im selben PR
+  nachziehen.
 
 `--no-global` ist nötig, damit die JSON-Dateien nicht als globale Konfiguration geprüft werden.
 

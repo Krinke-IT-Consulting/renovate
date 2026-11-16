@@ -21,9 +21,10 @@ permissions:
   contents: read
 
 env:
-  # Gepinnte Renovate-Version; Renovate hält sie über customManagers:githubActionsVersions aktuell.
+  # Gepinnte Renovate-Version = die in Renovate CE gebündelte CLI (CE 15.11.0 -> 44.188.2).
+  # Bei jedem CE-Update von Hand nachziehen; Renovate schlägt sie nicht vor (packageRule in renovate.json).
   # renovate: datasource=npm depName=renovate
-  RENOVATE_VERSION: 44.247.1
+  RENOVATE_VERSION: 44.188.2
 
 jobs:
   validate:

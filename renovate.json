@@ -19,6 +19,13 @@
       "matchPackageNames": ["postgres"],
       "matchUpdateTypes": ["major"],
       "enabled": false
+    },
+    {
+      "description": "Validator-Version im Workflow folgt der in Renovate CE gebündelten CLI und wird mit jedem CE-Update von Hand nachgezogen; ein neuerer Validator verlangt sonst Config-Migrationen, die die laufende CE noch ablehnt",
+      "matchDatasources": ["npm"],
+      "matchPackageNames": ["renovate"],
+      "matchFileNames": [".github/workflows/validate-renovate.yml"],
+      "enabled": false
     }
   ]
 }
