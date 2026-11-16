@@ -1,6 +1,6 @@
 # Fortschritt
 
-Stand: 2026-10-22
+Stand: 2026-11-16
 
 ## Umgesetzt
 
@@ -22,6 +22,7 @@ Stand: 2026-10-22
 - Change `dashboard-pr-merge` (archiviert am 2026-10-22, PR #28, deployt): Renovate-PRs im Dashboard mergen — Einzel-Merge in PR-Liste, Repo-Detail und Lagebericht, Sammel-Merge grüner Patch-/Minor-PRs, Live-Prüfung, Merge-Methode wie im Repo erlaubt; erster echter Merge `Hiwamashi/lector#2` aus dem Dashboard — Doku: `feature-documentation/dashboard/merge.md`
 - Fix Preset: `constraints.npm: "^11"`, weil npm 12 in Renovate CE die Dashboard-Lockfile nicht aktualisieren konnte (`EALLOWREMOTE` bei `@tailwindcss/oxide-wasm32-wasi`) und die Renovate-PRs #12/#13 deshalb rot waren — Doku: `feature-documentation/renovate-konfiguration.md`, Abschnitt 9
 - Change `renovate-konfiguration` archiviert am 2026-10-23 (`openspec/changes/archive/2026-10-23-renovate-konfiguration/`; neue Specs `renovate-preset`, `renovate-engine-config`): 5.2 Sicherheits-PRs ohne Limit für gleichzeitig offene PRs (PR #31), 5.1 über den Quelltext belegt — Doku: `feature-documentation/renovate-konfiguration.md`
+- Renovate CE 15.11.0 (CLI 44.188.2) und Postgres 17.12 deployt am 2026-11-16 (PR #35). Validator-Version im Workflow `validate-renovate.yml` an die CE-gebündelte CLI gekoppelt und von Renovate-Updates ausgenommen, weil Validator 44.247.1 die Preset-Schreibweise `dependencyDashboard: { enabled: true }` erzwingt, die CE 15.11 noch ablehnt — Doku: `feature-documentation/renovate-konfiguration.md`, Abschnitt 6
 
 ## In Arbeit
 
@@ -31,4 +32,6 @@ Stand: 2026-10-22
 
 - GitHub App für weitere Repos installieren (über das Dashboard-Onboarding oder von Hand), Build-Check-Aufruf in weitere Repos ausrollen
 - npm 12 (geparkt, 2026-10-23): Constraint `npm: "^11"` im Preset aufheben, sobald npm den Fehler npm/cli#9800 behebt (PR #9819) und eine Node-Version npm 12 mitliefert; dann Change für die `allowScripts`-Freigabeliste beim Onboarding — Auslöser und Befund: `feature-documentation/build-check.md` Abschnitt 11, `renovate-konfiguration.md` Abschnitt 9
+- Preset `dependencyDashboard` auf die Objekt-Schreibweise umstellen, sobald die CE-gebündelte CLI sie akzeptiert (zusammen mit dem Validator-Update)
+- Offene Renovate-PRs in Fremd-Repos (Stand 2026-11-16): `lector#7` (Docker-Build braucht `libxml2-dev`/`libxslt-dev` für `lxml`), `app-remarkable-vaultsync#1` (Tests lesen `deploy/.env.local`, fehlt in der CI), `app-breeze#3`–`#5` (noch kein Build-Check)
 - Graphify einrichten, sobald es Code gibt
